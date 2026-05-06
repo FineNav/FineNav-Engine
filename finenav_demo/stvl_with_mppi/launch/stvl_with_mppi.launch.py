@@ -33,7 +33,7 @@ def generate_launch_description():
     start_finenav_simulator = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(finenav_simulator_launch_file),
         launch_arguments={
-            'use_sim_time': 'true',
+            'use_sim_time': 'false',
             'lio_type': 'static',
             'world_name': 'flat_small_scale_maze.world',
             'publish_map_tf': 'true',
@@ -45,7 +45,7 @@ def generate_launch_description():
         executable='hello_finenav',
         output='screen',
         parameters=[
-            {'use_sim_time': True},
+            {'use_sim_time': False},
             mppi_params_file,
             finenav_params_file,
         ]
@@ -56,7 +56,7 @@ def generate_launch_description():
         executable='goal_pose_bridge_node',
         output='screen',
         parameters=[
-            {'use_sim_time': True},
+            {'use_sim_time': False},
         ]
     )
 
