@@ -2,7 +2,6 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-#include <nav_msgs/msg/detail/odometry__struct.hpp>
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -16,8 +15,10 @@
 #include "finenav_engine/finenav_engine.hpp"
 #include "grid_map.hpp" // TODO: resolve anti-pattern export
 
+#include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+#include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl/point_types.h>
@@ -50,23 +51,62 @@ int main(int argc, char** argv) {
 
     // ------------------------------ Launch Localization ----------------------------------
 
-    auto gt_pose_sub = node->create_subscription<nav_msgs::msg::Odometry>(
-        "odom",
+    // /pose → PoseWithCovarianceStamped (pose only, no velocity)
+    static std::atomic<bool> localizer_initialized{false};
+    auto pose_sub = node->create_subscription<geometry_msgs::msg::Pose>(
+        "/pose",
         10,
-        [localizer](const nav_msgs::msg::Odometry& msg) {
+        [localizer, &node](const geometry_msgs::msg::Pose& msg) {
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
-            pose_msg.header = msg.header;
-            pose_msg.pose.pose = msg.pose.pose;
+            pose_msg.header.stamp = node->now();
+            pose_msg.header.frame_id = "map";
+            pose_msg.pose.pose = msg;
+            // Fill with a reasonable default diagonal covariance (position + orientation)
+            pose_msg.pose.covariance[0]  = 0.01;  // x
+            pose_msg.pose.covariance[7]  = 0.01;  // y
+            pose_msg.pose.covariance[14] = 0.01;  // z
+            pose_msg.pose.covariance[21] = 0.001; // roll
+            pose_msg.pose.covariance[28] = 0.001; // pitch
+            pose_msg.pose.covariance[35] = 0.001; // yaw
 
-            static bool localizer_initialized = false;      // TODO: automatically iniitailize when receive the first pose_msg
-            if (!localizer_initialized) {
+            if (!localizer_initialized.load()) {
                 localizer->setInitialPose(pose_msg);
-                localizer_initialized = true;
+                localizer_initialized.store(true);
             } else {
                 localizer->feedObservation(pose_msg);
             }
         }
     );
+
+    // /Odometry → TwistWithCovarianceStamped (velocity only)
+    auto odom_sub = node->create_subscription<nav_msgs::msg::Odometry>(
+        "/Odometry",
+        10,
+        [localizer, &node](const nav_msgs::msg::Odometry& msg) {
+            if (!localizer_initialized.load()) return; // wait for initial pose
+
+            geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
+            twist_msg.header = msg.header;
+            if (twist_msg.header.frame_id.empty()) {
+                twist_msg.header.frame_id = "base_link";
+            }
+            twist_msg.twist.twist = msg.twist.twist;
+            // Use covariance from odometry if available, otherwise set reasonable defaults
+            twist_msg.twist.covariance = msg.twist.covariance;
+            // Ensure diagonal is non-zero
+            if (twist_msg.twist.covariance[0] == 0.0) {
+                twist_msg.twist.covariance[0]  = 0.01;  // vx
+                twist_msg.twist.covariance[7]  = 0.01;  // vy
+                twist_msg.twist.covariance[14] = 0.01;  // vz
+                twist_msg.twist.covariance[21] = 0.001; // wx
+                twist_msg.twist.covariance[28] = 0.001; // wy
+                twist_msg.twist.covariance[35] = 0.001; // wz
+            }
+            localizer->feedObservation(twist_msg);
+        }
+    );
+
+
 
 
     // --------------------------------- Launch Mapping --------------------------------------
