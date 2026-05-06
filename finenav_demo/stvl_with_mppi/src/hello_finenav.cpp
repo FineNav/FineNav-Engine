@@ -53,14 +53,13 @@ int main(int argc, char** argv) {
 
     // /pose → PoseWithCovarianceStamped (pose only, no velocity)
     static std::atomic<bool> localizer_initialized{false};
-    auto pose_sub = node->create_subscription<geometry_msgs::msg::Pose>(
-        "/pose",
+    auto pose_sub = node->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/localization_pose",
         10,
-        [localizer, &node](const geometry_msgs::msg::Pose& msg) {
+        [localizer, &node](const geometry_msgs::msg::PoseStamped& msg) {
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
-            pose_msg.header.stamp = node->now();
-            pose_msg.header.frame_id = "map";
-            pose_msg.pose.pose = msg;
+            pose_msg.header = msg.header;
+            pose_msg.pose.pose = msg.pose;
             // Fill with a reasonable default diagonal covariance (position + orientation)
             pose_msg.pose.covariance[0]  = 0.01;  // x
             pose_msg.pose.covariance[7]  = 0.01;  // y
