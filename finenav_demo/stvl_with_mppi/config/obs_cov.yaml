@@ -14,19 +14,28 @@ hello_finenav:
       # 位置 (x, y, z) 的标准差 [m]；z 通常不可信时可调大
       pose_cov_x:     0.01
       pose_cov_y:     0.01
-      pose_cov_z:     0.01
+      pose_cov_z:     0.1
       # 姿态 (roll, pitch, yaw) 的方差；设极大值表示完全不信任该维度
       pose_cov_roll:  1.0e9
       pose_cov_pitch: 1.0e9
+#      pose_cov_roll: 0.001
+#      pose_cov_pitch: 0.001
       pose_cov_yaw:   0.001
 
       # ── 速度观测 (/Odometry) ─────────────────────────────────────────────────
       # 线速度 (vx, vy, vz) 的标准差 [m/s]
-      twist_cov_vx:   0.01
-      twist_cov_vy:   0.01
-      twist_cov_vz:   0.01
+      twist_cov_vx:   0.00001
+      twist_cov_vy:   0.00001
+      twist_cov_vz:   0.00001
       # 角速度 (wx, wy, wz) 的标准差 [rad/s]
-      twist_cov_wx:   0.001
-      twist_cov_wy:   0.001
-      twist_cov_wz:   0.001
+      twist_cov_wx:   0.00001
+      twist_cov_wy:   0.00001
+      twist_cov_wz:   0.00001
+
+      # ── Odometry Roll/Pitch 观测 (/Odometry → PoseWithCovariance) ────────────
+      # 仅使用 Odometry orientation 中的 roll / pitch 进行修正，忽略 position 和 yaw。
+      # 前提：地图坐标系与机器人启动初始位置坐标系在同一水平面（通常满足）。
+      # 调大 → 对 fast-lio 的 roll/pitch 信任度降低；调小 → 信任度升高。
+      odom_rp_cov_roll:  0.00001
+      odom_rp_cov_pitch: 0.00001
 

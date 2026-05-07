@@ -66,6 +66,10 @@ int main(int argc, char** argv) {
     node->declare_parameter("obs_cov.twist_cov_wx",   0.001);
     node->declare_parameter("obs_cov.twist_cov_wy",   0.001);
     node->declare_parameter("obs_cov.twist_cov_wz",   0.001);
+    // Odometry orientation 中 roll/pitch 的协方差（yaw 和 position 设为无穷大，不参与修正）
+    // 备注：地图坐标系与机器人启动时初始位置坐标系在同一水平面，因此 fast-lio 的 roll/pitch 无坐标系歧义
+    node->declare_parameter("obs_cov.odom_rp_cov_roll",  0.001);
+    node->declare_parameter("obs_cov.odom_rp_cov_pitch", 0.001);
 
     // /pose → PoseWithCovarianceStamped (pose only, no velocity)
     static std::atomic<bool> localizer_initialized{false};
@@ -112,6 +116,29 @@ int main(int argc, char** argv) {
             twist_msg.twist.covariance[28] = node->get_parameter("obs_cov.twist_cov_wy").as_double();
             twist_msg.twist.covariance[35] = node->get_parameter("obs_cov.twist_cov_wz").as_double();
             localizer->feedObservation(twist_msg);
+
+            // ── 额外喂入 roll/pitch 观测（来自 Odometry 的 orientation）────────
+            // fast-lio 的 roll/pitch 可靠，且地图坐标系与启动初始平面对齐，无坐标系歧义。
+            // 通过将 position 和 yaw 协方差设为无穷大，ESKF 仅更新 roll/pitch。
+            {
+                geometry_msgs::msg::PoseWithCovarianceStamped rp_msg;
+                rp_msg.header = msg.header;
+                // 位置直接使用 odometry 中的值（协方差无穷大，对滤波无影响）
+                rp_msg.pose.pose.position    = msg.pose.pose.position;
+                rp_msg.pose.pose.orientation = msg.pose.pose.orientation;
+
+                // position (x,y,z) → 无穷大，完全不信任
+                rp_msg.pose.covariance[0]  = 1.0e9;  // x
+                rp_msg.pose.covariance[7]  = 1.0e9;  // y
+                rp_msg.pose.covariance[14] = 1.0e9;  // z
+                // roll / pitch → 从参数读取（可信）
+                rp_msg.pose.covariance[21] = node->get_parameter("obs_cov.odom_rp_cov_roll").as_double();
+                rp_msg.pose.covariance[28] = node->get_parameter("obs_cov.odom_rp_cov_pitch").as_double();
+                // yaw → 无穷大，不信任（以 /localization_pose 的 yaw 为准）
+                rp_msg.pose.covariance[35] = 1.0e9;
+
+                localizer->feedObservation(rp_msg);
+            }
         }
     );
 
