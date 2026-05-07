@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
 
     rclcpp::NodeOptions options;
-    options.append_parameter_override("use_sim_time", false);
+    options.append_parameter_override("use_sim_time", true);
     auto node = rclcpp::Node::make_shared("hello_finenav", options); // TODO: inhirent options?
 
     auto finenav_engine = std::make_shared<FineNavEngine>(node);
@@ -53,22 +53,35 @@ int main(int argc, char** argv) {
 
     // ------------------------------ Launch Localization ----------------------------------
 
+    // ── 从 obs_cov.yaml 读取观测协方差 ────────────────────────────────────────
+    node->declare_parameter("obs_cov.pose_cov_x",     0.01);
+    node->declare_parameter("obs_cov.pose_cov_y",     0.01);
+    node->declare_parameter("obs_cov.pose_cov_z",     0.01);
+    node->declare_parameter("obs_cov.pose_cov_roll",  1.0e9);
+    node->declare_parameter("obs_cov.pose_cov_pitch", 1.0e9);
+    node->declare_parameter("obs_cov.pose_cov_yaw",   0.001);
+    node->declare_parameter("obs_cov.twist_cov_vx",   0.01);
+    node->declare_parameter("obs_cov.twist_cov_vy",   0.01);
+    node->declare_parameter("obs_cov.twist_cov_vz",   0.01);
+    node->declare_parameter("obs_cov.twist_cov_wx",   0.001);
+    node->declare_parameter("obs_cov.twist_cov_wy",   0.001);
+    node->declare_parameter("obs_cov.twist_cov_wz",   0.001);
+
     // /pose → PoseWithCovarianceStamped (pose only, no velocity)
     static std::atomic<bool> localizer_initialized{false};
     auto pose_sub = node->create_subscription<geometry_msgs::msg::PoseStamped>(
         "/localization_pose",
         10,
-        [localizer, &node](const geometry_msgs::msg::PoseStamped& msg) {
+        [localizer, node](const geometry_msgs::msg::PoseStamped& msg) {
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
             pose_msg.header = msg.header;
             pose_msg.pose.pose = msg.pose;
-            // Fill with a reasonable default diagonal covariance (position + orientation)
-            pose_msg.pose.covariance[0]  = 0.01;  // x
-            pose_msg.pose.covariance[7]  = 0.01;  // y
-            pose_msg.pose.covariance[14] = 0.01;  // z
-            pose_msg.pose.covariance[21] = 0.001; // roll
-            pose_msg.pose.covariance[28] = 0.001; // pitch
-            pose_msg.pose.covariance[35] = 0.001; // yaw
+            pose_msg.pose.covariance[0]  = node->get_parameter("obs_cov.pose_cov_x").as_double();
+            pose_msg.pose.covariance[7]  = node->get_parameter("obs_cov.pose_cov_y").as_double();
+            pose_msg.pose.covariance[14] = node->get_parameter("obs_cov.pose_cov_z").as_double();
+            pose_msg.pose.covariance[21] = node->get_parameter("obs_cov.pose_cov_roll").as_double();
+            pose_msg.pose.covariance[28] = node->get_parameter("obs_cov.pose_cov_pitch").as_double();
+            pose_msg.pose.covariance[35] = node->get_parameter("obs_cov.pose_cov_yaw").as_double();
 
             if (!localizer_initialized.load()) {
                 localizer->setInitialPose(pose_msg);
@@ -83,7 +96,7 @@ int main(int argc, char** argv) {
     auto odom_sub = node->create_subscription<nav_msgs::msg::Odometry>(
         "/Odometry",
         10,
-        [localizer, &node](const nav_msgs::msg::Odometry& msg) {
+        [localizer, node](const nav_msgs::msg::Odometry& msg) {
             if (!localizer_initialized.load()) return; // wait for initial pose
 
             geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
@@ -92,17 +105,12 @@ int main(int argc, char** argv) {
                 twist_msg.header.frame_id = "base_link";
             }
             twist_msg.twist.twist = msg.twist.twist;
-            // Use covariance from odometry if available, otherwise set reasonable defaults
-            twist_msg.twist.covariance = msg.twist.covariance;
-            // Ensure diagonal is non-zero
-            if (twist_msg.twist.covariance[0] == 0.0) {
-                twist_msg.twist.covariance[0]  = 0.01;  // vx
-                twist_msg.twist.covariance[7]  = 0.01;  // vy
-                twist_msg.twist.covariance[14] = 0.01;  // vz
-                twist_msg.twist.covariance[21] = 0.001; // wx
-                twist_msg.twist.covariance[28] = 0.001; // wy
-                twist_msg.twist.covariance[35] = 0.001; // wz
-            }
+            twist_msg.twist.covariance[0]  = node->get_parameter("obs_cov.twist_cov_vx").as_double();
+            twist_msg.twist.covariance[7]  = node->get_parameter("obs_cov.twist_cov_vy").as_double();
+            twist_msg.twist.covariance[14] = node->get_parameter("obs_cov.twist_cov_vz").as_double();
+            twist_msg.twist.covariance[21] = node->get_parameter("obs_cov.twist_cov_wx").as_double();
+            twist_msg.twist.covariance[28] = node->get_parameter("obs_cov.twist_cov_wy").as_double();
+            twist_msg.twist.covariance[35] = node->get_parameter("obs_cov.twist_cov_wz").as_double();
             localizer->feedObservation(twist_msg);
         }
     );

@@ -21,6 +21,11 @@ def generate_launch_description():
         'config',
         'finenav_params.yaml'
     )
+    obs_cov_file = os.path.join(
+        finenav_demo_pkg_dir,
+        'config',
+        'obs_cov.yaml'
+    )
 
     #finenav_simulator_pkg_dir = get_package_share_directory('finenav_simulator')
     #finenav_simulator_launch_file = os.path.join(
@@ -44,9 +49,10 @@ def generate_launch_description():
         executable='hello_finenav',
         output='screen',
         parameters=[
-            {'use_sim_time': False},
+            {'use_sim_time': True},
             mppi_params_file,
             finenav_params_file,
+            obs_cov_file,
         ]
     )
 
@@ -55,7 +61,7 @@ def generate_launch_description():
         executable='goal_pose_bridge_node',
         output='screen',
         parameters=[
-            {'use_sim_time': False},
+            {'use_sim_time': True},
         ]
     )
 

@@ -1,0 +1,32 @@
+# Observation Covariance Configuration for FineNavLocalizer
+#
+# 本文件控制喂给 localizer 的两类观测（位姿 / 速度）的协方差数值。
+# 调大某一项 → 对该维度的观测信任度降低（更依赖预测）。
+# 调小某一项 → 对该维度的观测信任度升高（更快跟随观测）。
+#
+# 节点路径: /hello_finenav
+# ──────────────────────────────────────────────────────────────────────────────
+
+hello_finenav:
+  ros__parameters:
+    obs_cov:
+      # ── 位姿观测 (/localization_pose) ────────────────────────────────────────
+      # 位置 (x, y, z) 的标准差 [m]；z 通常不可信时可调大
+      pose_cov_x:     0.01
+      pose_cov_y:     0.01
+      pose_cov_z:     0.01
+      # 姿态 (roll, pitch, yaw) 的方差；设极大值表示完全不信任该维度
+      pose_cov_roll:  1.0e9
+      pose_cov_pitch: 1.0e9
+      pose_cov_yaw:   0.001
+
+      # ── 速度观测 (/Odometry) ─────────────────────────────────────────────────
+      # 线速度 (vx, vy, vz) 的标准差 [m/s]
+      twist_cov_vx:   0.01
+      twist_cov_vy:   0.01
+      twist_cov_vz:   0.01
+      # 角速度 (wx, wy, wz) 的标准差 [rad/s]
+      twist_cov_wx:   0.001
+      twist_cov_wy:   0.001
+      twist_cov_wz:   0.001
+
