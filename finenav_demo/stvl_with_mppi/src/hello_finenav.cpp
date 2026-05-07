@@ -29,6 +29,8 @@
 #include "terrain_mapview.hpp"
 #include "finenav_util/cloud_publish_helper.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/twist_stamped.hpp"
 #include "trim_by_distance.hpp"
 #include "seek_to_nearest_point.hpp"
 #include "trim_by_aabb.hpp"
@@ -294,6 +296,8 @@ int main(int argc, char** argv) {
 
     rclcpp::Rate loop_rate(200); // 200Hz
     auto nav_state_pub = node->create_publisher<nav_msgs::msg::Odometry>("nav_state", 10);
+    auto nav_state_pose_pub = node->create_publisher<geometry_msgs::msg::PoseStamped>("nav_state_pose", 10);
+    auto nav_state_twist_pub = node->create_publisher<geometry_msgs::msg::TwistStamped>("nav_state_twist", 10);
 
     while (rclcpp::ok()) {
         auto robot_state = localizer->getState();
@@ -325,6 +329,18 @@ int main(int argc, char** argv) {
             return nav_state_msg;
         }();
         nav_state_pub->publish(nav_state_msg);
+
+        // nav_state_pose
+        geometry_msgs::msg::PoseStamped pose_msg;
+        pose_msg.header = nav_state_msg.header;
+        pose_msg.pose   = nav_state_msg.pose.pose;
+        nav_state_pose_pub->publish(pose_msg);
+
+        // nav_state_twist
+        geometry_msgs::msg::TwistStamped twist_msg;
+        twist_msg.header = nav_state_msg.header;
+        twist_msg.twist  = nav_state_msg.twist.twist;
+        nav_state_twist_pub->publish(twist_msg);
 
 
         rclcpp::spin_some(node);
