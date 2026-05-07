@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
 
     rclcpp::NodeOptions options;
-    options.append_parameter_override("use_sim_time", true);
+    options.append_parameter_override("use_sim_time", false);
     auto node = rclcpp::Node::make_shared("hello_finenav", options); // TODO: inhirent options?
 
     auto finenav_engine = std::make_shared<FineNavEngine>(node);

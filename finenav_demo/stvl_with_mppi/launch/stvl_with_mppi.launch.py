@@ -49,7 +49,7 @@ def generate_launch_description():
         executable='hello_finenav',
         output='screen',
         parameters=[
-            {'use_sim_time': True},
+            {'use_sim_time': False},
             mppi_params_file,
             finenav_params_file,
             obs_cov_file,
@@ -61,7 +61,7 @@ def generate_launch_description():
         executable='goal_pose_bridge_node',
         output='screen',
         parameters=[
-            {'use_sim_time': True},
+            {'use_sim_time': False},
         ]
     )
 
