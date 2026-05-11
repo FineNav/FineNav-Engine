@@ -1,3 +1,4 @@
+
 // Copyright (c) 2026.
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
@@ -39,7 +40,7 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
 
     rclcpp::NodeOptions options;
-    options.append_parameter_override("use_sim_time", true); // Use time in /clock
+    options.append_parameter_override("use_sim_time", false); // Use time in /clock // TODO: xxx
     auto node = rclcpp::Node::make_shared("hello_finenav", options); // TODO: inhirent options?
 
     auto finenav_engine = std::make_shared<FineNavEngine>(node);
@@ -51,12 +52,20 @@ int main(int argc, char** argv) {
     // ------------------------------ Launch Localization ----------------------------------
 
     auto gt_pose_sub = node->create_subscription<nav_msgs::msg::Odometry>(
-        "odom",
+        "Odometry",
         10,
-        [localizer](const nav_msgs::msg::Odometry& msg) {
+        [localizer, node](const nav_msgs::msg::Odometry& msg) {
+            const double delay_ms =
+                (node->now() - rclcpp::Time(msg.header.stamp)).seconds() * 1000.0;
+            RCLCPP_INFO(node->get_logger(), "[odom] receive delay: %.2f ms", delay_ms);
+
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
             pose_msg.header = msg.header;
             pose_msg.pose.pose = msg.pose.pose;
+
+            geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
+            twist_msg.header = msg.header;
+            twist_msg.twist.twist = msg.twist.twist;
 
             static bool localizer_initialized = false;      // TODO: automatically iniitailize when receive the first pose_msg
             if (!localizer_initialized) {
@@ -64,6 +73,7 @@ int main(int argc, char** argv) {
                 localizer_initialized = true;
             } else {
                 localizer->feedObservation(pose_msg);
+                localizer->feedObservation(twist_msg);
             }
         }
     );
@@ -165,7 +175,7 @@ int main(int argc, char** argv) {
         });
 
     auto cloud_sub = node->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/cloud_for_lio",
+        "/cloud_registered_body",
         10,
         [node, laser_injector](const sensor_msgs::msg::PointCloud2 & msg) {
             pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
