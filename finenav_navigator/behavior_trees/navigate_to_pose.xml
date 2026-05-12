@@ -49,13 +49,23 @@
                     <PublishNavigationState topic_name="/navigation_state" state="NAVIGATING"/>
 
                     <ReactiveFallback name="NavigateOrSucceed">
-                        <!-- 到达目标：发布 GOAL_REACHED 状态 -->
+                        <!-- 分支 1：精确到达目标（0.25m 内 + 停止）→ 发布 GOAL_REACHED -->
                         <Sequence>
                             <IsGoalReached  robot_pose="{robot_pose}"
                                             robot_twist="{robot_twist}"
                                             goal="{goal}"
                                             tolerance="0.25"
                                             speed_tolerance="0.5"/>
+                            <PublishNavigationState topic_name="/navigation_state" state="GOAL_REACHED"/>
+                        </Sequence>
+
+                        <!-- 分支 2：终点附近（3m 内）持续 10s → 认为完成，发布 GOAL_REACHED -->
+                        <Sequence>
+                            <KeepForDuration duration_sec="10.0">
+                                <IsNearPoint point_a="{robot_pose}"
+                                             point_b="{goal}"
+                                             distance_threshold="3.0"/>
+                            </KeepForDuration>
                             <PublishNavigationState topic_name="/navigation_state" state="GOAL_REACHED"/>
                         </Sequence>
 

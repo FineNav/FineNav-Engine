@@ -3,6 +3,7 @@
 // All rights reserved.
 
 #include "finenav_navigator/plugins/condition/is_goal_reached.hpp"
+#include "finenav_navigator/plugins/condition/is_near_point.hpp"
 #include "finenav_navigator/plugins/condition/is_stuck.hpp"
 #include "behaviortree_cpp/bt_factory.h"
 
@@ -10,6 +11,7 @@
 BT_REGISTER_NODES(factory)
 {
     factory.registerNodeType<finenav::IsGoalReached>("IsGoalReached");
+    factory.registerNodeType<finenav::IsNearPoint>("IsNearPoint");
     factory.registerNodeType<finenav::IsStuck>("IsStuck");
 }
 

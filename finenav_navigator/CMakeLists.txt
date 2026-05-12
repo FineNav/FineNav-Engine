@@ -116,6 +116,15 @@ ament_target_dependencies(finenav_rate_controller
 )
 target_compile_definitions(finenav_rate_controller PRIVATE BT_PLUGIN_EXPORT)
 
+# KeepForDuration Plugin (pure BT node, no ROS params needed)
+add_library(finenav_keep_for_duration SHARED
+        src/plugins/decorator/keep_for_duration.cpp
+)
+ament_target_dependencies(finenav_keep_for_duration
+        ${dependencies}
+)
+target_compile_definitions(finenav_keep_for_duration PRIVATE BT_PLUGIN_EXPORT)
+
 # DynamicGoalFollower Plugin (ROS node params needed)
 add_library(finenav_dynamic_goal_follower SHARED
         src/plugins/decorator/dynamic_goal_follower.cpp
@@ -132,7 +141,7 @@ install(TARGETS finenav_navigator
         RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS finenav_compute_plan_behavior finenav_navigator_conditions finenav_publish_zero_cmd_vel_behavior finenav_publish_navigation_state finenav_recovery_node finenav_round_robin_node finenav_rate_controller finenav_dynamic_goal_follower
+install(TARGETS finenav_compute_plan_behavior finenav_navigator_conditions finenav_publish_zero_cmd_vel_behavior finenav_publish_navigation_state finenav_recovery_node finenav_round_robin_node finenav_rate_controller finenav_keep_for_duration finenav_dynamic_goal_follower
         ARCHIVE DESTINATION lib/plugins
         LIBRARY DESTINATION lib/plugins
         RUNTIME DESTINATION bin
