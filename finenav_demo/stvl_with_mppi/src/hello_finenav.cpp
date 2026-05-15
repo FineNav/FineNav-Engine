@@ -57,7 +57,9 @@ int main(int argc, char** argv) {
         [localizer, node](const nav_msgs::msg::Odometry& msg) {
             const double delay_ms =
                 (node->now() - rclcpp::Time(msg.header.stamp)).seconds() * 1000.0;
-            RCLCPP_INFO(node->get_logger(), "[odom] receive delay: %.2f ms", delay_ms);
+
+            auto& clock = *node->get_clock();
+            RCLCPP_INFO_THROTTLE(node->get_logger(), clock, 2000, "[odom] receive delay: %.2f ms", delay_ms);
 
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
             pose_msg.header = msg.header;
