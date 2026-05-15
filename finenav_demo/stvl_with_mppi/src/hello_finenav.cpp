@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
                 localizer_initialized = true;
             } else {
                 localizer->feedObservation(pose_msg);
-                localizer->feedObservation(twist_msg);
+                // localizer->feedObservation(twist_msg);
             }
         }
     );
