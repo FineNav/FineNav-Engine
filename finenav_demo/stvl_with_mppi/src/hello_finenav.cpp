@@ -108,10 +108,15 @@ int main(int argc, char** argv) {
     auto local_map_helper = std::make_shared<finenav_utils::CloudPublishHelper>();
     local_map_helper->configure(local_map_pub, false, "map");
 
+    // 5. ground_cloud : 地面高度点云（青色）
+    auto ground_pub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/ground_cloud", 10);
+    auto ground_helper = std::make_shared<finenav_utils::CloudPublishHelper>();
+    ground_helper->configure(ground_pub, true, "map");
+
     // ============================================================
 
     auto terrain_analyzer = std::make_shared<TerrainAnalyzer>(
-        map_server, node, passability_helper, costmap_helper);
+        map_server, node, passability_helper, costmap_helper, ground_helper);
 
     map_server->registerPreUpdateHook([stvl_manager, localizer](GridMap<Voxel> & map) {
         const auto & state = localizer->getState();

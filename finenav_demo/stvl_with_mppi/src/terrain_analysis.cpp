@@ -11,10 +11,12 @@ TerrainAnalyzer::TerrainAnalyzer(
     const std::shared_ptr<finenav::MapServer<finenav::GridMap<Voxel>>> map_server,
     rclcpp::Node::SharedPtr node,
     std::shared_ptr<finenav_utils::CloudPublishHelper> passability_helper,
-    std::shared_ptr<finenav_utils::CloudPublishHelper> costmap_helper)
+    std::shared_ptr<finenav_utils::CloudPublishHelper> costmap_helper,
+    std::shared_ptr<finenav_utils::CloudPublishHelper> ground_helper)
     : node_(node)
     , passability_helper_(std::move(passability_helper))
     , costmap_helper_(std::move(costmap_helper))
+    , ground_helper_(std::move(ground_helper))
 {
     const auto map_ro = map_server->getLockedReadView();
     passability_image_ = cv::Mat::zeros(map_ro->getSize().x(), map_ro->getSize().y(), CV_8UC1);
@@ -74,7 +76,7 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
     size_t half_size_x = size_x / 2;
     size_t half_size_y = size_y / 2;
 
-    Eigen::ArrayXXf ground_array_ = Eigen::ArrayXXf::Constant(size_x, size_y, NAN);
+    ground_array_ = Eigen::ArrayXXf::Constant(size_x, size_y, NAN);
 
     for (int x = sizeX_min; x <= sizeX_max; ++x) {
         for (int y = sizeY_min; y <= sizeY_max; ++y) {
@@ -298,5 +300,32 @@ void TerrainAnalyzer::publishMaps(const finenav::GridMap<Voxel>& map) {
             }
         }
         costmap_helper_->publish(stamp);
+    }
+
+    // ---- ground_cloud ----
+    // 颜色编码: 青色，z = 实际地面高度
+    if (ground_helper_) {
+        ground_helper_->reserve(size_x * size_y);
+        for (size_t px = 0; px < size_x; ++px) {
+            for (size_t py = 0; py < size_y; ++py) {
+                const float gz = ground_array_(
+                    static_cast<int>(px),
+                    static_cast<int>(py));
+                if (std::isnan(gz)) continue;
+                if (gz == std::numeric_limits<float>::max()) continue;
+                finenav::Index idx(
+                    static_cast<int>(px) - static_cast<int>(half_size_x),
+                    static_cast<int>(py) - static_cast<int>(half_size_y),
+                    0);
+                if (!map.isInside(idx)) continue;
+                const auto pos = map.getPosition(idx);
+                ground_helper_->addPoint(
+                    static_cast<float>(pos.x()),
+                    static_cast<float>(pos.y()),
+                    gz,
+                    {0, 180, 255}); // 青色
+            }
+        }
+        ground_helper_->publish(stamp);
     }
 }

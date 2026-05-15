@@ -29,7 +29,8 @@ public:
         const std::shared_ptr<finenav::MapServer<finenav::GridMap<Voxel>>> map_server,
         rclcpp::Node::SharedPtr node,
         std::shared_ptr<finenav_utils::CloudPublishHelper> passability_helper = nullptr,
-        std::shared_ptr<finenav_utils::CloudPublishHelper> costmap_helper = nullptr);
+        std::shared_ptr<finenav_utils::CloudPublishHelper> costmap_helper = nullptr,
+        std::shared_ptr<finenav_utils::CloudPublishHelper> ground_helper = nullptr);
 
     /**
      * @brief 执行一次完整的地形分析与膨胀，并发布可视化点云。
@@ -60,6 +61,9 @@ private:
     rclcpp::Node::SharedPtr node_;  // 仅用于获取时间戳
     std::shared_ptr<finenav_utils::CloudPublishHelper> passability_helper_;
     std::shared_ptr<finenav_utils::CloudPublishHelper> costmap_helper_;
+    std::shared_ptr<finenav_utils::CloudPublishHelper> ground_helper_;
+
+    Eigen::ArrayXXf ground_array_;  // 地面高度数组，TerrainAnalysis填写，publishMaps读取
 
     nav_msgs::msg::OccupancyGrid::SharedPtr global_map_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr global_map_sub_;
