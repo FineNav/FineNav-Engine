@@ -122,14 +122,29 @@ int main(int argc, char** argv) {
             const double rel_spi = node->get_parameter("rel_pose_sigma.pitch").as_double();
             const double rel_sya = node->get_parameter("rel_pose_sigma.yaw").as_double();
 
-            // Cache for relative-pose increment computation
+            // Cache for relative-pose increment computation.
+            //
+            // Problem with feeding every 200Hz frame as a relative-pose observation:
+            //   The ESKF runs at 100Hz (10ms/slot).  At 200Hz the inter-frame gap is
+            //   5ms, so stamp_to and stamp_from almost always map to the same delay
+            //   slot.  When ds_to == ds_from, H_to + H_from ≈ 0 (the two blocks
+            //   cancel), making every update a no-op.
+            //
+            // Fix: accumulate the relative transform in the body frame over a longer
+            //   window (acc_interval_ms) before submitting one observation.  At 50ms
+            //   the "from" slot sits ~5 ESKF ticks behind the "to" slot — well
+            //   resolved — and the displacement SNR is much better than per-frame.
+            static constexpr double acc_interval_ms = 50.0;  // [ms]  ≈ 20 Hz observations
+
             static std::optional<nav_msgs::msg::Odometry> prev_msg;
+            static std::optional<nav_msgs::msg::Odometry> window_start_msg;
             static bool localizer_initialized = false;
 
             if (!localizer_initialized) {
                 localizer->setInitialPose(pose_msg);
                 localizer_initialized = true;
-                prev_msg = msg;
+                prev_msg         = msg;
+                window_start_msg = msg;
                 return;
             }
 
@@ -137,54 +152,61 @@ int main(int argc, char** argv) {
             localizer->feedObservation(pose_msg);
 
             // ── Relative-pose (odometry) observation ───────────────────────────
-            // Uses stamp_from and stamp_to independently so the ESKF maps each
-            // epoch to its exact delay slot — no linearisation error from Δt_odom.
-            if (prev_msg.has_value()) {
-                const rclcpp::Time stamp_from(prev_msg->header.stamp);
+            // Accumulate until the window is wide enough for the delay slots to
+            // be clearly separated (acc_interval_ms apart).
+            if (window_start_msg.has_value()) {
+                const rclcpp::Time stamp_from(window_start_msg->header.stamp);
                 const rclcpp::Time stamp_to  (msg.header.stamp);
-                const double dt = (stamp_to - stamp_from).seconds();
+                const double window_ms = (stamp_to - stamp_from).seconds() * 1e3;
 
-                if (dt > 1e-6 && dt < 1.0) {
-                    const Eigen::Quaterniond q_prev{
-                        prev_msg->pose.pose.orientation.w,
-                        prev_msg->pose.pose.orientation.x,
-                        prev_msg->pose.pose.orientation.y,
-                        prev_msg->pose.pose.orientation.z};
-                    const Eigen::Quaterniond q_curr{
-                        msg.pose.pose.orientation.w,
-                        msg.pose.pose.orientation.x,
-                        msg.pose.pose.orientation.y,
-                        msg.pose.pose.orientation.z};
+                if (window_ms >= acc_interval_ms) {
+                    const double dt = (stamp_to - stamp_from).seconds();
 
-                    const Sophus::SO3d R_prev{q_prev.normalized().toRotationMatrix()};
-                    const Sophus::SO3d R_curr{q_curr.normalized().toRotationMatrix()};
+                    if (dt > 1e-6 && dt < 1.0) {
+                        const Eigen::Quaterniond q_prev{
+                            window_start_msg->pose.pose.orientation.w,
+                            window_start_msg->pose.pose.orientation.x,
+                            window_start_msg->pose.pose.orientation.y,
+                            window_start_msg->pose.pose.orientation.z};
+                        const Eigen::Quaterniond q_curr{
+                            msg.pose.pose.orientation.w,
+                            msg.pose.pose.orientation.x,
+                            msg.pose.pose.orientation.y,
+                            msg.pose.pose.orientation.z};
 
-                    const Eigen::Vector3d p_prev{
-                        prev_msg->pose.pose.position.x,
-                        prev_msg->pose.pose.position.y,
-                        prev_msg->pose.pose.position.z};
-                    const Eigen::Vector3d p_curr{
-                        msg.pose.pose.position.x,
-                        msg.pose.pose.position.y,
-                        msg.pose.pose.position.z};
+                        const Sophus::SO3d R_prev{q_prev.normalized().toRotationMatrix()};
+                        const Sophus::SO3d R_curr{q_curr.normalized().toRotationMatrix()};
 
-                    finenav::RelativePoseObs rel_obs;
-                    rel_obs.delta_p_body_obs = R_prev.inverse() * (p_curr - p_prev);
-                    rel_obs.delta_R_obs      = R_prev.inverse() * R_curr;
-                    rel_obs.stamp_to         = stamp_to;
-                    rel_obs.stamp_from       = stamp_from;
+                        const Eigen::Vector3d p_prev{
+                            window_start_msg->pose.pose.position.x,
+                            window_start_msg->pose.pose.position.y,
+                            window_start_msg->pose.pose.position.z};
+                        const Eigen::Vector3d p_curr{
+                            msg.pose.pose.position.x,
+                            msg.pose.pose.position.y,
+                            msg.pose.pose.position.z};
 
-                    // Displacement covariance (diagonal, body-frame):
-                    //   [0:3] translation  [3:6] rotation (SO3 log-map tangent space)
-                    rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Zero();
-                    rel_obs.R_noise(0, 0) = rel_sx  * rel_sx;
-                    rel_obs.R_noise(1, 1) = rel_sy  * rel_sy;
-                    rel_obs.R_noise(2, 2) = rel_sz  * rel_sz;
-                    rel_obs.R_noise(3, 3) = rel_sro * rel_sro;
-                    rel_obs.R_noise(4, 4) = rel_spi * rel_spi;
-                    rel_obs.R_noise(5, 5) = rel_sya * rel_sya;
+                        finenav::RelativePoseObs rel_obs;
+                        rel_obs.delta_p_body_obs = R_prev.inverse() * (p_curr - p_prev);
+                        rel_obs.delta_R_obs      = R_prev.inverse() * R_curr;
+                        rel_obs.stamp_to         = stamp_to;
+                        rel_obs.stamp_from       = stamp_from;
 
-                    localizer->feedRelativePose(rel_obs);
+                        // Displacement covariance (diagonal, body-frame):
+                        //   [0:3] translation  [3:6] rotation (SO3 log-map tangent space)
+                        rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Zero();
+                        rel_obs.R_noise(0, 0) = rel_sx  * rel_sx;
+                        rel_obs.R_noise(1, 1) = rel_sy  * rel_sy;
+                        rel_obs.R_noise(2, 2) = rel_sz  * rel_sz;
+                        rel_obs.R_noise(3, 3) = rel_sro * rel_sro;
+                        rel_obs.R_noise(4, 4) = rel_spi * rel_spi;
+                        rel_obs.R_noise(5, 5) = rel_sya * rel_sya;
+
+                        localizer->feedRelativePose(rel_obs);
+                    }
+
+                    // Reset accumulation window
+                    window_start_msg = msg;
                 }
             }
 
