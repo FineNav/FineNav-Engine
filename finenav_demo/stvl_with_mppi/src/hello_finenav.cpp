@@ -1,7 +1,9 @@
+
 // Copyright (c) 2026.
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
+#include <nav_msgs/msg/detail/odometry__struct.hpp>
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -11,14 +13,13 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <sophus/so3.hpp>
 
 #include "finenav_engine/finenav_engine.hpp"
 #include "grid_map.hpp" // TODO: resolve anti-pattern export
 
-#include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
-#include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl/point_types.h>
@@ -29,8 +30,6 @@
 #include "terrain_mapview.hpp"
 #include "finenav_util/cloud_publish_helper.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "geometry_msgs/msg/twist_stamped.hpp"
 #include "trim_by_distance.hpp"
 #include "seek_to_nearest_point.hpp"
 #include "trim_by_aabb.hpp"
@@ -42,7 +41,7 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
 
     rclcpp::NodeOptions options;
-    options.append_parameter_override("use_sim_time", false);
+    options.append_parameter_override("use_sim_time", false); // Use time in /clock // TODO: xxx
     auto node = rclcpp::Node::make_shared("hello_finenav", options); // TODO: inhirent options?
 
     auto finenav_engine = std::make_shared<FineNavEngine>(node);
@@ -101,57 +100,74 @@ int main(int argc, char** argv) {
         }
     );
 
-    // /Odometry → TwistWithCovarianceStamped (velocity only)
     auto odom_sub = node->create_subscription<nav_msgs::msg::Odometry>(
-        "/Odometry",
+        "Odometry",
         10,
         [localizer, node](const nav_msgs::msg::Odometry& msg) {
             if (!localizer_initialized.load()) return; // wait for initial pose
 
-//            // output delay millisecond
-//            auto delay = node->now() - rclcpp::Time(msg.header.stamp);
-//            RCLCPP_INFO_STREAM(node->get_logger(), "Odometry delay with: " << delay.seconds() * 1000.0 << " ms");
+            const double delay_ms = (node->now() - rclcpp::Time(msg.header.stamp)).seconds() * 1000.0;
+            auto& clock = *node->get_clock();
+            RCLCPP_INFO_THROTTLE(node->get_logger(), clock, 2000, "[odom] receive delay: %.2f ms", delay_ms);
 
-            geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
-            twist_msg.header = msg.header;
-            if (twist_msg.header.frame_id.empty()) {
-                twist_msg.header.frame_id = "base_link";
+            // ── Absolute pose (used for initialisation and drift correction) ──
+            geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
+            pose_msg.header    = msg.header;
+            pose_msg.pose.pose = msg.pose.pose;
+
+            // Cache for relative-pose increment computation
+            static std::optional<nav_msgs::msg::Odometry> prev_msg;
+
+            // ── Relative-pose (odometry) observation ───────────────────────────
+            // Uses stamp_from and stamp_to independently so the ESKF maps each
+            // epoch to its exact delay slot — no linearisation error from Δt_odom.
+            if (prev_msg.has_value()) {
+                const rclcpp::Time stamp_from(prev_msg->header.stamp);
+                const rclcpp::Time stamp_to  (msg.header.stamp);
+                const double dt = (stamp_to - stamp_from).seconds();
+
+                if (dt > 1e-6 && dt < 1.0) {
+                    const Eigen::Quaterniond q_prev{
+                        prev_msg->pose.pose.orientation.w,
+                        prev_msg->pose.pose.orientation.x,
+                        prev_msg->pose.pose.orientation.y,
+                        prev_msg->pose.pose.orientation.z};
+                    const Eigen::Quaterniond q_curr{
+                        msg.pose.pose.orientation.w,
+                        msg.pose.pose.orientation.x,
+                        msg.pose.pose.orientation.y,
+                        msg.pose.pose.orientation.z};
+
+                    const Sophus::SO3d R_prev{q_prev.normalized().toRotationMatrix()};
+                    const Sophus::SO3d R_curr{q_curr.normalized().toRotationMatrix()};
+
+                    const Eigen::Vector3d p_prev{
+                        prev_msg->pose.pose.position.x,
+                        prev_msg->pose.pose.position.y,
+                        prev_msg->pose.pose.position.z};
+                    const Eigen::Vector3d p_curr{
+                        msg.pose.pose.position.x,
+                        msg.pose.pose.position.y,
+                        msg.pose.pose.position.z};
+
+                    finenav::RelativePoseObs rel_obs;
+                    rel_obs.delta_p_body_obs = R_prev.inverse() * (p_curr - p_prev);
+                    rel_obs.delta_R_obs      = R_prev.inverse() * R_curr;
+                    rel_obs.stamp_to         = stamp_to;
+                    rel_obs.stamp_from       = stamp_from;
+
+                    // Displacement covariance — tune empirically or derive from
+                    // msg.pose.covariance (note: that is absolute, not relative).
+                    rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Identity();
+                    rel_obs.R_noise.block<3, 3>(0, 0) *= 0.05 * 0.05;  // σ_p = 5 cm
+                    rel_obs.R_noise.block<3, 3>(3, 3) *= 0.01 * 0.01;  // σ_R = 0.01 rad
+
+                    localizer->feedRelativePose(rel_obs);
+                }
             }
-            twist_msg.twist.twist = msg.twist.twist;
-            twist_msg.twist.covariance[0]  = node->get_parameter("obs_cov.twist_cov_vx").as_double();
-            twist_msg.twist.covariance[7]  = node->get_parameter("obs_cov.twist_cov_vy").as_double();
-            twist_msg.twist.covariance[14] = node->get_parameter("obs_cov.twist_cov_vz").as_double();
-            twist_msg.twist.covariance[21] = node->get_parameter("obs_cov.twist_cov_wx").as_double();
-            twist_msg.twist.covariance[28] = node->get_parameter("obs_cov.twist_cov_wy").as_double();
-            twist_msg.twist.covariance[35] = node->get_parameter("obs_cov.twist_cov_wz").as_double();
-            localizer->feedObservation(twist_msg);
-
-            // ── 额外喂入 roll/pitch 观测（来自 Odometry 的 orientation）────────
-            // fast-lio 的 roll/pitch 可靠，且地图坐标系与启动初始平面对齐，无坐标系歧义。
-            // 通过将 position 和 yaw 协方差设为无穷大，ESKF 仅更新 roll/pitch。
-            {
-                geometry_msgs::msg::PoseWithCovarianceStamped rp_msg;
-                rp_msg.header = msg.header;
-                // 位置直接使用 odometry 中的值（协方差无穷大，对滤波无影响）
-                rp_msg.pose.pose.position    = msg.pose.pose.position;
-                rp_msg.pose.pose.orientation = msg.pose.pose.orientation;
-
-                // position (x,y,z) → 无穷大，完全不信任
-                rp_msg.pose.covariance[0]  = 1.0e9;  // x
-                rp_msg.pose.covariance[7]  = 1.0e9;  // y
-                rp_msg.pose.covariance[14] = 1.0e9;  // z
-                // roll / pitch → 从参数读取（可信）
-                rp_msg.pose.covariance[21] = node->get_parameter("obs_cov.odom_rp_cov_roll").as_double();
-                rp_msg.pose.covariance[28] = node->get_parameter("obs_cov.odom_rp_cov_pitch").as_double();
-                // yaw → 无穷大，不信任（以 /localization_pose 的 yaw 为准）
-                rp_msg.pose.covariance[35] = 1.0e9;
-
-                localizer->feedObservation(rp_msg);
-            }
+            prev_msg = msg;
         }
     );
-
-
 
 
     // --------------------------------- Launch Mapping --------------------------------------
@@ -183,10 +199,15 @@ int main(int argc, char** argv) {
     auto local_map_helper = std::make_shared<finenav_utils::CloudPublishHelper>();
     local_map_helper->configure(local_map_pub, false, "map");
 
+    // 5. ground_cloud : 地面高度点云（青色）
+    auto ground_pub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/ground_cloud", 10);
+    auto ground_helper = std::make_shared<finenav_utils::CloudPublishHelper>();
+    ground_helper->configure(ground_pub, true, "map");
+
     // ============================================================
 
     auto terrain_analyzer = std::make_shared<TerrainAnalyzer>(
-        map_server, node, passability_helper, costmap_helper);
+        map_server, node, passability_helper, costmap_helper, ground_helper);
 
     map_server->registerPreUpdateHook([stvl_manager, localizer](GridMap<Voxel> & map) {
         const auto & state = localizer->getState();
@@ -346,8 +367,6 @@ int main(int argc, char** argv) {
 
     rclcpp::Rate loop_rate(200); // 200Hz
     auto nav_state_pub = node->create_publisher<nav_msgs::msg::Odometry>("nav_state", 10);
-    auto nav_state_pose_pub = node->create_publisher<geometry_msgs::msg::PoseStamped>("nav_state_pose", 10);
-    auto nav_state_twist_pub = node->create_publisher<geometry_msgs::msg::TwistStamped>("nav_state_twist", 10);
 
     while (rclcpp::ok()) {
         auto robot_state = localizer->getState();
@@ -380,20 +399,7 @@ int main(int argc, char** argv) {
         }();
         nav_state_pub->publish(nav_state_msg);
 
-        // nav_state_pose
-        geometry_msgs::msg::PoseStamped pose_msg;
-        pose_msg.header = nav_state_msg.header;
-        pose_msg.pose   = nav_state_msg.pose.pose;
-        nav_state_pose_pub->publish(pose_msg);
-
-        // nav_state_twist
-        geometry_msgs::msg::TwistStamped twist_msg;
-        twist_msg.header = nav_state_msg.header;
-        twist_msg.twist  = nav_state_msg.twist.twist;
-        nav_state_twist_pub->publish(twist_msg);
-
-
-  		// spin_some 已移至独立线程，主循环只做 nav_state 发布与限速
+        // spin_some 已移至独立线程，主循环只做 nav_state 发布与限速
         loop_rate.sleep();
     }
 
