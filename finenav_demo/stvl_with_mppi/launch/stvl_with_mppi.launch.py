@@ -28,6 +28,11 @@ def generate_launch_description():
         'config',
         'finenav_params.yaml'
     )
+    localizer_cov_file = os.path.join(
+        finenav_demo_pkg_dir,
+        'config',
+        'localizer_covariances.yaml'
+    )
 
     finenav_simulator_pkg_dir = get_package_share_directory('finenav_simulator')
     finenav_simulator_launch_file = os.path.join(
@@ -55,6 +60,7 @@ def generate_launch_description():
             {'use_sim_time': use_sim_time},
             mppi_params_file,
             finenav_params_file,
+            localizer_cov_file,
         ]
     )
 

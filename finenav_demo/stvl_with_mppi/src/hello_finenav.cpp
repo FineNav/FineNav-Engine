@@ -50,6 +50,34 @@ int main(int argc, char** argv) {
 
     auto stvl_manager = std::make_shared<StvlManager>(node);
 
+    // ── Covariance parameters for fast-lio fusion ──────────────────────────
+    //
+    //  fast-lio has an internal IMU, so:
+    //    • roll / pitch  → absolute observations (gravity-aligned by IMU)
+    //    • x / y / z / yaw → relative observations only (no global anchor)
+    //
+    //  abs_pose_sigma.*  : std-dev for the absolute-pose feed (pose_msg).
+    //    Set roll/pitch small (trusted), x/y/z/yaw large (distrusted = only
+    //    relative constraint carries these DOFs).
+    //
+    //  rel_pose_sigma.*  : std-dev for the relative-pose feed (rel_obs).
+    //    All 6 DOFs are set to the expected inter-frame increment uncertainty.
+    //
+    //  All parameters are re-read on every callback to support live tuning.
+    node->declare_parameter("abs_pose_sigma.x",     1e3);
+    node->declare_parameter("abs_pose_sigma.y",     1e3);
+    node->declare_parameter("abs_pose_sigma.z",     1e3);
+    node->declare_parameter("abs_pose_sigma.roll",  0.01);   // [rad] — trusted (IMU)
+    node->declare_parameter("abs_pose_sigma.pitch", 0.01);   // [rad] — trusted (IMU)
+    node->declare_parameter("abs_pose_sigma.yaw",   1e3);
+
+    node->declare_parameter("rel_pose_sigma.x",     0.05);   // [m]
+    node->declare_parameter("rel_pose_sigma.y",     0.05);   // [m]
+    node->declare_parameter("rel_pose_sigma.z",     0.05);   // [m]
+    node->declare_parameter("rel_pose_sigma.roll",  0.005);  // [rad]
+    node->declare_parameter("rel_pose_sigma.pitch", 0.005);  // [rad]
+    node->declare_parameter("rel_pose_sigma.yaw",   0.01);   // [rad]
+
     // ------------------------------ Launch Localization ----------------------------------
 
     auto gt_pose_sub = node->create_subscription<nav_msgs::msg::Odometry>(
@@ -66,6 +94,33 @@ int main(int argc, char** argv) {
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
             pose_msg.header    = msg.header;
             pose_msg.pose.pose = msg.pose.pose;
+
+            // ── Read covariance parameters (live — supports dynamic reconfigure) ──
+            // abs_pose: layout [x, y, z, roll, pitch, yaw] (ROS REP-103, diagonal)
+            const double abs_sx  = node->get_parameter("abs_pose_sigma.x").as_double();
+            const double abs_sy  = node->get_parameter("abs_pose_sigma.y").as_double();
+            const double abs_sz  = node->get_parameter("abs_pose_sigma.z").as_double();
+            const double abs_sro = node->get_parameter("abs_pose_sigma.roll").as_double();
+            const double abs_spi = node->get_parameter("abs_pose_sigma.pitch").as_double();
+            const double abs_sya = node->get_parameter("abs_pose_sigma.yaw").as_double();
+
+            // Fill diagonal of 6×6 row-major covariance array.
+            // Off-diagonal elements remain zero (uncorrelated assumption).
+            pose_msg.pose.covariance.fill(0.0);
+            pose_msg.pose.covariance[0]  = abs_sx  * abs_sx;   // x
+            pose_msg.pose.covariance[7]  = abs_sy  * abs_sy;   // y
+            pose_msg.pose.covariance[14] = abs_sz  * abs_sz;   // z
+            pose_msg.pose.covariance[21] = abs_sro * abs_sro;  // roll
+            pose_msg.pose.covariance[28] = abs_spi * abs_spi;  // pitch
+            pose_msg.pose.covariance[35] = abs_sya * abs_sya;  // yaw
+
+            // rel_pose: layout [delta_p_x, delta_p_y, delta_p_z, delta_roll, delta_pitch, delta_yaw]
+            const double rel_sx  = node->get_parameter("rel_pose_sigma.x").as_double();
+            const double rel_sy  = node->get_parameter("rel_pose_sigma.y").as_double();
+            const double rel_sz  = node->get_parameter("rel_pose_sigma.z").as_double();
+            const double rel_sro = node->get_parameter("rel_pose_sigma.roll").as_double();
+            const double rel_spi = node->get_parameter("rel_pose_sigma.pitch").as_double();
+            const double rel_sya = node->get_parameter("rel_pose_sigma.yaw").as_double();
 
             // Cache for relative-pose increment computation
             static std::optional<nav_msgs::msg::Odometry> prev_msg;
@@ -119,11 +174,15 @@ int main(int argc, char** argv) {
                     rel_obs.stamp_to         = stamp_to;
                     rel_obs.stamp_from       = stamp_from;
 
-                    // Displacement covariance — tune empirically or derive from
-                    // msg.pose.covariance (note: that is absolute, not relative).
-                    rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Identity();
-                    rel_obs.R_noise.block<3, 3>(0, 0) *= 0.05 * 0.05;  // σ_p = 5 cm
-                    rel_obs.R_noise.block<3, 3>(3, 3) *= 0.01 * 0.01;  // σ_R = 0.01 rad
+                    // Displacement covariance (diagonal, body-frame):
+                    //   [0:3] translation  [3:6] rotation (SO3 log-map tangent space)
+                    rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Zero();
+                    rel_obs.R_noise(0, 0) = rel_sx  * rel_sx;
+                    rel_obs.R_noise(1, 1) = rel_sy  * rel_sy;
+                    rel_obs.R_noise(2, 2) = rel_sz  * rel_sz;
+                    rel_obs.R_noise(3, 3) = rel_sro * rel_sro;
+                    rel_obs.R_noise(4, 4) = rel_spi * rel_spi;
+                    rel_obs.R_noise(5, 5) = rel_sya * rel_sya;
 
                     localizer->feedRelativePose(rel_obs);
                 }
