@@ -13,6 +13,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <sophus/so3.hpp>
 
 #include "finenav_engine/finenav_engine.hpp"
 #include "grid_map.hpp" // TODO: resolve anti-pattern export
@@ -61,22 +62,74 @@ int main(int argc, char** argv) {
             auto& clock = *node->get_clock();
             RCLCPP_INFO_THROTTLE(node->get_logger(), clock, 2000, "[odom] receive delay: %.2f ms", delay_ms);
 
+            // ── Absolute pose (used for initialisation and drift correction) ──
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
-            pose_msg.header = msg.header;
+            pose_msg.header    = msg.header;
             pose_msg.pose.pose = msg.pose.pose;
 
-            geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
-            twist_msg.header = msg.header;
-            twist_msg.twist.twist = msg.twist.twist;
+            // Cache for relative-pose increment computation
+            static std::optional<nav_msgs::msg::Odometry> prev_msg;
+            static bool localizer_initialized = false;
 
-            static bool localizer_initialized = false;      // TODO: automatically iniitailize when receive the first pose_msg
             if (!localizer_initialized) {
                 localizer->setInitialPose(pose_msg);
                 localizer_initialized = true;
-            } else {
-                localizer->feedObservation(pose_msg);
-                localizer->feedObservation(twist_msg);
+                prev_msg = msg;
+                return;
             }
+
+            // ── Absolute pose observation ──────────────────────────────────────
+            localizer->feedObservation(pose_msg);
+
+            // ── Relative-pose (odometry) observation ───────────────────────────
+            // Uses stamp_from and stamp_to independently so the ESKF maps each
+            // epoch to its exact delay slot — no linearisation error from Δt_odom.
+            if (prev_msg.has_value()) {
+                const rclcpp::Time stamp_from(prev_msg->header.stamp);
+                const rclcpp::Time stamp_to  (msg.header.stamp);
+                const double dt = (stamp_to - stamp_from).seconds();
+
+                if (dt > 1e-6 && dt < 1.0) {
+                    const Eigen::Quaterniond q_prev{
+                        prev_msg->pose.pose.orientation.w,
+                        prev_msg->pose.pose.orientation.x,
+                        prev_msg->pose.pose.orientation.y,
+                        prev_msg->pose.pose.orientation.z};
+                    const Eigen::Quaterniond q_curr{
+                        msg.pose.pose.orientation.w,
+                        msg.pose.pose.orientation.x,
+                        msg.pose.pose.orientation.y,
+                        msg.pose.pose.orientation.z};
+
+                    const Sophus::SO3d R_prev{q_prev.normalized().toRotationMatrix()};
+                    const Sophus::SO3d R_curr{q_curr.normalized().toRotationMatrix()};
+
+                    const Eigen::Vector3d p_prev{
+                        prev_msg->pose.pose.position.x,
+                        prev_msg->pose.pose.position.y,
+                        prev_msg->pose.pose.position.z};
+                    const Eigen::Vector3d p_curr{
+                        msg.pose.pose.position.x,
+                        msg.pose.pose.position.y,
+                        msg.pose.pose.position.z};
+
+                    finenav::RelativePoseObs rel_obs;
+                    rel_obs.delta_p_body_obs = R_prev.inverse() * (p_curr - p_prev);
+                    rel_obs.delta_R_obs      = R_prev.inverse() * R_curr;
+                    rel_obs.stamp_to         = stamp_to;
+                    rel_obs.stamp_from       = stamp_from;
+
+                    // Displacement covariance — tune empirically or derive from
+                    // msg.pose.covariance (note: that is absolute, not relative).
+                    rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Identity();
+                    rel_obs.R_noise.block<3, 3>(0, 0) *= 0.05 * 0.05;  // σ_p = 5 cm
+                    rel_obs.R_noise.block<3, 3>(3, 3) *= 0.01 * 0.01;  // σ_R = 0.01 rad
+
+                    localizer->feedRelativePose(rel_obs);
+                }
+            }
+
+            prev_msg = msg;
         }
     );
 
