@@ -60,11 +60,11 @@ hello_finenav:
   ros__parameters:
     terrain_analysis:
       cost_scaling_factor: 1.0
-      robot_height: 1.0
-      max_gradient: 0.8
+      robot_height: 0.4
+      max_gradient: 0.04
     stvl_manager:
-      decay_time_sec: 0.1
-      decay_time_fov_sec: 0.01
+      decay_time_sec: 50.0
+      decay_time_fov_sec: 1.0
       min_range: 0.0
       max_range: 50.0
       min_angle: 0.0
