@@ -1,20 +1,77 @@
+# astar.yaml - A* 参数定义
 astar:
-  background:
-    r:
-      type: int
-      default_value: 0
-      description: "Red color value for the background, 8-bit"
-      validation:
-        bounds<>: [0, 255]
-    g:
-      type: int
-      default_value: 0
-      description: "Green color value for the background, 8-bit"
-      validation:
-        bounds<>: [0, 255]
-    b:
-      type: int
-      default_value: 0
-      description: "Blue color value for the background, 8-bit"
-      validation:
-        bounds<>: [0, 255]
+  # 运行时选择 2D 或 3D 算法
+  dimension:
+    type: string
+    default_value: "2D"
+    description: "Algorithm dimension: 2D or 3D"
+    validation:
+      enum: ["2D", "3D"]
+
+  heuristic:
+    type: string
+    default_value: "Euclidean"
+    description: "Heuristic type"
+    validation:
+      enum: ["Euclidean", "Manhattan", "Chebyshev"]
+
+  allow_diagonal:
+    type: bool
+    default_value: true
+    description: "Allow diagonal moves (only applies to grid 2D)"
+
+  diagonal_weight:
+    type: double
+    default_value: 1.41421356237
+    description: "Weight/cost of diagonal movement"
+
+  max_search_nodes:
+    type: int
+    default_value: 100000
+    description: "Maximum nodes to expand before aborting search"
+
+  grid_resolution:
+    type: double
+    default_value: 0.1
+    description: "Grid resolution (meters per cell)"
+
+  cost_threshold:
+    type: double
+    # Use an explicit float literal that the generator accepts (avoid scientific notation)
+    default_value: 1000000.0
+    description: "If a cell cost exceeds this, treat as obstacle"
+
+  allow_unknown:
+    type: bool
+    default_value: true
+    description: "Allow unknown cells in the map during planning"
+
+  max_iterations:
+    type: int
+    default_value: 10000
+    description: "Maximum number of iterations for the algorithm"
+
+  max_on_approach_iterations:
+    type: int
+    default_value: 1000
+    description: "Maximum iterations when on approach to the goal"
+
+  terminal_checking_interval:
+    type: int
+    default_value: 100
+    description: "Interval for checking terminal conditions"
+
+  max_planning_time:
+    type: double
+    default_value: 5.0
+    description: "Maximum planning time in seconds"
+
+  lookup_table_size:
+    type: double
+    default_value: 1.0
+    description: "Size of the lookup table for heuristic calculations"
+
+  dim_3_size:
+    type: int
+    default_value: 10
+    description: "Size parameter for 3D dimension calculations"

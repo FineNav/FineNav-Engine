@@ -13,18 +13,22 @@ include_directories(include)
 
 ament_auto_find_build_dependencies()
 
+# 生成参数库
 generate_parameter_library(
         astar_params
         astar.yaml
 )
 
-ament_auto_add_executable(test_executable src/test.cpp)
-target_link_libraries(test_executable astar_params)
+# 原来的 test_executable 可以保留或删除
+# ament_auto_add_executable(test_executable src/main.cpp)
+# target_link_libraries(test_executable astar_params)
 
-#if (BUILD_TESTING)
-#    find_package(ament_cmake_gtest REQUIRED)
-#    ament_find_gtest()
-#    add_subdirectory(test)
-#endif ()
+# ===== 新增你的 astar_planner 可执行文件 =====
+ament_auto_add_executable(astar_planner
+        src/main.cpp
+        )
+
+# 如果 astar_params 是你的参数库，可以链接
+target_link_libraries(astar_planner astar_params)
 
 ament_auto_package()
