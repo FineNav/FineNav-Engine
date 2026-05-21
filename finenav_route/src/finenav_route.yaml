@@ -1,0 +1,53 @@
+finenav_route:
+  graph_filepath:
+    type: string
+    default_value: ""
+    description: "GeoJSON route graph file to load."
+  route_frame:
+    type: string
+    default_value: "map"
+    description: "Frame id assigned to generated route trajectory poses."
+  path_density:
+    type: double
+    default_value: 0.05
+    description: "Distance in meters between dense route trajectory samples."
+    validation:
+      gt<>: [0.0]
+  smooth_corners:
+    type: bool
+    default_value: false
+    description: "Interpolate circular arcs through valid graph corners."
+  smoothing_radius:
+    type: double
+    default_value: 1.0
+    description: "Minimum corner smoothing radius in meters."
+    validation:
+      gt<>: [0.0]
+  max_iterations:
+    type: int
+    default_value: 0
+    description: "Maximum Dijkstra iterations. Use 0 for unlimited."
+  distance_weight:
+    type: double
+    default_value: 1.0
+    description: "Weight applied to distance-based edge costs."
+    validation:
+      gt<>: [0.0]
+  prune_goal:
+    type: bool
+    default_value: true
+    description: "Prune terminal route nodes when pose goals already lie along the terminal edge."
+  max_prune_dist_from_edge:
+    type: double
+    default_value: 8.0
+    description: "Maximum distance from an edge for start/goal pruning."
+    validation:
+      gt<>: [0.0]
+  min_prune_dist_from_start:
+    type: double
+    default_value: 0.10
+    description: "Minimum start pose distance from the start node before pruning the first edge."
+  min_prune_dist_from_goal:
+    type: double
+    default_value: 0.15
+    description: "Minimum goal pose distance from the goal node before pruning the final edge."

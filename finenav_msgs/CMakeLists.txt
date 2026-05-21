@@ -14,9 +14,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
         msg/RobotState.msg
         msg/NavStatus.msg
         action/ComputePlan.action
+        action/ComputePath.action
         action/NavigateToPose.action
-        DEPENDENCIES geometry_msgs std_msgs
+        DEPENDENCIES geometry_msgs std_msgs builtin_interfaces
 )
 
 ament_auto_package()
-

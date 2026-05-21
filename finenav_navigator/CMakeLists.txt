@@ -53,6 +53,13 @@ target_link_libraries(finenav_navigator
         Eigen3::Eigen
 )
 
+add_executable(compute_path_bridge_node
+        src/compute_path_bridge_node.cpp
+)
+ament_target_dependencies(compute_path_bridge_node
+        ${dependencies}
+)
+
 # Action Plugins
 add_library(finenav_compute_plan_behavior SHARED
         src/plugins/action/compute_plan.cpp
@@ -84,6 +91,10 @@ target_compile_definitions(finenav_publish_zero_cmd_vel_behavior PRIVATE BT_PLUG
 install(TARGETS finenav_navigator
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
+        RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS compute_path_bridge_node
         RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
