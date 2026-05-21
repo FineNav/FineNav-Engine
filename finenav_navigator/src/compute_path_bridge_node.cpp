@@ -15,6 +15,7 @@
 #include "finenav_msgs/action/compute_path.hpp"
 #include "finenav_msgs/action/compute_plan.hpp"
 #include "finenav_msgs/msg/trajectory.hpp"
+#include "finenav_route/route_path_planner.hpp"
 
 namespace finenav
 {
@@ -71,10 +72,9 @@ private:
         const rclcpp_action::GoalUUID &,
         std::shared_ptr<const ComputePath::Goal> goal)
     {
-        if ((goal->ref_traj.valid_fields & finenav_msgs::msg::Trajectory::TRAJ_POSE) == 0 ||
-            goal->ref_traj.poses.empty())
+        if (goal->graph_json.empty())
         {
-            RCLCPP_WARN(get_logger(), "Rejecting ComputePath goal without pose trajectory.");
+            RCLCPP_WARN(get_logger(), "Rejecting ComputePath goal without route graph json.");
             return rclcpp_action::GoalResponse::REJECT;
         }
         return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
@@ -96,11 +96,29 @@ private:
         const auto start_time = now();
         const auto goal = goal_handle->get_goal();
 
-        path_pub_->publish(goal->ref_traj);
+        finenav_msgs::msg::Trajectory path;
+        try {
+            path = route_path_planner_.plan(
+                goal->graph_json, goal->start_node_id, goal->goal_node_id);
+        } catch (const std::exception & ex) {
+            RCLCPP_ERROR(get_logger(), "Route path planning failed: %s", ex.what());
+            goal_handle->abort(makeResult(start_time));
+            return;
+        }
+
+        if ((path.valid_fields & finenav_msgs::msg::Trajectory::TRAJ_POSE) == 0 ||
+            path.poses.empty())
+        {
+            RCLCPP_ERROR(get_logger(), "Route path planning produced an empty pose trajectory.");
+            goal_handle->abort(makeResult(start_time));
+            return;
+        }
+
+        path_pub_->publish(path);
         RCLCPP_INFO(
             get_logger(),
-            "Published frontend reference trajectory with %zu poses.",
-            goal->ref_traj.poses.size());
+            "Published route reference trajectory with %zu poses from node %u to node %u.",
+            path.poses.size(), goal->start_node_id, goal->goal_node_id);
 
         const auto timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::duration<double>(server_timeout_s_));
@@ -114,7 +132,7 @@ private:
         }
 
         ComputePlan::Goal controller_goal;
-        controller_goal.goal = goal->goal;
+        controller_goal.goal = path.poses.back();
         controller_goal.planner_id = goal->planner_id;
 
         auto controller_goal_future = controller_client_->async_send_goal(controller_goal);
@@ -141,6 +159,7 @@ private:
         auto bridge_result = makeResult(start_time);
         switch (wrapped_result.code) {
             case rclcpp_action::ResultCode::SUCCEEDED:
+                bridge_result->path = path;
                 goal_handle->succeed(bridge_result);
                 break;
             case rclcpp_action::ResultCode::CANCELED:
@@ -170,6 +189,7 @@ private:
     rclcpp::Publisher<finenav_msgs::msg::Trajectory>::SharedPtr path_pub_;
     rclcpp_action::Client<ComputePlan>::SharedPtr controller_client_;
     rclcpp_action::Server<ComputePath>::SharedPtr action_server_;
+    finenav_route::RoutePathPlanner route_path_planner_;
 };
 
 }  // namespace finenav

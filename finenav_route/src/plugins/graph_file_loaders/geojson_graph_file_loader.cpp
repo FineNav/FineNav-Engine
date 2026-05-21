@@ -41,8 +41,22 @@ bool GeoJsonGraphFileLoader::loadGraphFromFile(
     return false;
   }
 
+  return loadGraphFromJson(graph, graph_to_id_map, json_graph.dump());
+}
+
+bool GeoJsonGraphFileLoader::loadGraphFromJson(
+  Graph & graph, GraphToIDMap & graph_to_id_map, const std::string & graph_json)
+{
+  Json json_graph;
+  try {
+    json_graph = Json::parse(graph_json);
+  } catch (Json::parse_error & ex) {
+    RCLCPP_ERROR(logger_, "Failed to parse route graph json: %s", ex.what());
+    return false;
+  }
+
   if (!json_graph.contains("features") || !json_graph["features"].is_array()) {
-    RCLCPP_ERROR(logger_, "The graph file %s does not contain a features array", filepath.c_str());
+    RCLCPP_ERROR(logger_, "The route graph json does not contain a features array");
     return false;
   }
 
@@ -51,12 +65,12 @@ bool GeoJsonGraphFileLoader::loadGraphFromFile(
   getGraphElements(features, nodes, edges);
 
   if (nodes.empty() || edges.empty()) {
-    RCLCPP_ERROR(
-      logger_, "The graph is malformed. Is does not contain nodes or edges. Please check %s",
-      filepath.c_str());
+    RCLCPP_ERROR(logger_, "The route graph json is malformed. It does not contain nodes or edges.");
     return false;
   }
 
+  graph.clear();
+  graph_to_id_map.clear();
   graph.resize(nodes.size());
   addNodesToGraph(graph, graph_to_id_map, nodes);
   addEdgesToGraph(graph, graph_to_id_map, edges);

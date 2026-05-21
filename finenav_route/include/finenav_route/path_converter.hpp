@@ -21,8 +21,6 @@
 
 #include <geometry_msgs/msg/pose.hpp>
 
-#include "finenav_core/plan/data_packet.hpp"
-#include "finenav_route/corner_smoothing.hpp"
 #include "finenav_route/types.hpp"
 
 namespace finenav_route
@@ -34,18 +32,12 @@ public:
   struct Config
   {
     float density{0.05f};
-    float smoothing_radius{1.0f};
-    bool smooth_corners{false};
   };
 
-  static constexpr finenav::IOProfile OutputProfile = {
-    .pose = true,
-    .vel = false,
-    .accel = false,
-    .time = false
+  struct Trajectory
+  {
+    std::vector<geometry_msgs::msg::Pose> poses;
   };
-
-  using Trajectory = finenav::DataPacket<OutputProfile>;
 
   PathConverter() = default;
   ~PathConverter() = default;
@@ -65,11 +57,12 @@ public:
 
 protected:
   geometry_msgs::msg::Pose makePose(float x, float y) const;
+  void appendPoseIfNew(
+    const geometry_msgs::msg::Pose & pose,
+    std::vector<geometry_msgs::msg::Pose> & poses) const;
   void assignOrientations(std::vector<geometry_msgs::msg::Pose> & poses) const;
 
   float density_{0.05f};
-  float smoothing_radius_{1.0f};
-  bool smooth_corners_{false};
 };
 
 }  // namespace finenav_route

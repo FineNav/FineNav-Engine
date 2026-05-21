@@ -12,13 +12,6 @@ target_link_libraries(test_geojson_graph_file_loader
   ${library_name}
 )
 
-ament_add_gtest(test_spatial_tree
-  test_spatial_tree.cpp
-)
-target_link_libraries(test_spatial_tree
-  ${library_name}
-)
-
 ament_add_gtest(test_route_planner
   test_route_planner.cpp
 )

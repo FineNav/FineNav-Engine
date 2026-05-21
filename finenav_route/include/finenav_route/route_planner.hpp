@@ -39,10 +39,10 @@ public:
 
   void configure(const Config & config);
 
-  virtual Route findRoute(
-    Graph & graph, unsigned int start_index, unsigned int goal_index,
-    const std::vector<unsigned int> & blocked_ids,
-    const RouteRequest & route_request = {});
+	  virtual Route findRoute(
+	    Graph & graph, unsigned int start_index, unsigned int goal_index,
+	    const std::vector<unsigned int> & blocked_ids,
+	    const RouteRequest & route_request = RouteRequest());
 
 protected:
   inline void resetSearchStates(Graph & graph);

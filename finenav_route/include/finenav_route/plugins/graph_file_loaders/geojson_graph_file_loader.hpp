@@ -58,6 +58,11 @@ public:
     GraphToIDMap & graph_to_id_map,
     std::string filepath) override;
 
+  bool loadGraphFromJson(
+    Graph & graph,
+    GraphToIDMap & graph_to_id_map,
+    const std::string & graph_json);
+
 protected:
   /**
    * @brief Checks if a file even exists on the filesystem

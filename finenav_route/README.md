@@ -101,7 +101,7 @@ A set of 1,000 experiments were run with the route planner with randomly selecte
 
 This is in comparison with typical run-times of free-space global planners between 50 ms - 400 ms (depending on environment size and structure). Thus, the typical performance of using the route planner - even in truly massive environments to need hundreds of thousands of nodes of interest or importance - is well in excess of freespace planning. This enables Nav2 to operate in much larger spaces and still perform global routing. There's little reason then to use a heuristic-driven A* when Dikjstra's Algorithm is plenty fast for even massively connected graphs.
 
-The script used for this analysis can be found in `test/performance_benchmarking.cpp`.
+The original Nav2 benchmarking script is not kept in this FineNav adapter because the current route flow receives explicit node ids and does not use pose-to-node spatial lookup.
 
 ## Parameters
 
@@ -114,8 +114,6 @@ route_server:
     path_density: 0.05                            # Density of points for generating the dense nav_msgs/Path from route (m)
     max_iterations: 0                             # Maximum number of search iterations, if 0, uses maximum possible
     max_planning_time: 2.0                        # Maximum planning time (seconds)
-    smooth_corners: true                          # Whether to smooth corners formed by adjacent edges or not
-    smoothing_radius: 1.0                         # Radius of corner to fit into the corner
     costmap_topic: 'global_costmap/costmap_raw'   # Costmap topic when enable_nn_search is enabled. May also be used by the collision monitor operation and/or the costmap edge scorer if using the same topic to share resources.
 
     graph_file_loader: "GeoJsonGraphFileLoader"   # Name of default file loader

@@ -11,12 +11,8 @@
 
   <depend>rclcpp</depend>
   <depend>geometry_msgs</depend>
-  <depend>libnanoflann-dev</depend>
   <depend>nlohmann-json-dev</depend>
-  <depend>finenav_core</depend>
   <depend>finenav_msgs</depend>
-  <depend>finenav_util</depend>
-  <depend>generate_parameter_library</depend>
 
   <test_depend>ament_lint_common</test_depend>
   <test_depend>ament_lint_auto</test_depend>

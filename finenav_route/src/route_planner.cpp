@@ -43,7 +43,7 @@ Route RoutePlanner::findRoute(
   const NodePtr & goal_node = &graph.at(goal_index);
   findShortestGraphTraversal(graph, start_node, goal_node, blocked_ids, route_request);
 
-  EdgePtr & parent_edge = goal_node->search_state.parent_edge;
+  EdgePtr parent_edge = goal_node->search_state.parent_edge;
   if (!parent_edge) {
     throw NoValidRouteCouldBeFound("Could not find a route to the requested goal!");
   }

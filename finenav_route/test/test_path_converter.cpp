@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "finenav_route/path_converter.hpp"
+#include "finenav_route/route_exceptions.hpp"
 
 using namespace finenav_route;  // NOLINT
 
@@ -34,9 +35,11 @@ TEST(PathConverterTest, DensifiesRouteToPoseTrajectory)
   test_edge1.edgeid = 13;
   test_edge1.start = &test_node1;
   test_edge1.end = &test_node2;
+  test_edge1.polyline = {test_node1.coords, test_node2.coords};
   test_edge2.edgeid = 14;
   test_edge2.start = &test_node2;
   test_edge2.end = &test_node3;
+  test_edge2.polyline = {test_node2.coords, test_node3.coords};
 
   route.start_node = &test_node1;
   route.route_cost = 50.0;
@@ -85,6 +88,10 @@ TEST(PathConverterTest, HandlesReroutingPrefix)
 
   DirectionalEdge edge;
   edge.end = &test_node;
+  Coordinates start;
+  start.x = 0.0;
+  start.y = 0.0;
+  edge.polyline = {start, test_node.coords};
 
   ReroutingState info;
   info.closest_pt_on_edge.x = 0.0;
@@ -93,6 +100,69 @@ TEST(PathConverterTest, HandlesReroutingPrefix)
 
   auto traj = converter.densify(route, info);
   EXPECT_EQ(traj.poses.size(), 21u);
+}
+
+TEST(PathConverterTest, RejectsRouteEdgeWithoutPolyline)
+{
+  PathConverter converter;
+  converter.configure(PathConverter::Config{});
+
+  Route route;
+  Node test_node1, test_node2;
+  test_node1.nodeid = 10;
+  test_node1.coords.x = 0.0;
+  test_node1.coords.y = 0.0;
+  test_node2.nodeid = 11;
+  test_node2.coords.x = 1.0;
+  test_node2.coords.y = 0.0;
+
+  DirectionalEdge edge;
+  edge.edgeid = 12;
+  edge.start = &test_node1;
+  edge.end = &test_node2;
+
+  route.start_node = &test_node1;
+  route.edges.push_back(&edge);
+
+  EXPECT_THROW(converter.densify(route), NoValidGraph);
+}
+
+TEST(PathConverterTest, DoesNotDuplicateSharedEdgeEndpoints)
+{
+  PathConverter converter;
+  converter.configure(PathConverter::Config{});
+
+  Route route;
+  Node node1, node2, node3;
+  node1.coords.x = 0.0;
+  node1.coords.y = 0.0;
+  node2.coords.x = 1.0;
+  node2.coords.y = 0.0;
+  node3.coords.x = 2.0;
+  node3.coords.y = 0.0;
+
+  DirectionalEdge edge1, edge2;
+  edge1.start = &node1;
+  edge1.end = &node2;
+  edge1.polyline = {node1.coords, node2.coords};
+  edge2.start = &node2;
+  edge2.end = &node3;
+  edge2.polyline = {node2.coords, node3.coords};
+
+  route.start_node = &node1;
+  route.edges.push_back(&edge1);
+  route.edges.push_back(&edge2);
+
+  auto traj = converter.densify(route);
+  for (size_t i = 1; i < traj.poses.size(); ++i) {
+    const auto & prev = traj.poses[i - 1];
+    const auto & curr = traj.poses[i];
+    EXPECT_GT(
+      hypotf(
+        curr.position.x - prev.position.x,
+        curr.position.y - prev.position.y),
+      1e-6f);
+  }
 }
 
 TEST(PathConverterTest, InterpolatesEdgesByDensity)

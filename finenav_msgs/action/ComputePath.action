@@ -1,9 +1,11 @@
 # Request
-geometry_msgs/Pose goal
 string planner_id
-finenav_msgs/Trajectory ref_traj
+string graph_json
+uint32 start_node_id
+uint32 goal_node_id
 ---
 # Result
 builtin_interfaces/Duration planning_time
+finenav_msgs/Trajectory path
 ---
 # Feedback
