@@ -1,4 +1,10 @@
 world_spawn_poses:
+  empty.world:
+    x: 0.0
+    y: 0.0
+    z: 0.8
+    yaw: 0.0
+
   flat_small_scale_maze.world:
     x: 2.0
     y: 2.0

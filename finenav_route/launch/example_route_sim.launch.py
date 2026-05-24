@@ -34,12 +34,12 @@ def generate_launch_description():
     mppi_params_file = os.path.join(
         demo_pkg_dir,
         "config",
-        "mppi_params.yaml",
+        "route_mppi_params.yaml",
     )
     finenav_params_file = os.path.join(
         demo_pkg_dir,
         "config",
-        "finenav_params.yaml",
+        "route_finenav_params.yaml",
     )
 
     declare_graph_file = DeclareLaunchArgument(
@@ -64,7 +64,7 @@ def generate_launch_description():
     )
     declare_world_name = DeclareLaunchArgument(
         "world_name",
-        default_value="flat_small_scale_maze.world",
+        default_value="empty.world",
         description="Gazebo world file name.",
     )
     declare_lio_type = DeclareLaunchArgument(
@@ -96,9 +96,9 @@ def generate_launch_description():
         }.items(),
     )
 
-    start_hello_finenav = Node(
+    start_route_finenav = Node(
         package="finenav_demo",
-        executable="hello_finenav",
+        executable="route_finenav",
         output="screen",
         parameters=[
             {"use_sim_time": True},
@@ -114,8 +114,8 @@ def generate_launch_description():
         parameters=[{
             "use_sim_time": True,
             "action_name": "/compute_path",
-            "controller_action_name": "/hello_finenav/mppi_layer",
-            "path_topic": "/hello_finenav/line_path",
+            "controller_action_name": "/route_finenav/mppi_layer",
+            "path_topic": "/route_finenav/line_path",
             "nav_state_topic": "/nav_state",
             "use_current_pose_as_start": LaunchConfiguration("use_current_pose_as_start"),
             "connector_density": 0.05,
@@ -151,7 +151,7 @@ def generate_launch_description():
     ld.add_action(declare_send_goal_delay)
     ld.add_action(declare_use_current_pose_as_start)
     ld.add_action(start_simulator)
-    ld.add_action(start_hello_finenav)
+    ld.add_action(start_route_finenav)
     ld.add_action(start_compute_path_bridge)
     ld.add_action(send_route_goal)
 
