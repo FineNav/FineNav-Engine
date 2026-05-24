@@ -42,41 +42,15 @@ public:
     using Context = PlanningContext<AStarPlanner>;
     using Result  = std::optional<OutputDataT<AStarPlanner>>;
 
-    void configure(const ConfigType& params) {
-        heuristic_ = params.heuristic; // Configure heuristic type
-        allow_diagonal_ = params.allow_diagonal;
-        diagonal_weight_ = params.diagonal_weight;
-    }
+    void configure(const ConfigType& params);
 
-    Result plan(const Context& ctx, const IMapView& map_view) {
-        astar::Vec2 start(ctx.start_pose.x, ctx.start_pose.y);
-        astar::Vec2 goal(ctx.goal_pose.x, ctx.goal_pose.y);
-
-        auto map_adapter = [&map_view](const astar::Vec2& pos) {
-            return map_view.isWalkable(pos) ? map_view.getCost(pos) : std::numeric_limits<double>::infinity();
-        };
-
-        astar::AStar<decltype(map_adapter)> planner(map_adapter, heuristic_);
-        planner.setAllowDiagonal(allow_diagonal_);
-        planner.setDiagonalWeight(diagonal_weight_);
-
-        auto path = planner.findPath(start, goal);
-        if (!path) {
-            return std::nullopt; // No path found
-        }
-
-        OutputDataT<AStarPlanner> output;
-        for (const auto& point : *path) {
-            output.trajectory.push_back({point.x, point.y});
-        }
-
-        return output;
-    }
+    Result plan(const Context& ctx, const IMapView& map_view);
 
 private:
     astar::Heuristic heuristic_ = astar::Heuristic::Euclidean;
     bool allow_diagonal_ = true;
     double diagonal_weight_ = std::sqrt(2);
+    double goal_tolerance_ = 0.25;
 };
 
 } // namespace finenav

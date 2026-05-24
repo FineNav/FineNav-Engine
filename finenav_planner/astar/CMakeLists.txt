@@ -23,10 +23,17 @@ generate_parameter_library(
 # ament_auto_add_executable(test_executable src/main.cpp)
 # target_link_libraries(test_executable astar_params)
 
+ament_auto_add_library(astar_planner_lib
+        src/AstarPlanner_2d.cpp
+)
+target_link_libraries(astar_planner_lib astar_params)
+
 # ===== 新增你的 astar_planner 可执行文件 =====
 ament_auto_add_executable(astar_planner
         src/main.cpp
-        )
+        src/AstarPlanner_2d.cpp
+)
+target_link_libraries(astar_planner astar_planner_lib)
 
 # 如果 astar_params 是你的参数库，可以链接
 target_link_libraries(astar_planner astar_params)
