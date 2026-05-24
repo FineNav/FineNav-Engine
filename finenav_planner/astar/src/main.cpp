@@ -22,7 +22,7 @@ int main() {
     astar::Vec2 goal{8, 8};
 
     // A*求解器
-    astar::AStar<decltype(map)> planner(map, astar::Heuristic::Manhattan);
+    astar::AStar<decltype(map)> planner(map, astar::Heuristic::Euclidean);
     planner.setAllowDiagonal(false);  // 只用上下左右
 
     // 找路径

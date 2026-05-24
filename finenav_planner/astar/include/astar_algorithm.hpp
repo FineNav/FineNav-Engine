@@ -24,19 +24,6 @@
 
 namespace astar {
 
-// A flexible A* implementation that accepts either:
-//  - a map-like object with:
-//          isWalkable(const Vec2&)
-//          getCost(const Vec2&)
-//          (optional) isUnknown(const Vec2&)
-//
-//  - or a callable:
-//          double(const Vec2&)
-//
-// callable returns:
-//      finite cost     -> walkable
-//      infinity        -> obstacle
-
 template<typename Map>
 class AStarAlgorithm {
 public:
@@ -82,11 +69,6 @@ public:
         max_planning_time_ = max_time;
     }
 
-    void setMaxOnApproachIterations(int max_iter)
-    {
-        max_on_approach_iterations_ = max_iter;
-    }
-
     // =========================================================
     // main search
     // =========================================================
@@ -95,25 +77,48 @@ public:
         const Vec2& start,
         const Vec2& goal)
     {
+        // =====================================================
+        // start / goal validity
+        // =====================================================
+
         if (!invoke_isWalkable(map_, start) ||
             !invoke_isWalkable(map_, goal))
         {
             return std::nullopt;
         }
 
+        // =====================================================
+        // reset containers
+        // =====================================================
+
         open_set_ = {};
+
         visited_.clear();
+
         came_from_.clear();
 
         int iterations = 0;
-        int approach_iterations = 0;
 
         auto start_time =
             std::chrono::steady_clock::now();
 
+        // =====================================================
+        // best near-goal candidate
+        // =====================================================
+
+        std::optional<Node2D<double>>
+            best_goal_node;
+
+        double best_goal_dist =
+            std::numeric_limits<double>::infinity();
+
+        // =====================================================
+        // init start node
+        // =====================================================
+
         Node2D<double> start_node(start);
 
-        start_node.g = 0;
+        start_node.g = 0.0;
 
         start_node.h =
             calculateHeuristic(
@@ -123,9 +128,17 @@ public:
 
         start_node.updateF();
 
+        // important:
+        // let start parent point to itself
+        start_node.parent = start;
+
         open_set_.push(start_node);
 
         came_from_[start] = start_node;
+
+        // =====================================================
+        // main loop
+        // =====================================================
 
         while (!open_set_.empty())
         {
@@ -136,11 +149,11 @@ public:
             if (max_iterations_ >= 0 &&
                 iterations++ > max_iterations_)
             {
-                return std::nullopt;
+                break;
             }
 
             // =================================================
-            // planning time limit
+            // planning timeout
             // =================================================
 
             auto now =
@@ -152,7 +165,7 @@ public:
 
             if (elapsed > max_planning_time_)
             {
-                return std::nullopt;
+                break;
             }
 
             // =================================================
@@ -165,28 +178,41 @@ public:
             open_set_.pop();
 
             // =================================================
-            // skip visited
+            // skip closed nodes
             // =================================================
 
             if (visited_.contains(current.pos))
+            {
                 continue;
+            }
 
             visited_.insert(current.pos);
 
             // =================================================
-            // goal tolerance check
+            // exact goal reached
             // =================================================
 
-            if (isGoalReached(current.pos, goal))
+            if (current.pos == goal)
             {
-                if (approach_iterations >=
-                    max_on_approach_iterations_)
-                {
-                    return reconstructPath(
-                        current.pos);
-                }
+                return reconstructPath(goal);
+            }
 
-                approach_iterations++;
+            // =================================================
+            // update best near-goal node
+            // =================================================
+
+            double goal_dist =
+                distanceToGoal(
+                    current.pos,
+                    goal);
+
+            if (goal_dist < best_goal_dist)
+            {
+                best_goal_dist =
+                    goal_dist;
+
+                best_goal_node =
+                    current;
             }
 
             // =================================================
@@ -201,8 +227,9 @@ public:
                 // ---------------------------------------------
 
                 if (!allow_unknown_ &&
-                    invoke_isUnknown(map_,
-                                     neighbor_pos))
+                    invoke_isUnknown(
+                        map_,
+                        neighbor_pos))
                 {
                     continue;
                 }
@@ -211,14 +238,25 @@ public:
                 // obstacle handling
                 // ---------------------------------------------
 
-                if (!invoke_isWalkable(map_,
-                                       neighbor_pos))
+                if (!invoke_isWalkable(
+                        map_,
+                        neighbor_pos))
                 {
                     continue;
                 }
 
                 // ---------------------------------------------
-                // step cost
+                // closed set skip
+                // ---------------------------------------------
+
+                if (visited_.contains(
+                        neighbor_pos))
+                {
+                    continue;
+                }
+
+                // ---------------------------------------------
+                // movement cost
                 // ---------------------------------------------
 
                 double step_cost =
@@ -226,13 +264,24 @@ public:
                         current.pos,
                         neighbor_pos);
 
-                step_cost *=
+                // ---------------------------------------------
+                // map traversal cost
+                // IMPORTANT:
+                // avoid multiplying by zero
+                // ---------------------------------------------
+
+                double map_cost =
                     invoke_getCost(
                         map_,
                         neighbor_pos);
 
+                double traversal_cost =
+                    1.0 + map_cost;
+
                 double tentative_g =
-                    current.g + step_cost;
+                    current.g +
+                    step_cost *
+                    traversal_cost;
 
                 // ---------------------------------------------
                 // relaxation
@@ -247,13 +296,21 @@ public:
                     Node2D<double> neighbor(
                         neighbor_pos);
 
-                    neighbor.g = tentative_g;
+                    neighbor.g =
+                        tentative_g;
 
                     neighbor.h =
                         calculateHeuristic(
                             heuristic_,
                             neighbor_pos,
                             goal);
+
+                    // -----------------------------------------
+                    // tie breaker
+                    // encourage straighter path
+                    // -----------------------------------------
+
+                    neighbor.h *= 1.001;
 
                     neighbor.updateF();
 
@@ -266,6 +323,18 @@ public:
                     open_set_.push(neighbor);
                 }
             }
+        }
+
+        // =====================================================
+        // fallback:
+        // return best near-goal path
+        // =====================================================
+
+        if (best_goal_node.has_value() &&
+            best_goal_dist <= goal_tolerance_)
+        {
+            return reconstructPath(
+                best_goal_node->pos);
         }
 
         return std::nullopt;
@@ -296,10 +365,10 @@ private:
                 Map,
                 const Vec2&>)
         {
-            double c = std::invoke(m, pos);
+            double c =
+                std::invoke(m, pos);
 
-            return std::isfinite(c)
-                   &&
+            return std::isfinite(c) &&
                    c <
                    std::numeric_limits<double>::infinity();
         }
@@ -311,7 +380,7 @@ private:
 
     // =========================================================
     // helper:
-    // unknown check
+    // unknown
     // =========================================================
 
     static bool invoke_isUnknown(
@@ -335,7 +404,7 @@ private:
 
     // =========================================================
     // helper:
-    // cost
+    // traversal cost
     // =========================================================
 
     static double invoke_getCost(
@@ -365,10 +434,11 @@ private:
     }
 
     // =========================================================
-    // goal tolerance
+    // helper:
+    // goal distance
     // =========================================================
 
-    bool isGoalReached(
+    double distanceToGoal(
         const Vec2& current,
         const Vec2& goal) const
     {
@@ -380,10 +450,7 @@ private:
             static_cast<double>(
                 current.y - goal.y);
 
-        double dist =
-            std::sqrt(dx * dx + dy * dy);
-
-        return dist <= goal_tolerance_;
+        return std::sqrt(dx * dx + dy * dy);
     }
 
     // =========================================================
@@ -424,7 +491,8 @@ private:
 
         for (const auto& off : ortho)
         {
-            neighbors.push_back(pos + off);
+            neighbors.push_back(
+                pos + off);
         }
 
         if (allow_diagonal_)
@@ -439,7 +507,8 @@ private:
 
             for (const auto& off : diag)
             {
-                neighbors.push_back(pos + off);
+                neighbors.push_back(
+                    pos + off);
             }
         }
 
@@ -457,21 +526,19 @@ private:
 
         Vec2 cur = goal;
 
-        size_t guard =
-            came_from_.size()
-            ?
-            came_from_.size()
-            :
-            static_cast<size_t>(100000);
-
-        while (came_from_.contains(cur)
-               &&
-               path.size() <= guard)
+        while (true)
         {
             path.push_back(cur);
 
-            cur =
-                came_from_.at(cur).parent;
+            const auto& node =
+                came_from_.at(cur);
+
+            if (cur == node.parent)
+            {
+                break;
+            }
+
+            cur = node.parent;
         }
 
         std::reverse(
@@ -508,8 +575,6 @@ private:
     int max_iterations_ = 1000000;
 
     double max_planning_time_ = 5.0;
-
-    int max_on_approach_iterations_ = 1000;
 
     // =========================================================
     // search containers
