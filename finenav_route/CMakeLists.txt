@@ -6,7 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(finenav_msgs REQUIRED)
 
@@ -16,7 +18,9 @@ set(library_name finenav_route_core)
 
 set(dependencies
   rclcpp
+  rclcpp_action
   geometry_msgs
+  nav_msgs
   nlohmann_json
   finenav_msgs
 )
@@ -32,8 +36,27 @@ ament_target_dependencies(${library_name}
   ${dependencies}
 )
 
+add_executable(compute_path_bridge_node
+  src/compute_path_bridge_node.cpp
+)
+ament_target_dependencies(compute_path_bridge_node
+  ${dependencies}
+)
+target_link_libraries(compute_path_bridge_node
+  ${library_name}
+)
+
 install(DIRECTORY include/
   DESTINATION include
+)
+
+install(DIRECTORY launch test
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  scripts/send_compute_path_goal.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(TARGETS ${library_name}
@@ -41,6 +64,10 @@ install(TARGETS ${library_name}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+)
+
+install(TARGETS compute_path_bridge_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)

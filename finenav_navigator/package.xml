@@ -16,6 +16,7 @@
     <depend>generate_parameter_library</depend>
     <depend>eigen</depend>
     <depend>eigen3_cmake_module</depend>
+    <depend>geometry_msgs</depend>
     <depend>finenav_msgs</depend>
     <depend>finenav_route</depend>
     <depend>finenav_util</depend>

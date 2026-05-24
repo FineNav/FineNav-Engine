@@ -7,10 +7,12 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <fstream>
 #include <vector>
 
 #include "finenav_route/path_converter.hpp"
 #include "finenav_route/route_exceptions.hpp"
+#include "finenav_route/route_path_planner.hpp"
 
 using namespace finenav_route;  // NOLINT
 
@@ -180,4 +182,23 @@ TEST(PathConverterTest, InterpolatesEdgesByDensity)
         poses[i].position.x - poses[i + 1].position.x,
         poses[i].position.y - poses[i + 1].position.y), 0.05);
   }
+}
+
+TEST(RoutePathPlannerTest, PlansCenteredRectangleGraph)
+{
+  std::ifstream graph_file("test_graphs/rectangle_centered.json");
+  ASSERT_TRUE(graph_file.good());
+  const std::string graph_json(
+    (std::istreambuf_iterator<char>(graph_file)),
+    std::istreambuf_iterator<char>());
+
+  RoutePathPlanner planner;
+  auto traj = planner.plan(graph_json, 1u, 5u);
+
+  ASSERT_FALSE(traj.poses.empty());
+  EXPECT_NEAR(traj.poses.front().position.x, -3.0, 0.01);
+  EXPECT_NEAR(traj.poses.front().position.y, -2.0, 0.01);
+  EXPECT_NEAR(traj.poses.back().position.x, -3.0, 0.01);
+  EXPECT_NEAR(traj.poses.back().position.y, -2.0, 0.01);
+  EXPECT_GT(traj.poses.size(), 300u);
 }
