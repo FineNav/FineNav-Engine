@@ -21,9 +21,9 @@ int main() {
     astar::Vec2 start{1, 1};
     astar::Vec2 goal{8, 8};
 
-    // A*求解器
-    astar::AStar<decltype(map)> planner(map, astar::Heuristic::Euclidean);
-    planner.setAllowDiagonal(false);  // 只用上下左右
+    // A*求解器（参数选择）
+    astar::AStar<decltype(map)> planner(map, astar::Heuristic::Euclidean); // 选择使用何种距离来计算
+    planner.setAllowDiagonal(false); // 选择是否能八方向行走
 
     // 找路径
     auto path = planner.findPath(start, goal);
