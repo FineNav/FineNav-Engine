@@ -15,6 +15,7 @@
 #include "voxel.hpp"
 
 #include "finenav_util/cloud_publish_helper.hpp"
+#include <nav_msgs/msg/occupancy_grid.hpp>
 
 
 class TerrainAnalyzer {
@@ -49,6 +50,8 @@ public:
 
 
 private:
+    void ApplyGroundMeanFilter(Eigen::ArrayXXf& ground_array, int kernel_size);
+
     void TerrainAnalysis(float robot_pose_z, const finenav::GridMap<Voxel>& map);
     void MapInflation();
     cv::Mat DistanceTransform();
@@ -57,8 +60,14 @@ private:
     rclcpp::Node::SharedPtr node_;  // 仅用于获取时间戳
     std::shared_ptr<finenav_utils::CloudPublishHelper> passability_helper_;
     std::shared_ptr<finenav_utils::CloudPublishHelper> costmap_helper_;
+
+    nav_msgs::msg::OccupancyGrid::SharedPtr global_map_;
+    rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr global_map_sub_;
+
     cv::Mat passability_image_;
     cv::Mat costmap_image_;
     double cost_scaling_factor_{1.0};
+    double robot_height_{1.0};
+    double max_gradient_{0.8};
     double cached_resolution_{0.1};
 };

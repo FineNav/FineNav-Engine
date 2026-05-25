@@ -77,6 +77,11 @@ int main(int argc, char** argv) {
         "/localization_pose",
         10,
         [localizer, node](const geometry_msgs::msg::PoseStamped& msg) {
+
+            // output delay millisecond
+            auto delay = node->now() - rclcpp::Time(msg.header.stamp);
+            RCLCPP_INFO_STREAM(node->get_logger(), "Odometry delay with: " << delay.seconds() * 1000.0 << " ms");
+
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
             pose_msg.header = msg.header;
             pose_msg.pose.pose = msg.pose;
@@ -102,6 +107,10 @@ int main(int argc, char** argv) {
         10,
         [localizer, node](const nav_msgs::msg::Odometry& msg) {
             if (!localizer_initialized.load()) return; // wait for initial pose
+
+//            // output delay millisecond
+//            auto delay = node->now() - rclcpp::Time(msg.header.stamp);
+//            RCLCPP_INFO_STREAM(node->get_logger(), "Odometry delay with: " << delay.seconds() * 1000.0 << " ms");
 
             geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
             twist_msg.header = msg.header;
@@ -241,7 +250,7 @@ int main(int argc, char** argv) {
         });
 
     auto cloud_sub = node->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/cloud_for_lio",
+        "/cloud_registered_body",
         10,
         [node, laser_injector](const sensor_msgs::msg::PointCloud2 & msg) {
             pcl::PointCloud<pcl::PointXYZ> pcl_cloud;

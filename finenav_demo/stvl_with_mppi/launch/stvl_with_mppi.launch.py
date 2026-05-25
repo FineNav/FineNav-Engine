@@ -49,11 +49,12 @@ def generate_launch_description():
         executable='hello_finenav',
         output='screen',
         parameters=[
-            {'use_sim_time': False},
+            {'use_sim_time': False,},
             mppi_params_file,
             finenav_params_file,
             obs_cov_file,
-        ]
+        ],
+        #arguments=['--ros-args', '--log-level', 'debug']
     )
 
     start_goal_pose_bridge = Node(

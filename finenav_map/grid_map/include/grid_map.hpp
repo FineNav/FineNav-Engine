@@ -49,7 +49,7 @@ public:
 
     // ===== 固定测试参数 =====
     resolution_ = 0.05;                     // 5cm
-    length_ = Length(5.0, 5.0, 5.0);     // 10m x 10m x 3m
+    length_ = Length(10.0, 10.0, 10.0);     // 10m x 10m x 3m
     origin_ = Position(0.0, 0.0, 0.0);
 
     // ===== 派生量 =====

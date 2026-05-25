@@ -20,7 +20,26 @@ TerrainAnalyzer::TerrainAnalyzer(
     passability_image_ = cv::Mat::zeros(map_ro->getSize().x(), map_ro->getSize().y(), CV_8UC1);
     costmap_image_     = cv::Mat::zeros(map_ro->getSize().x(), map_ro->getSize().y(), CV_8UC1);
     cached_resolution_ = map_ro->getResolution();
-    cost_scaling_factor_ = 0.5;
+
+    node_->declare_parameter<double>("terrain_analysis.cost_scaling_factor", 0.5);
+    node_->declare_parameter<double>("terrain_analysis.robot_height", 1.0);
+    node_->declare_parameter<double>("terrain_analysis.max_gradient", 0.8);
+    node_->declare_parameter<std::string>("terrain_analysis.global_map_topic", "/map");
+
+    node_->get_parameter("terrain_analysis.cost_scaling_factor", cost_scaling_factor_);
+    node_->get_parameter("terrain_analysis.robot_height", robot_height_);
+    node_->get_parameter("terrain_analysis.max_gradient", max_gradient_);
+
+    std::string global_map_topic;
+    node_->get_parameter("terrain_analysis.global_map_topic", global_map_topic);
+
+    global_map_sub_ = node_->create_subscription<nav_msgs::msg::OccupancyGrid>(
+        global_map_topic, rclcpp::QoS(1).transient_local(),
+        [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+            if (!global_map_) {
+                global_map_ = msg;
+            }
+        });
 }
 
 void TerrainAnalyzer::update(float robot_pose_z, const finenav::GridMap<Voxel>& map) {
@@ -46,9 +65,6 @@ int TerrainAnalyzer::ComputeCost(int distance) const {
 }
 
 void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap<Voxel>& map) {
-    const float ROBOT_HEIGHT = 1.0;
-    const float MAX_GRADIENT = 0.8;
-
     int sizeX_min = map.getMinIndex().x();
     int sizeX_max = map.getMaxIndex().x();
     int sizeY_min = map.getMinIndex().y();
@@ -76,7 +92,7 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
             float nearest_ground = std::numeric_limits<float>::max();
             if (!valid_z_values.empty()) {
                 for (size_t i = 0; i < valid_z_values.size() - 1; ++i) {
-                    if(valid_z_values[i + 1].z_height - valid_z_values[i].z_height > ROBOT_HEIGHT) {
+                    if(valid_z_values[i + 1].z_height - valid_z_values[i].z_height > robot_height_) {
                         if (fabs(valid_z_values[i].z_height - robot_pose_z) < fabs(nearest_ground - robot_pose_z)) {
                             nearest_ground = valid_z_values[i].z_height;
                         }
@@ -91,6 +107,8 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
             ground_array_(x + half_size_x, y + half_size_y) = nearest_ground;
         }
     }
+
+    ApplyGroundMeanFilter(ground_array_, 3);
 
     for (size_t x = 0; x < size_x; ++x) {
         for (size_t y = 0; y < size_y; ++y) {
@@ -107,7 +125,7 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
                         ny < 0 || ny > static_cast<int>(size_y) - 1) continue;
                     float neighbor_ground = ground_array_(nx, ny);
                     if (!std::isnan(neighbor_ground)) {
-                        if (fabs(current_ground - neighbor_ground) > MAX_GRADIENT) {
+                        if (fabs(current_ground - neighbor_ground) > max_gradient_) {
                             terrain_value = 254;
                             break;
                         }
@@ -117,6 +135,73 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
             passability_image_.at<uchar>(y, x) = terrain_value;
         }
     }
+
+    // 融合全局占据地图 (0/100 二值图)
+    if (global_map_) {
+        const double map_res = global_map_->info.resolution;
+        const double origin_x = global_map_->info.origin.position.x;
+        const double origin_y = global_map_->info.origin.position.y;
+        const int map_w = global_map_->info.width;
+        const int map_h = global_map_->info.height;
+
+        for (size_t x = 0; x < size_x; ++x) {
+            for (size_t y = 0; y < size_y; ++y) {
+                finenav::Index idx(
+                    static_cast<int>(x) - static_cast<int>(half_size_x),
+                    static_cast<int>(y) - static_cast<int>(half_size_y),
+                    0);
+
+                if (map.isInside(idx)) {
+                    auto pos = map.getPosition(idx);
+                    int gx = std::floor((pos.x() - origin_x) / map_res);
+                    int gy = std::floor((pos.y() - origin_y) / map_res);
+
+                    if (gx >= 0 && gx < map_w && gy >= 0 && gy < map_h) {
+                        int g_idx = gy * map_w + gx;
+                        if (global_map_->data[g_idx] == 100) {
+                            passability_image_.at<uchar>(y, x) = 254; // 标记为不可通行
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void TerrainAnalyzer::ApplyGroundMeanFilter(Eigen::ArrayXXf& ground_array, int kernel_size) {
+    int rows = ground_array.rows();
+    int cols = ground_array.cols();
+    Eigen::ArrayXXf filtered_array = ground_array;
+    int half_k = kernel_size / 2;
+
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            if (std::isnan(ground_array(r, c))) continue;
+
+            float sum = 0.0f;
+            int count = 0;
+
+            for (int kr = -half_k; kr <= half_k; ++kr) {
+                for (int kc = -half_k; kc <= half_k; ++kc) {
+                    int nr = r + kr;
+                    int nc = c + kc;
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                        float val = ground_array(nr, nc);
+                        if (!std::isnan(val)) {
+                            sum += val;
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            if (count > 0) {
+                filtered_array(r, c) = sum / count;
+            }
+        }
+    }
+
+    ground_array = filtered_array;
 }
 
 void TerrainAnalyzer::MapInflation() {
