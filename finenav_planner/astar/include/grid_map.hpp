@@ -1,46 +1,72 @@
+// Copyright (c) 2026.
+// IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
+// All rights reserved.
+
 #pragma once
+
 #include <vector>
 #include <limits>
-#include "vec2.hpp"
+#include <cmath>
 
 namespace astar {
 
-    class GridMap {
-    public:
-        GridMap(int width, int height, double default_cost = 1.0)
-            : width_(width), height_(height), costs_(width * height, default_cost) {}
+// =============================================================
+// GridMap
+//
+// A simple 2-D grid data container for standalone testing.
+// Cells are indexed by integer (x, y) coordinates.
+//
+// This class has NO FineNav / ROS dependencies and does NOT
+// implement AstarPathSearch::IMapView directly.  In main.cpp
+// (or any test), wrap it in a concrete IMapView subclass that
+// calls the cell-query methods below after converting its
+// world-coordinate input with the planner's own resolution.
+// =============================================================
 
-        void setObstacle(const Vec2& pos, bool is_obstacle) {
-            if (isValid(pos)) {
-                costs_[pos.y * width_ + pos.x] = is_obstacle ? INF_COST : 1.0;
-            }
-        }
+class GridMap {
+public:
+    GridMap(int width, int height, double default_cost = 0.0)
+        : width_(width), height_(height),
+          costs_(width * height, default_cost)
+    {}
 
-        void setCost(const Vec2& pos, double cost) {
-            if (isValid(pos)) {
-                costs_[pos.y * width_ + pos.x] = cost;
-            }
-        }
+    // ── setters ───────────────────────────────────────────────
 
-        bool isWalkable(const Vec2& pos) const {
-            return isValid(pos) && costs_[pos.y * width_ + pos.x] < INF_COST;
-        }
+    void setObstacle(int x, int y, bool obstacle) {
+        if (isValid(x, y))
+            costs_[idx(x, y)] = obstacle ? INF_COST : 0.0;
+    }
 
-        double getCost(const Vec2& pos) const {
-            return isValid(pos) ? costs_[pos.y * width_ + pos.x] : INF_COST;
-        }
+    void setCost(int x, int y, double cost) {
+        if (isValid(x, y))
+            costs_[idx(x, y)] = cost;
+    }
 
-        int getWidth() const  { return width_; }
-        int getHeight() const { return height_; }
+    // ── cell-space queries (used by a wrapping IMapView) ──────
 
-    private:
-        bool isValid(const Vec2& pos) const {
-            return pos.x >= 0 && pos.x < width_ && pos.y >= 0 && pos.y < height_;
-        }
+    bool isWalkableCell(int x, int y) const {
+        return isValid(x, y) && costs_[idx(x, y)] < INF_COST;
+    }
 
-        int width_, height_;
-        std::vector<double> costs_;
-        static constexpr double INF_COST = 1e9;
-    };
+    double getCostCell(int x, int y) const {
+        return isValid(x, y) ? costs_[idx(x, y)] : INF_COST;
+    }
+
+    // ── metadata ──────────────────────────────────────────────
+
+    int getWidth()  const { return width_;  }
+    int getHeight() const { return height_; }
+
+private:
+    bool isValid(int x, int y) const {
+        return x >= 0 && x < width_ && y >= 0 && y < height_;
+    }
+    int idx(int x, int y) const { return y * width_ + x; }
+
+    int    width_, height_;
+    std::vector<double> costs_;
+    static constexpr double INF_COST = 1e9;
+};
 
 } // namespace astar
+

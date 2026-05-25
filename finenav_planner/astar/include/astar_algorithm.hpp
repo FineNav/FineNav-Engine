@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <functional>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
@@ -11,330 +12,169 @@
 #include <vector>
 #include <algorithm>
 #include <array>
-#include <type_traits>
-#include <functional>
 #include <limits>
 #include <cmath>
 #include <chrono>
 
-#include "vec2.hpp"
-#include "node_2d.hpp"
+#include "vec3.hpp"
 #include "heuristic.hpp"
-#include "grid_map.hpp"
 
 namespace astar {
 
-template<typename Map>
+// =============================================================
+// AstarNode  —  internal grid search node, always Vec3-based
+// =============================================================
+
+struct AstarNode {
+    Vec3   pos;
+    double g = std::numeric_limits<double>::max();
+    double h = 0.0;
+    double f = std::numeric_limits<double>::max();
+    Vec3   parent{};   // sentinel: parent == pos means this is the start
+
+    AstarNode() = default;
+    explicit AstarNode(const Vec3& p) : pos(p) {}
+    void updateF() { f = g + h; }
+};
+
+struct AstarNodeCompare {
+    bool operator()(const AstarNode& a, const AstarNode& b) const
+    { return a.f > b.f; }
+};
+
+// =============================================================
+// AStarAlgorithm
+//
+// A plain, non-template uniform-grid A* engine.
+//
+// Internal cell type is always Vec3.
+//   • 2-D search: z = 0 for all cells, neighbours expand in xy only.
+//   • 3-D search: full 6/18/26 neighbourhood.
+//
+// Map queries are injected as std::function at construction — the
+// algorithm knows nothing about maps, world coordinates, or any
+// IMapView interface.  The caller (AstarPathSearch) builds these
+// lambdas from the user's IMapView and its own resolution/origin.
+//
+// All search parameters are set via setters before findPath().
+// =============================================================
+
 class AStarAlgorithm {
 public:
 
+    enum class Dimension { D2, D3 };
+
+    using IsWalkableFn = std::function<bool(const Vec3&)>;
+    using GetCostFn    = std::function<double(const Vec3&)>;
+    using IsUnknownFn  = std::function<bool(const Vec3&)>;
+
+    // Supply the three grid-query lambdas.
+    // is_unknown may be omitted (defaults to "nothing is unknown").
     AStarAlgorithm(
-        const Map& map,
-        Heuristic heuristic = Heuristic::Euclidean)
-        : map_(map),
-          heuristic_(heuristic)
+        IsWalkableFn is_walkable,
+        GetCostFn    get_cost,
+        IsUnknownFn  is_unknown = {})
+        : is_walkable_(std::move(is_walkable)),
+          get_cost_(std::move(get_cost)),
+          is_unknown_(is_unknown
+                      ? std::move(is_unknown)
+                      : [](const Vec3&) { return false; })
     {}
 
-    // =========================================================
-    // setters
-    // =========================================================
+    // ── setters ───────────────────────────────────────────────
 
-    void setDiagonalWeight(double weight)
+    void setDimension(Dimension d)    { dimension_        = d; }
+    void setHeuristic(Heuristic h)    { heuristic_        = h; }
+    void setDiagonalWeight(double w)  { diagonal_weight_  = w; }
+    void setAllowDiagonal(bool a)     { allow_diagonal_   = a; }
+    void setGoalTolerance(double t)   { goal_tolerance_   = t; }
+    void setAllowUnknown(bool a)      { allow_unknown_    = a; }
+    void setMaxIterations(int m)      { max_iterations_   = m; }
+    void setMaxPlanningTime(double t) { max_planning_time_= t; }
+
+    // ── main search ───────────────────────────────────────────
+
+    std::optional<std::vector<Vec3>> findPath(
+        const Vec3& start,
+        const Vec3& goal)
     {
-        diagonal_weight_ = weight;
-    }
-
-    void setAllowDiagonal(bool allow)
-    {
-        allow_diagonal_ = allow;
-    }
-
-    void setGoalTolerance(double tol)
-    {
-        goal_tolerance_ = tol;
-    }
-
-    void setAllowUnknown(bool allow)
-    {
-        allow_unknown_ = allow;
-    }
-
-    void setMaxIterations(int max_iter)
-    {
-        max_iterations_ = max_iter;
-    }
-
-    void setMaxPlanningTime(double max_time)
-    {
-        max_planning_time_ = max_time;
-    }
-
-    // =========================================================
-    // main search
-    // =========================================================
-
-    std::optional<std::vector<Vec2>> findPath(
-        const Vec2& start,
-        const Vec2& goal)
-    {
-        // =====================================================
-        // start / goal validity
-        // =====================================================
-
-        if (!invoke_isWalkable(map_, start) ||
-            !invoke_isWalkable(map_, goal))
-        {
+        if (!is_walkable_(start) || !is_walkable_(goal))
             return std::nullopt;
-        }
-
-        // =====================================================
-        // reset containers
-        // =====================================================
 
         open_set_ = {};
-
         visited_.clear();
-
         came_from_.clear();
 
-        int iterations = 0;
+        int  iterations = 0;
+        auto start_time = std::chrono::steady_clock::now();
 
-        auto start_time =
-            std::chrono::steady_clock::now();
+        std::optional<AstarNode> best_goal_node;
+        double best_goal_dist = std::numeric_limits<double>::infinity();
 
-        // =====================================================
-        // best near-goal candidate
-        // =====================================================
-
-        std::optional<Node2D<double>>
-            best_goal_node;
-
-        double best_goal_dist =
-            std::numeric_limits<double>::infinity();
-
-        // =====================================================
-        // init start node
-        // =====================================================
-
-        Node2D<double> start_node(start);
-
-        start_node.g = 0.0;
-
-        start_node.h =
-            calculateHeuristic(
-                heuristic_,
-                start,
-                goal);
-
+        AstarNode start_node(start);
+        start_node.g      = 0.0;
+        start_node.h      = calculateHeuristic(heuristic_, start, goal);
         start_node.updateF();
-
-        // important:
-        // let start parent point to itself
-        start_node.parent = start;
+        start_node.parent = start;   // self-sentinel
 
         open_set_.push(start_node);
-
         came_from_[start] = start_node;
-
-        // =====================================================
-        // main loop
-        // =====================================================
 
         while (!open_set_.empty())
         {
-            // =================================================
-            // max iterations limit
-            // =================================================
-
             if (max_iterations_ >= 0 &&
                 iterations++ > max_iterations_)
-            {
-                break;
-            }
+            { break; }
 
-            // =================================================
-            // planning timeout
-            // =================================================
+            double elapsed = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - start_time).count();
+            if (elapsed > max_planning_time_) { break; }
 
-            auto now =
-                std::chrono::steady_clock::now();
-
-            double elapsed =
-                std::chrono::duration<double>(
-                    now - start_time).count();
-
-            if (elapsed > max_planning_time_)
-            {
-                break;
-            }
-
-            // =================================================
-            // get current node
-            // =================================================
-
-            Node2D<double> current =
-                open_set_.top();
-
+            AstarNode current = open_set_.top();
             open_set_.pop();
 
-            // =================================================
-            // skip closed nodes
-            // =================================================
-
-            if (visited_.contains(current.pos))
-            {
-                continue;
-            }
-
+            if (visited_.contains(current.pos)) continue;
             visited_.insert(current.pos);
 
-            // =================================================
-            // exact goal reached
-            // =================================================
-
             if (current.pos == goal)
-            {
                 return reconstructPath(goal);
-            }
 
-            // =================================================
-            // update best near-goal node
-            // =================================================
-
-            double goal_dist =
-                distanceToGoal(
-                    current.pos,
-                    goal);
-
+            double goal_dist = cellDistance(current.pos, goal);
             if (goal_dist < best_goal_dist)
             {
-                best_goal_dist =
-                    goal_dist;
-
-                best_goal_node =
-                    current;
+                best_goal_dist = goal_dist;
+                best_goal_node = current;
             }
 
-            // =================================================
-            // expand neighbors
-            // =================================================
-
-            for (const auto& neighbor_pos :
-                 getNeighbors(current.pos))
+            for (const Vec3& nb_pos : getNeighbors(current.pos))
             {
-                // ---------------------------------------------
-                // unknown handling
-                // ---------------------------------------------
+                if (!allow_unknown_ && is_unknown_(nb_pos))  continue;
+                if (!is_walkable_(nb_pos))                   continue;
+                if (visited_.contains(nb_pos))               continue;
 
-                if (!allow_unknown_ &&
-                    invoke_isUnknown(
-                        map_,
-                        neighbor_pos))
+                double step_cost   = calculateStepCost(current.pos, nb_pos);
+                double map_cost    = get_cost_(nb_pos);
+                double tentative_g = current.g + step_cost * (1.0 + map_cost);
+
+                if (!came_from_.contains(nb_pos) ||
+                    tentative_g < came_from_[nb_pos].g)
                 {
-                    continue;
-                }
+                    AstarNode nb(nb_pos);
+                    nb.g      = tentative_g;
+                    nb.h      = calculateHeuristic(heuristic_, nb_pos, goal) * 1.001;
+                    nb.updateF();
+                    nb.parent = current.pos;
 
-                // ---------------------------------------------
-                // obstacle handling
-                // ---------------------------------------------
-
-                if (!invoke_isWalkable(
-                        map_,
-                        neighbor_pos))
-                {
-                    continue;
-                }
-
-                // ---------------------------------------------
-                // closed set skip
-                // ---------------------------------------------
-
-                if (visited_.contains(
-                        neighbor_pos))
-                {
-                    continue;
-                }
-
-                // ---------------------------------------------
-                // movement cost
-                // ---------------------------------------------
-
-                double step_cost =
-                    calculateStepCost(
-                        current.pos,
-                        neighbor_pos);
-
-                // ---------------------------------------------
-                // map traversal cost
-                // IMPORTANT:
-                // avoid multiplying by zero
-                // ---------------------------------------------
-
-                double map_cost =
-                    invoke_getCost(
-                        map_,
-                        neighbor_pos);
-
-                double traversal_cost =
-                    1.0 + map_cost;
-
-                double tentative_g =
-                    current.g +
-                    step_cost *
-                    traversal_cost;
-
-                // ---------------------------------------------
-                // relaxation
-                // ---------------------------------------------
-
-                if (!came_from_.contains(
-                        neighbor_pos)
-                    ||
-                    tentative_g <
-                    came_from_[neighbor_pos].g)
-                {
-                    Node2D<double> neighbor(
-                        neighbor_pos);
-
-                    neighbor.g =
-                        tentative_g;
-
-                    neighbor.h =
-                        calculateHeuristic(
-                            heuristic_,
-                            neighbor_pos,
-                            goal);
-
-                    // -----------------------------------------
-                    // tie breaker
-                    // encourage straighter path
-                    // -----------------------------------------
-
-                    neighbor.h *= 1.001;
-
-                    neighbor.updateF();
-
-                    neighbor.parent =
-                        current.pos;
-
-                    came_from_[neighbor_pos] =
-                        neighbor;
-
-                    open_set_.push(neighbor);
+                    came_from_[nb_pos] = nb;
+                    open_set_.push(nb);
                 }
             }
         }
-
-        // =====================================================
-        // fallback:
-        // return best near-goal path
-        // =====================================================
 
         if (best_goal_node.has_value() &&
             best_goal_dist <= goal_tolerance_)
         {
-            return reconstructPath(
-                best_goal_node->pos);
+            return reconstructPath(best_goal_node->pos);
         }
 
         return std::nullopt;
@@ -342,277 +182,122 @@ public:
 
 private:
 
-    // =========================================================
-    // helper:
-    // walkability
-    // =========================================================
+    // ── neighbour generation ──────────────────────────────────
+    //
+    // D2: 4 ortho (xy, z=0 fixed)  + 4 diagonal if allowed
+    // D3: 6 face  + 12 edge-diag   + 8 corner-diag if allowed
 
-    static bool invoke_isWalkable(
-        const Map& m,
-        const Vec2& pos)
+    std::vector<Vec3> getNeighbors(const Vec3& pos) const
     {
-        if constexpr (
-            requires(const Map& mm,
-                     const Vec2& p)
-            {
-                mm.isWalkable(p);
-            })
-        {
-            return m.isWalkable(pos);
-        }
-        else if constexpr (
-            std::is_invocable_v<
-                Map,
-                const Vec2&>)
-        {
-            double c =
-                std::invoke(m, pos);
+        std::vector<Vec3> neighbors;
 
-            return std::isfinite(c) &&
-                   c <
-                   std::numeric_limits<double>::infinity();
+        if (dimension_ == Dimension::D2)
+        {
+            static const std::array<Vec3,4> ortho = {{
+                {0,1,0},{1,0,0},{0,-1,0},{-1,0,0}
+            }};
+            for (const auto& off : ortho)
+                neighbors.push_back(pos + off);
+
+            if (allow_diagonal_)
+            {
+                static const std::array<Vec3,4> diag = {{
+                    {1,1,0},{1,-1,0},{-1,1,0},{-1,-1,0}
+                }};
+                for (const auto& off : diag)
+                    neighbors.push_back(pos + off);
+            }
         }
         else
         {
-            return false;
-        }
-    }
+            static const std::array<Vec3,6> face = {{
+                {1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}
+            }};
+            for (const auto& off : face)
+                neighbors.push_back(pos + off);
 
-    // =========================================================
-    // helper:
-    // unknown
-    // =========================================================
-
-    static bool invoke_isUnknown(
-        const Map& m,
-        const Vec2& pos)
-    {
-        if constexpr (
-            requires(const Map& mm,
-                     const Vec2& p)
+            if (allow_diagonal_)
             {
-                mm.isUnknown(p);
-            })
-        {
-            return m.isUnknown(pos);
-        }
-        else
-        {
-            return false;
-        }
-    }
+                static const std::array<Vec3,12> edge = {{
+                    {1,1,0},{1,-1,0},{-1,1,0},{-1,-1,0},
+                    {1,0,1},{1,0,-1},{-1,0,1},{-1,0,-1},
+                    {0,1,1},{0,1,-1},{0,-1,1},{0,-1,-1}
+                }};
+                for (const auto& off : edge)
+                    neighbors.push_back(pos + off);
 
-    // =========================================================
-    // helper:
-    // traversal cost
-    // =========================================================
-
-    static double invoke_getCost(
-        const Map& m,
-        const Vec2& pos)
-    {
-        if constexpr (
-            requires(const Map& mm,
-                     const Vec2& p)
-            {
-                mm.getCost(p);
-            })
-        {
-            return m.getCost(pos);
-        }
-        else if constexpr (
-            std::is_invocable_v<
-                Map,
-                const Vec2&>)
-        {
-            return std::invoke(m, pos);
-        }
-        else
-        {
-            return std::numeric_limits<double>::infinity();
-        }
-    }
-
-    // =========================================================
-    // helper:
-    // goal distance
-    // =========================================================
-
-    double distanceToGoal(
-        const Vec2& current,
-        const Vec2& goal) const
-    {
-        double dx =
-            static_cast<double>(
-                current.x - goal.x);
-
-        double dy =
-            static_cast<double>(
-                current.y - goal.y);
-
-        return std::sqrt(dx * dx + dy * dy);
-    }
-
-    // =========================================================
-    // movement cost
-    // =========================================================
-
-    double calculateStepCost(
-        const Vec2& from,
-        const Vec2& to) const
-    {
-        int dx =
-            std::abs(from.x - to.x);
-
-        int dy =
-            std::abs(from.y - to.y);
-
-        return (dx == 1 && dy == 1)
-               ? diagonal_weight_
-               : 1.0;
-    }
-
-    // =========================================================
-    // neighbors
-    // =========================================================
-
-    std::vector<Vec2> getNeighbors(
-        const Vec2& pos) const
-    {
-        std::vector<Vec2> neighbors;
-
-        const std::array<Vec2, 4> ortho =
-        {
-            Vec2{0,1},
-            Vec2{1,0},
-            Vec2{0,-1},
-            Vec2{-1,0}
-        };
-
-        for (const auto& off : ortho)
-        {
-            neighbors.push_back(
-                pos + off);
-        }
-
-        if (allow_diagonal_)
-        {
-            const std::array<Vec2, 4> diag =
-            {
-                Vec2{1,1},
-                Vec2{1,-1},
-                Vec2{-1,1},
-                Vec2{-1,-1}
-            };
-
-            for (const auto& off : diag)
-            {
-                neighbors.push_back(
-                    pos + off);
+                static const std::array<Vec3,8> corner = {{
+                    {1,1,1},{1,1,-1},{1,-1,1},{1,-1,-1},
+                    {-1,1,1},{-1,1,-1},{-1,-1,1},{-1,-1,-1}
+                }};
+                for (const auto& off : corner)
+                    neighbors.push_back(pos + off);
             }
         }
 
         return neighbors;
     }
 
-    // =========================================================
-    // reconstruct path
-    // =========================================================
+    // ── step cost ─────────────────────────────────────────────
+    // Straight(1 axis)=1.0  Edge-diag(2)=√2  Corner-diag(3)=√3
 
-    std::vector<Vec2> reconstructPath(
-        const Vec2& goal) const
+    double calculateStepCost(const Vec3& from, const Vec3& to) const
     {
-        std::vector<Vec2> path;
+        int nd = (from.x != to.x) + (from.y != to.y) + (from.z != to.z);
+        if (nd == 1) return 1.0;
+        if (nd == 2) return diagonal_weight_;
+        return diagonal_weight_ * std::sqrt(1.5);   // √3 = √2 * √1.5
+    }
 
-        Vec2 cur = goal;
+    static double cellDistance(const Vec3& a, const Vec3& b)
+    {
+        double dx = a.x-b.x, dy = a.y-b.y, dz = a.z-b.z;
+        return std::sqrt(dx*dx + dy*dy + dz*dz);
+    }
 
+    std::vector<Vec3> reconstructPath(const Vec3& goal) const
+    {
+        std::vector<Vec3> path;
+        Vec3 cur = goal;
         while (true)
         {
             path.push_back(cur);
-
-            const auto& node =
-                came_from_.at(cur);
-
-            if (cur == node.parent)
-            {
-                break;
-            }
-
+            const auto& node = came_from_.at(cur);
+            if (cur == node.parent) break;
             cur = node.parent;
         }
-
-        std::reverse(
-            path.begin(),
-            path.end());
-
+        std::reverse(path.begin(), path.end());
         return path;
     }
 
-private:
+    // ── injected queries ──────────────────────────────────────
 
-    // =========================================================
-    // map
-    // =========================================================
+    IsWalkableFn is_walkable_;
+    GetCostFn    get_cost_;
+    IsUnknownFn  is_unknown_;
 
-    const Map& map_;
+    // ── parameters ────────────────────────────────────────────
 
-    // =========================================================
-    // planner config
-    // =========================================================
+    Dimension dimension_        = Dimension::D2;
+    Heuristic heuristic_        = Heuristic::Euclidean;
+    bool      allow_diagonal_   = true;
+    double    diagonal_weight_  = std::sqrt(2.0);
+    bool      allow_unknown_    = true;
+    double    goal_tolerance_   = 0.25;
+    int       max_iterations_   = 1000000;
+    double    max_planning_time_= 5.0;
 
-    Heuristic heuristic_ =
-        Heuristic::Euclidean;
-
-    bool allow_diagonal_ = true;
-
-    double diagonal_weight_ =
-        std::sqrt(2.0);
-
-    bool allow_unknown_ = true;
-
-    double goal_tolerance_ = 0.25;
-
-    int max_iterations_ = 1000000;
-
-    double max_planning_time_ = 5.0;
-
-    // =========================================================
-    // search containers
-    // =========================================================
+    // ── search state (reset each call) ────────────────────────
 
     std::priority_queue<
-        Node2D<double>,
-        std::vector<Node2D<double>>,
-        Node2DCompare<double>
+        AstarNode,
+        std::vector<AstarNode>,
+        AstarNodeCompare
     > open_set_;
 
-    std::unordered_set<
-        Vec2,
-        Vec2Hash
-    > visited_;
-
-    std::unordered_map<
-        Vec2,
-        Node2D<double>,
-        Vec2Hash
-    > came_from_;
+    std::unordered_set<Vec3, Vec3Hash>             visited_;
+    std::unordered_map<Vec3, AstarNode, Vec3Hash>  came_from_;
 };
 
 } // namespace astar
 
-// =============================================================
-// backwards compatibility
-// =============================================================
-
-namespace astar {
-
-template<typename Map>
-using AStar = AStarAlgorithm<Map>;
-
-template<typename T = double>
-using Node = Node2D<T>;
-
-template<typename T>
-using NodeCompare = Node2DCompare<T>;
-
-}

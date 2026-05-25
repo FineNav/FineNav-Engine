@@ -1,92 +1,65 @@
-# astar.yaml - A* 参数定义
+# astar.yaml - AstarPathSearch 参数定义
 astar_planner:
-
-  # 运行时选择 2D 或 3D 算法
+  # ── 栅格离散化参数 ──────────────────────────────────────────
+  # 由规划器本身持有，IMapView 的实现者无需关心这些参数。
+  # 每个格子对应的世界空间尺寸（单位：米）
+  resolution:
+    type: double
+    default_value: 0.05
+    description: "Grid cell size in metres"
+    validation:
+      bounds<>: [0.001, 10.0]
+  # 栅格原点在世界坐标系下的坐标（通常与地图原点一致）
+  origin_x:
+    type: double
+    default_value: 0.0
+    description: "World x-coordinate of grid origin (cell 0,0,0)"
+  origin_y:
+    type: double
+    default_value: 0.0
+    description: "World y-coordinate of grid origin"
+  origin_z:
+    type: double
+    default_value: 0.0
+    description: "World z-coordinate of grid origin (only used in 3D mode)"
+  # ── 搜索空间维度 ───────────────────────────────────────────
   dimension:
     type: string
     default_value: "2D"
-    description: "Algorithm dimension: 2D or 3D"
+    description: "Search dimension: 2D (xy-plane) or 3D (xyz-space)"
     validation:
       one_of<>: [[ "2D", "3D" ]]
-
-  # 选择计算时的距离：欧几里德距离、曼哈顿距离、切比雪夫距离
+  # ── 启发函数 ───────────────────────────────────────────────
   heuristic:
     type: string
     default_value: "Euclidean"
+    description: "Heuristic: Euclidean | Manhattan | Chebyshev"
     validation:
       one_of<>: [[ "Euclidean", "Manhattan", "Chebyshev" ]]
-
-  # 是否允许八方面行走
+  # ── 邻居规则 ───────────────────────────────────────────────
+  # 是否允许对角方向移动（2D: 8方向; 3D: 26方向）
   allow_diagonal:
     type: bool
     default_value: true
-
-  # 对角线代价
+  # 对角方向的步进代价（理论值 sqrt(2) ≈ 1.414）
   diagonal_weight:
     type: double
     default_value: 1.414
-
-  # 终点容差，不要求完全到 goal，距离 goal 小于某个阈值即可
+  # ── 目标容差 ───────────────────────────────────────────────
   goal_tolerance:
     type: double
     default_value: 0.25
-
-  # 是否允许往未知点前进
+    description: "Accept a path if the closest reached cell is within this many cells of the goal"
+  # ── 未知区域处理 ───────────────────────────────────────────
   allow_unknown:
     type: bool
     default_value: true
-
-  # 最大搜索次数
+    description: "Allow traversal of cells whose IMapView::isUnknown() returns true"
+  # ── 搜索终止条件 ───────────────────────────────────────────
   max_iterations:
     type: int
     default_value: 1000000
-
-  # 最大规划时间，单位秒
   max_planning_time:
     type: double
     default_value: 5.0
-
-  # 进入“tolerance”范围后继续搜索的最大迭代次数
-  max_on_approach_iterations:
-    type: int
-    default_value: 1000
-
-
-#    GridBased:
-#      plugin: "nav2_smac_planner::SmacPlannerHybrid" # In Iron and older versions, "/" was used instead of "::"
-#      downsample_costmap: false           # whether or not to downsample the map
-#      downsampling_factor: 1              # multiplier for the resolution of the costmap layer (e.g. 2 on a 5cm costmap would be 10cm)
-#      tolerance: 0.25                     # dist-to-goal heuristic cost (distance) for valid tolerance endpoints if exact goal cannot be found.
-#      allow_unknown: true                 # allow traveling in unknown space
-#      max_iterations: 1000000             # maximum total iterations to search for before failing (in case unreachable), set to -1 to disable
-#      max_on_approach_iterations: 1000    # Maximum number of iterations after within tolerances to continue to try to find exact solution
-#      max_planning_time: 5.0              # max time in s for planner to plan, smooth
-#      motion_model_for_search: "DUBIN"    # Hybrid-A* Dubin, Redds-Shepp
-#      angle_quantization_bins: 72         # Number of angle bins for search
-#      analytic_expansion_ratio: 3.5       # The ratio to attempt analytic expansions during search for final approach.
-#      analytic_expansion_max_length: 3.0  # For Hybrid/Lattice nodes: The maximum length of the analytic expansion to be considered valid to prevent unsafe shortcutting
-#      analytic_expansion_max_cost: 200.0  # The maximum single cost for any part of an analytic expansion to contain and be valid, except when necessary on approach to goal
-#      analytic_expansion_max_cost_override: false  #  Whether or not to override the maximum cost setting if within critical distance to goal (ie probably required)
-#      minimum_turning_radius: 0.40        # minimum turning radius in m of path / vehicle
-#      reverse_penalty: 2.0                # Penalty to apply if motion is reversing, must be => 1
-#      change_penalty: 0.0                 # Penalty to apply if motion is changing directions (L to R), must be >= 0
-#      non_straight_penalty: 1.2           # Penalty to apply if motion is non-straight, must be => 1
-#      cost_penalty: 2.0                   # Penalty to apply to higher cost areas when adding into the obstacle map dynamic programming distance expansion heuristic. This drives the robot more towards the center of passages. A value between 1.3 - 3.5 is reasonable.
-#      retrospective_penalty: 0.015
-#      lookup_table_size: 20.0             # Size of the dubin/reeds-sheep distance window to cache, in meters.
-#      cache_obstacle_heuristic: false     # Cache the obstacle map dynamic programming distance expansion heuristic between subsequent replannings of the same goal location. Dramatically speeds up replanning performance (40x) if costmap is largely static.
-#      debug_visualizations: false         # For Hybrid nodes: Whether to publish expansions on the /expansions topic as an array of poses (the orientation has no meaning) and the path's footprints on the /planned_footprints topic. WARNING: heavy to compute and to display, for debug only as it degrades the performance.
-#      use_quadratic_cost_penalty: False
-#      downsample_obstacle_heuristic: True
-#      allow_primitive_interpolation: False
-#      coarse_search_resolution: 4         # Number of bins to skip when doing a coarse search for the path. Only used for all_direction goal heading mode.
-#      goal_heading_mode: "DEFAULT"        # DEFAULT, BIDIRECTIONAL, ALL_DIRECTION
-#      smooth_path: True                   # If true, does a simple and quick smoothing post-processing to the path
-#
-#      smoother:
-#        max_iterations: 1000
-#        w_smooth: 0.3
-#        w_data: 0.2
-#        tolerance: 1.0e-10
-#        do_refinement: true
-#        refinement_num: 2
+    description: "Maximum planning time in seconds"
