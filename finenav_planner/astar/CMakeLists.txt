@@ -1,41 +1,43 @@
 cmake_minimum_required(VERSION 3.22)
 project(finenav_planner_astar)
-
 set(CMAKE_CXX_STANDARD 20)
-
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
-
 find_package(ament_cmake_auto REQUIRED)
-
 include_directories(include)
-
 ament_auto_find_build_dependencies()
-
-# 生成参数库
+# ── parameter library (generated from astar.yaml) ──────────────────────────
 generate_parameter_library(
-        astar_params
-        astar.yaml
+    astar_params
+    astar.yaml
 )
-
-# 原来的 test_executable 可以保留或删除
-# ament_auto_add_executable(test_executable src/main.cpp)
-# target_link_libraries(test_executable astar_params)
-
+# ── planner library ─────────────────────────────────────────────────────────
 ament_auto_add_library(astar_planner_lib
-        src/AstarPlanner_2d.cpp
+    src/AstarPlanner_2d.cpp
 )
 target_link_libraries(astar_planner_lib astar_params)
-
-# ===== 新增你的 astar_planner 可执行文件 =====
-ament_auto_add_executable(astar_planner
-        src/main.cpp
-        src/AstarPlanner_2d.cpp
+# ── eval executable ─────────────────────────────────────────────────────────
+ament_auto_add_executable(astar_eval
+    eval/astar_eval.cpp
+    src/AstarPlanner_2d.cpp
 )
-target_link_libraries(astar_planner astar_planner_lib)
-
-# 如果 astar_params 是你的参数库，可以链接
-target_link_libraries(astar_planner astar_params)
-
+target_include_directories(astar_eval PRIVATE eval test)
+target_link_libraries(astar_eval astar_params)
+# ── unit tests ──────────────────────────────────────────────────────────────
+if (BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    ament_add_gtest(astar_test
+        test/astar_test.cpp
+        src/AstarPlanner_2d.cpp
+    )
+    # Inherit the same includes and linked libs as the planner library
+    ament_target_dependencies(astar_test
+        finenav_core
+        finenav_util
+        finenav_msgs
+    )
+    target_include_directories(astar_test PRIVATE test)
+    target_link_libraries(astar_test astar_params)
+endif ()
 ament_auto_package()
