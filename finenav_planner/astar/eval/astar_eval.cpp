@@ -61,7 +61,7 @@ struct Scenario {
     double      resolution;
     // Start / goal in world coords (metres)
     double sx, sy, gx, gy;
-    bool        allow_diagonal;
+    std::string connectivity;   // "4"/"8" for 2-D, "6"/"18"/"26" for 3-D
     // Obstacle setter: called with the GridMap
     void (*build_map)(astar::GridMap&);
 };
@@ -84,24 +84,24 @@ static void build_maze(astar::GridMap& g)
 
 static const Scenario kScenarios[] = {
     {
-        "L-shaped obstacle (no diagonal)",
+        "L-shaped obstacle (N4 — orthogonal only)",
         10, 10, 1.0,
         1.5, 1.5, 8.5, 8.5,
-        false,
+        "4",
         build_L_obstacle
     },
     {
-        "L-shaped obstacle (with diagonal)",
+        "L-shaped obstacle (N8 — with diagonal)",
         10, 10, 1.0,
         1.5, 1.5, 8.5, 8.5,
-        true,
+        "8",
         build_L_obstacle
     },
     {
-        "Maze (no diagonal)",
+        "Maze (N4 — orthogonal only)",
         10, 10, 1.0,
         0.5, 0.5, 9.5, 9.5,
-        false,
+        "4",
         build_maze
     },
 };
@@ -158,10 +158,8 @@ int main()
         // 3. Configure planner
         finenav::AstarPathSearch planner;
         astar_planner::Params params;
-        params.dimension        = "2D";
+        params.connectivity     = sc.connectivity;
         params.heuristic        = "Euclidean";
-        params.allow_diagonal   = sc.allow_diagonal;
-        params.diagonal_weight  = 1.414;
         params.goal_tolerance   = sc.resolution * 0.6;
         params.max_iterations   = 1000000;
         params.max_planning_time= 5.0;

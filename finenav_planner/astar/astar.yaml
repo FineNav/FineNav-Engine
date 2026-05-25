@@ -4,13 +4,24 @@
 # 它是地图的属性，由 IMapView::getStepSize() 在规划时提供。
 # 这确保整个导航系统只有一个步长来源。
 astar_planner:
-  # ── 搜索空间维度 ───────────────────────────────────────────
-  dimension:
+  # ── 邻居连通性 ─────────────────────────────────────────────
+  #
+  # 同时编码了搜索维度和邻居数量，取代原来的 dimension +
+  # allow_diagonal + diagonal_weight 三个分散参数。
+  #
+  #   "4"  — 2-D,  4-连通（仅正交）
+  #   "8"  — 2-D,  8-连通（正交 + 对角）
+  #   "6"  — 3-D,  6-连通（仅面邻居）
+  #   "18" — 3-D, 18-连通（面 + 棱对角）
+  #   "26" — 3-D, 26-连通（面 + 棱 + 顶角）
+  #
+  # 对角步长由几何确定，不可配置：1轴=1, 2轴=√2, 3轴=√3
+  connectivity:
     type: string
-    default_value: "2D"
-    description: "Search dimension: 2D (xy-plane) or 3D (xyz-space)"
+    default_value: "8"
+    description: "Grid connectivity: 4/8 for 2-D, 6/18/26 for 3-D"
     validation:
-      one_of<>: [[ "2D", "3D" ]]
+      one_of<>: [[ "4", "8", "6", "18", "26" ]]
   # ── 启发函数 ───────────────────────────────────────────────
   heuristic:
     type: string
@@ -18,15 +29,6 @@ astar_planner:
     description: "Heuristic function: Euclidean | Manhattan | Chebyshev"
     validation:
       one_of<>: [[ "Euclidean", "Manhattan", "Chebyshev" ]]
-  # ── 邻居规则 ───────────────────────────────────────────────
-  allow_diagonal:
-    type: bool
-    default_value: true
-    description: "Allow diagonal moves (2D: 8-connected; 3D: 26-connected)"
-  diagonal_weight:
-    type: double
-    default_value: 1.414
-    description: "Cost of a diagonal step relative to a straight step (theoretical sqrt(2))"
   # ── 目标容差（单位：米）────────────────────────────────────
   #
   # 如果 A* 无法精确到达终点格子，允许在此范围内的最近点作为终点。

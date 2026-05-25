@@ -13,18 +13,18 @@ namespace finenav {
 
 void AstarPathSearch::configure(const ConfigType& params)
 {
-    if (params.dimension == "3D")
-        dimension_ = astar::AStarAlgorithm::Dimension::D3;
-    else
-        dimension_ = astar::AStarAlgorithm::Dimension::D2;
+    // connectivity encodes both dimension and neighbourhood size
+    if      (params.connectivity == "4")  connectivity_ = astar::AStarAlgorithm::Connectivity::N4;
+    else if (params.connectivity == "8")  connectivity_ = astar::AStarAlgorithm::Connectivity::N8;
+    else if (params.connectivity == "6")  connectivity_ = astar::AStarAlgorithm::Connectivity::N6;
+    else if (params.connectivity == "18") connectivity_ = astar::AStarAlgorithm::Connectivity::N18;
+    else                                  connectivity_ = astar::AStarAlgorithm::Connectivity::N26;
 
     if      (params.heuristic == "Manhattan")  heuristic_ = astar::Heuristic::Manhattan;
     else if (params.heuristic == "Chebyshev")  heuristic_ = astar::Heuristic::Chebyshev;
     else                                        heuristic_ = astar::Heuristic::Euclidean;
 
-    allow_diagonal_    = params.allow_diagonal;
-    diagonal_weight_   = params.diagonal_weight;
-    goal_tolerance_m_  = params.goal_tolerance;   // stored in metres
+    goal_tolerance_m_  = params.goal_tolerance;
     max_iterations_    = params.max_iterations;
     max_planning_time_ = params.max_planning_time;
 }
@@ -75,10 +75,8 @@ AstarPathSearch::Result AstarPathSearch::plan(
     astar::Vec3 goal  = worldToCell(gp.x, gp.y, gp.z);
 
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setDimension(dimension_);
+    algo.setConnectivity(connectivity_);
     algo.setHeuristic(heuristic_);
-    algo.setAllowDiagonal(allow_diagonal_);
-    algo.setDiagonalWeight(diagonal_weight_);
     algo.setGoalTolerance(goal_tolerance_m_ / step);  // metres → cells
     algo.setMaxIterations(max_iterations_);
     algo.setMaxPlanningTime(max_planning_time_);

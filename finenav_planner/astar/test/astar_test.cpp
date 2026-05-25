@@ -49,8 +49,7 @@ TEST(AStarAlgorithm2D, FindsPath_OpenSpace)
 {
     auto [is_walkable, get_cost] = makeGridLambdas(astar::GridMap(20, 20));
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setDimension(astar::AStarAlgorithm::Dimension::D2);
-    algo.setAllowDiagonal(false);
+    algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
 
     auto path = algo.findPath({0, 0, 0}, {5, 5, 0});
     ASSERT_TRUE(path.has_value());
@@ -63,8 +62,7 @@ TEST(AStarAlgorithm2D, PathLength_Orthogonal)
     // Straight line of 5 steps → 6 cells including start
     auto [is_walkable, get_cost] = makeGridLambdas(astar::GridMap(20, 20));
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setDimension(astar::AStarAlgorithm::Dimension::D2);
-    algo.setAllowDiagonal(false);
+    algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
 
     auto path = algo.findPath({0, 0, 0}, {5, 0, 0});
     ASSERT_TRUE(path.has_value());
@@ -76,8 +74,7 @@ TEST(AStarAlgorithm2D, PathIsContinuous)
     // Every consecutive pair of cells differs by exactly 1 in one axis.
     auto [is_walkable, get_cost] = makeGridLambdas(astar::GridMap(20, 20));
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setDimension(astar::AStarAlgorithm::Dimension::D2);
-    algo.setAllowDiagonal(false);
+    algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
 
     auto path = algo.findPath({1, 1, 0}, {8, 8, 0});
     ASSERT_TRUE(path.has_value());
@@ -97,14 +94,12 @@ TEST(AStarAlgorithm2D, Diagonal_AllowedReducesPathLength)
     auto [iw, gc] = makeGridLambdas(astar::GridMap(20, 20));
 
     astar::AStarAlgorithm ortho(iw, gc);
-    ortho.setDimension(astar::AStarAlgorithm::Dimension::D2);
-    ortho.setAllowDiagonal(false);
+    ortho.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
     auto path_ortho = ortho.findPath({0, 0, 0}, {5, 5, 0});
     ASSERT_TRUE(path_ortho.has_value());
 
     astar::AStarAlgorithm diag(iw, gc);
-    diag.setDimension(astar::AStarAlgorithm::Dimension::D2);
-    diag.setAllowDiagonal(true);
+    diag.setConnectivity(astar::AStarAlgorithm::Connectivity::N8);
     auto path_diag = diag.findPath({0, 0, 0}, {5, 5, 0});
     ASSERT_TRUE(path_diag.has_value());
 
@@ -120,8 +115,7 @@ TEST(AStarAlgorithm2D, PathAvoidsObstacles)
 
     auto [iw, gc] = makeGridLambdas(grid);
     astar::AStarAlgorithm algo(iw, gc);
-    algo.setDimension(astar::AStarAlgorithm::Dimension::D2);
-    algo.setAllowDiagonal(false);
+    algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
 
     auto path = algo.findPath({0, 5, 0}, {6, 5, 0});
     ASSERT_TRUE(path.has_value());
@@ -207,8 +201,7 @@ TEST(AStarAlgorithm3D, FindsPath_OpenVolume)
     auto get_cost    = [](const astar::Vec3&) { return 0.0; };
 
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setDimension(astar::AStarAlgorithm::Dimension::D3);
-    algo.setAllowDiagonal(true);
+    algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N26);
 
     auto path = algo.findPath({0, 0, 0}, {3, 3, 3});
     ASSERT_TRUE(path.has_value());
@@ -223,8 +216,7 @@ TEST(AStarAlgorithm3D, PathLength_FaceNeighbours)
     auto get_cost    = [](const astar::Vec3&) { return 0.0; };
 
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setDimension(astar::AStarAlgorithm::Dimension::D3);
-    algo.setAllowDiagonal(false);
+    algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N6);
 
     auto path = algo.findPath({0, 0, 0}, {0, 0, 4});
     ASSERT_TRUE(path.has_value());
@@ -263,10 +255,8 @@ inline finenav::AstarPathSearch makePlanner()
 {
     finenav::AstarPathSearch planner;
     astar_planner::Params p;
-    p.dimension       = "2D";
+    p.connectivity    = "4";
     p.heuristic       = "Euclidean";
-    p.allow_diagonal  = false;
-    p.diagonal_weight = 1.414;
     p.goal_tolerance  = 0.6;   // metres
     p.max_iterations  = 1000000;
     p.max_planning_time = 5.0;
@@ -326,6 +316,8 @@ TEST(AstarPathSearch, OutputPoses_AreWorldCoordinates)
         EXPECT_LT(pose.position.y, 10.0);
     }
 }
+
+
 
 
 

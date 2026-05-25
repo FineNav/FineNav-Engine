@@ -77,10 +77,8 @@ private:
 
     // Pure A* search parameters — no grid discretisation here.
     // Step size comes from IMapView::getStepSize() at plan time.
-    astar::AStarAlgorithm::Dimension dimension_     = astar::AStarAlgorithm::Dimension::D2;
-    astar::Heuristic                 heuristic_     = astar::Heuristic::Euclidean;
-    bool   allow_diagonal_    = true;
-    double diagonal_weight_   = std::sqrt(2.0);
+    astar::AStarAlgorithm::Connectivity connectivity_   = astar::AStarAlgorithm::Connectivity::N8;
+    astar::Heuristic                    heuristic_      = astar::Heuristic::Euclidean;
     double goal_tolerance_m_  = 0.5;    // metres (converted to cells at plan time)
     int    max_iterations_    = 1000000;
     double max_planning_time_ = 5.0;
@@ -89,4 +87,3 @@ private:
 } // namespace finenav
 
 FINENAV_REGISTER_ALGO_CONFIG(finenav::AstarPathSearch, astar_planner)
-
