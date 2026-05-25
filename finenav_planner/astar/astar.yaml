@@ -1,27 +1,9 @@
 # astar.yaml - AstarPathSearch 参数定义
+#
+# 注意：栅格步长（step size）不在这里定义。
+# 它是地图的属性，由 IMapView::getStepSize() 在规划时提供。
+# 这确保整个导航系统只有一个步长来源。
 astar_planner:
-  # ── 栅格离散化参数 ──────────────────────────────────────────
-  # 由规划器本身持有，IMapView 的实现者无需关心这些参数。
-  # 每个格子对应的世界空间尺寸（单位：米）
-  resolution:
-    type: double
-    default_value: 0.05
-    description: "Grid cell size in metres"
-    validation:
-      bounds<>: [0.001, 10.0]
-  # 栅格原点在世界坐标系下的坐标（通常与地图原点一致）
-  origin_x:
-    type: double
-    default_value: 0.0
-    description: "World x-coordinate of grid origin (cell 0,0,0)"
-  origin_y:
-    type: double
-    default_value: 0.0
-    description: "World y-coordinate of grid origin"
-  origin_z:
-    type: double
-    default_value: 0.0
-    description: "World z-coordinate of grid origin (only used in 3D mode)"
   # ── 搜索空间维度 ───────────────────────────────────────────
   dimension:
     type: string
@@ -33,23 +15,26 @@ astar_planner:
   heuristic:
     type: string
     default_value: "Euclidean"
-    description: "Heuristic: Euclidean | Manhattan | Chebyshev"
+    description: "Heuristic function: Euclidean | Manhattan | Chebyshev"
     validation:
       one_of<>: [[ "Euclidean", "Manhattan", "Chebyshev" ]]
   # ── 邻居规则 ───────────────────────────────────────────────
-  # 是否允许对角方向移动（2D: 8方向; 3D: 26方向）
   allow_diagonal:
     type: bool
     default_value: true
-  # 对角方向的步进代价（理论值 sqrt(2) ≈ 1.414）
+    description: "Allow diagonal moves (2D: 8-connected; 3D: 26-connected)"
   diagonal_weight:
     type: double
     default_value: 1.414
-  # ── 目标容差 ───────────────────────────────────────────────
+    description: "Cost of a diagonal step relative to a straight step (theoretical sqrt(2))"
+  # ── 目标容差（单位：米）────────────────────────────────────
+  #
+  # 如果 A* 无法精确到达终点格子，允许在此范围内的最近点作为终点。
+  # 内部自动换算为格子数：goal_tolerance / getStepSize()
   goal_tolerance:
     type: double
-    default_value: 0.25
-    description: "Accept a path if the closest reached cell is within this many cells of the goal"
+    default_value: 0.5
+    description: "Acceptable distance to goal in metres"
   # ── 未知区域处理 ───────────────────────────────────────────
   allow_unknown:
     type: bool
@@ -59,7 +44,8 @@ astar_planner:
   max_iterations:
     type: int
     default_value: 1000000
+    description: "Maximum number of nodes expanded before giving up (-1 = unlimited)"
   max_planning_time:
     type: double
     default_value: 5.0
-    description: "Maximum planning time in seconds"
+    description: "Maximum planning wall-clock time in seconds"

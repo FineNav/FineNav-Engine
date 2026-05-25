@@ -29,25 +29,27 @@
 
 class ScenarioMapView : public finenav::AstarPathSearch::IMapView {
 public:
-    ScenarioMapView(const astar::GridMap& g, double res,
-                    double ox = 0.0, double oy = 0.0)
-        : grid_(g), res_(res), ox_(ox), oy_(oy) {}
+    // Origin is always (0,0,0) in FineNav (WORLD_FIXED_FRAME).
+    ScenarioMapView(const astar::GridMap& g, double res)
+        : grid_(g), res_(res) {}
 
     bool isWalkable(const finenav::Position3D& p) const override {
-        int cx = static_cast<int>(std::floor((p.x() - ox_) / res_));
-        int cy = static_cast<int>(std::floor((p.y() - oy_) / res_));
+        int cx = static_cast<int>(std::floor(p.x() / res_));
+        int cy = static_cast<int>(std::floor(p.y() / res_));
         return grid_.isWalkableCell(cx, cy);
     }
 
     double getCost(const finenav::Position3D& p) const override {
-        int cx = static_cast<int>(std::floor((p.x() - ox_) / res_));
-        int cy = static_cast<int>(std::floor((p.y() - oy_) / res_));
+        int cx = static_cast<int>(std::floor(p.x() / res_));
+        int cy = static_cast<int>(std::floor(p.y() / res_));
         return grid_.getCostCell(cx, cy);
     }
 
+    double getStepSize() const override { return res_; }
+
 private:
     const astar::GridMap& grid_;
-    double res_, ox_, oy_;
+    double res_;
 };
 
 // ── Scenario definition ────────────────────────────────────────────────────
@@ -150,16 +152,12 @@ int main()
         astar::GridMap grid(sc.width, sc.height);
         sc.build_map(grid);
 
-        // 2. Wrap in IMapView
+        // 2. Wrap in IMapView  (step size comes from the view, not from params)
         ScenarioMapView view(grid, sc.resolution);
 
         // 3. Configure planner
         finenav::AstarPathSearch planner;
         astar_planner::Params params;
-        params.resolution       = sc.resolution;
-        params.origin_x         = 0.0;
-        params.origin_y         = 0.0;
-        params.origin_z         = 0.0;
         params.dimension        = "2D";
         params.heuristic        = "Euclidean";
         params.allow_diagonal   = sc.allow_diagonal;

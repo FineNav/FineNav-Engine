@@ -238,39 +238,36 @@ TEST(AStarAlgorithm3D, PathLength_FaceNeighbours)
 // Minimal IMapView implementation backed by GridMap
 class TestMapView : public finenav::AstarPathSearch::IMapView {
 public:
-    TestMapView(const astar::GridMap& g, double res)
-        : grid_(g), res_(res) {}
+    TestMapView(const astar::GridMap& g, double step_size)
+        : grid_(g), step_(step_size) {}
 
     bool isWalkable(const finenav::Position3D& p) const override {
         return grid_.isWalkableCell(
-            static_cast<int>(std::floor(p.x() / res_)),
-            static_cast<int>(std::floor(p.y() / res_)));
+            static_cast<int>(std::floor(p.x() / step_)),
+            static_cast<int>(std::floor(p.y() / step_)));
     }
     double getCost(const finenav::Position3D& p) const override {
         return grid_.getCostCell(
-            static_cast<int>(std::floor(p.x() / res_)),
-            static_cast<int>(std::floor(p.y() / res_)));
+            static_cast<int>(std::floor(p.x() / step_)),
+            static_cast<int>(std::floor(p.y() / step_)));
     }
+    double getStepSize() const override { return step_; }
 
 private:
     const astar::GridMap& grid_;
-    double res_;
+    double step_;
 };
 
 // Helper: build a default-configured AstarPathSearch
-inline finenav::AstarPathSearch makePlanner(double res = 1.0)
+inline finenav::AstarPathSearch makePlanner()
 {
     finenav::AstarPathSearch planner;
     astar_planner::Params p;
-    p.resolution      = res;
-    p.origin_x        = 0.0;
-    p.origin_y        = 0.0;
-    p.origin_z        = 0.0;
     p.dimension       = "2D";
     p.heuristic       = "Euclidean";
     p.allow_diagonal  = false;
     p.diagonal_weight = 1.414;
-    p.goal_tolerance  = 0.6;
+    p.goal_tolerance  = 0.6;   // metres
     p.allow_unknown   = true;
     p.max_iterations  = 1000000;
     p.max_planning_time = 5.0;
@@ -294,7 +291,7 @@ TEST(AstarPathSearch, PlanSucceeds_OpenGrid)
 {
     astar::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
-    auto planner = makePlanner(1.0);
+    auto planner = makePlanner();
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 5.5, 5.5), view);
     ASSERT_TRUE(result.has_value());
@@ -306,7 +303,7 @@ TEST(AstarPathSearch, PlanFails_GoalBlocked)
     astar::GridMap grid(10, 10);
     grid.setObstacle(5, 5, true);
     TestMapView view(grid, 1.0);
-    auto planner = makePlanner(1.0);
+    auto planner = makePlanner();
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 5.5, 5.5), view);
     EXPECT_FALSE(result.has_value());
@@ -316,7 +313,7 @@ TEST(AstarPathSearch, OutputPoses_AreWorldCoordinates)
 {
     astar::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
-    auto planner = makePlanner(1.0);
+    auto planner = makePlanner();
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 3.5, 0.5), view);
     ASSERT_TRUE(result.has_value());

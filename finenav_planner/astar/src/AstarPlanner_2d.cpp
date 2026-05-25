@@ -13,26 +13,18 @@ namespace finenav {
 
 void AstarPathSearch::configure(const ConfigType& params)
 {
-    // Grid discretisation
-    resolution_ = params.resolution;
-    origin_x_   = params.origin_x;
-    origin_y_   = params.origin_y;
-    origin_z_   = params.origin_z;
-
-    // Dimension
     if (params.dimension == "3D")
         dimension_ = astar::AStarAlgorithm::Dimension::D3;
     else
         dimension_ = astar::AStarAlgorithm::Dimension::D2;
 
-    // Heuristic
     if      (params.heuristic == "Manhattan")  heuristic_ = astar::Heuristic::Manhattan;
     else if (params.heuristic == "Chebyshev")  heuristic_ = astar::Heuristic::Chebyshev;
     else                                        heuristic_ = astar::Heuristic::Euclidean;
 
     allow_diagonal_    = params.allow_diagonal;
     diagonal_weight_   = params.diagonal_weight;
-    goal_tolerance_    = params.goal_tolerance;
+    goal_tolerance_m_  = params.goal_tolerance;   // stored in metres
     allow_unknown_     = params.allow_unknown;
     max_iterations_    = params.max_iterations;
     max_planning_time_ = params.max_planning_time;
@@ -44,37 +36,29 @@ AstarPathSearch::Result AstarPathSearch::plan(
     const Context&  ctx,
     const IMapView& map_view)
 {
-    // ── helpers: world ↔ cell conversion ──────────────────────────────────
+    // ── read step size from the map (single source of truth) ──────────────
+    const double step = map_view.getStepSize();
+
+    // ── world ↔ cell helpers ───────────────────────────────────────────────
     //
-    // These capture resolution_ and origin_* from the planner config.
-    // IMapView never needs to know about cells — it only answers
-    // world-coordinate queries.
+    // Origin is always (0,0,0) in FineNav (WORLD_FIXED_FRAME).
+    // Cell centre = (ix + 0.5) * step  for each axis.
 
-    const double res = resolution_;
-    const double ox  = origin_x_, oy = origin_y_, oz = origin_z_;
-
-    auto worldToCell = [&](double x, double y, double z) -> astar::Vec3 {
+    auto worldToCell = [step](double x, double y, double z) -> astar::Vec3 {
         return {
-            static_cast<int>(std::floor((x - ox) / res)),
-            static_cast<int>(std::floor((y - oy) / res)),
-            static_cast<int>(std::floor((z - oz) / res))
+            static_cast<int>(std::floor(x / step)),
+            static_cast<int>(std::floor(y / step)),
+            static_cast<int>(std::floor(z / step))
         };
     };
 
-    // Cell centres are used when querying the map so that the returned
-    // world point represents the canonical location of the cell.
-    auto cellCentre = [&](const astar::Vec3& c) -> Position3D {
-        return {
-            ox + (c.x + 0.5) * res,
-            oy + (c.y + 0.5) * res,
-            oz + (c.z + 0.5) * res
-        };
+    auto cellCentre = [step](const astar::Vec3& c) -> Position3D {
+        return { (c.x + 0.5) * step,
+                 (c.y + 0.5) * step,
+                 (c.z + 0.5) * step };
     };
 
     // ── lambdas injected into AStarAlgorithm ──────────────────────────────
-    //
-    // AStarAlgorithm only ever calls these — it is completely unaware of
-    // IMapView, Position3D, or world coordinates.
 
     auto is_walkable = [&](const astar::Vec3& c) -> bool {
         return map_view.isWalkable(cellCentre(c));
@@ -99,7 +83,7 @@ AstarPathSearch::Result AstarPathSearch::plan(
     algo.setHeuristic(heuristic_);
     algo.setAllowDiagonal(allow_diagonal_);
     algo.setDiagonalWeight(diagonal_weight_);
-    algo.setGoalTolerance(goal_tolerance_);
+    algo.setGoalTolerance(goal_tolerance_m_ / step);  // metres → cells
     algo.setAllowUnknown(allow_unknown_);
     algo.setMaxIterations(max_iterations_);
     algo.setMaxPlanningTime(max_planning_time_);
