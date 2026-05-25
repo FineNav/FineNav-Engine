@@ -78,14 +78,14 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPath(
 
             double step_cost   = calculateStepCost(current.pos, nb_pos);
             double map_cost    = get_cost_(nb_pos);
-            double tentative_g = current.g + step_cost * (1.0 + map_cost);
+            double tentative_g = current.g + step_cost * (1.0 + map_cost);// TODO：目前是乘法模型，实际上应该是加法模型？
 
             if (!came_from_.contains(nb_pos) ||
                 tentative_g < came_from_[nb_pos].g)
             {
                 AstarNode nb(nb_pos);
                 nb.g      = tentative_g;
-                nb.h      = calculateHeuristic(heuristic_, nb_pos, goal) * 1.001;
+                nb.h      = calculateHeuristic(heuristic_, nb_pos, goal) * 1.001; // TODO： 是否要保留这个1.001的设计
                 nb.updateF();
                 nb.parent = current.pos;
 
