@@ -66,19 +66,13 @@ public:
 
     using IsWalkableFn = std::function<bool(const Vec3&)>;
     using GetCostFn    = std::function<double(const Vec3&)>;
-    using IsUnknownFn  = std::function<bool(const Vec3&)>;
 
-    // Supply the three grid-query lambdas.
-    // is_unknown may be omitted (defaults to "nothing is unknown").
+    // Supply the two grid-query lambdas.
     AStarAlgorithm(
         IsWalkableFn is_walkable,
-        GetCostFn    get_cost,
-        IsUnknownFn  is_unknown = {})
+        GetCostFn    get_cost)
         : is_walkable_(std::move(is_walkable)),
-          get_cost_(std::move(get_cost)),
-          is_unknown_(is_unknown
-                      ? std::move(is_unknown)
-                      : [](const Vec3&) { return false; })
+          get_cost_(std::move(get_cost))
     {}
 
     // ── setters ───────────────────────────────────────────────
@@ -88,7 +82,6 @@ public:
     void setDiagonalWeight(double w)  { diagonal_weight_  = w; }
     void setAllowDiagonal(bool a)     { allow_diagonal_   = a; }
     void setGoalTolerance(double t)   { goal_tolerance_   = t; }
-    void setAllowUnknown(bool a)      { allow_unknown_    = a; }
     void setMaxIterations(int m)      { max_iterations_   = m; }
     void setMaxPlanningTime(double t) { max_planning_time_= t; }
 
@@ -148,7 +141,6 @@ public:
 
             for (const Vec3& nb_pos : getNeighbors(current.pos))
             {
-                if (!allow_unknown_ && is_unknown_(nb_pos))  continue;
                 if (!is_walkable_(nb_pos))                   continue;
                 if (visited_.contains(nb_pos))               continue;
 
@@ -274,7 +266,6 @@ private:
 
     IsWalkableFn is_walkable_;
     GetCostFn    get_cost_;
-    IsUnknownFn  is_unknown_;
 
     // ── parameters ────────────────────────────────────────────
 
@@ -282,7 +273,6 @@ private:
     Heuristic heuristic_        = Heuristic::Euclidean;
     bool      allow_diagonal_   = true;
     double    diagonal_weight_  = std::sqrt(2.0);
-    bool      allow_unknown_    = true;
     double    goal_tolerance_   = 0.25;
     int       max_iterations_   = 1000000;
     double    max_planning_time_= 5.0;

@@ -14,13 +14,13 @@ generate_parameter_library(
 )
 # ── planner library ─────────────────────────────────────────────────────────
 ament_auto_add_library(astar_planner_lib
-    src/AstarPlanner_2d.cpp
+        src/astar_path_search.cpp
 )
 target_link_libraries(astar_planner_lib astar_params)
 # ── eval executable ─────────────────────────────────────────────────────────
 ament_auto_add_executable(astar_eval
     eval/astar_eval.cpp
-    src/AstarPlanner_2d.cpp
+        src/astar_path_search.cpp
 )
 target_include_directories(astar_eval PRIVATE eval test)
 target_link_libraries(astar_eval astar_params)
@@ -29,7 +29,7 @@ if (BUILD_TESTING)
     find_package(ament_cmake_gtest REQUIRED)
     ament_add_gtest(astar_test
         test/astar_test.cpp
-        src/AstarPlanner_2d.cpp
+            src/astar_path_search.cpp
     )
     # Inherit the same includes and linked libs as the planner library
     ament_target_dependencies(astar_test

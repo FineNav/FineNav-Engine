@@ -18,7 +18,7 @@
 #include <cmath>
 #include <chrono>
 
-#include "AstarPlanner_2d.hpp"
+#include "astar_path_search.hpp"
 
 // ── Concrete IMapView ──────────────────────────────────────────────────────
 //
@@ -163,7 +163,6 @@ int main()
         params.allow_diagonal   = sc.allow_diagonal;
         params.diagonal_weight  = 1.414;
         params.goal_tolerance   = sc.resolution * 0.6;
-        params.allow_unknown    = true;
         params.max_iterations   = 1000000;
         params.max_planning_time= 5.0;
         planner.configure(params);

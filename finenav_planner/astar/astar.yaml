@@ -35,11 +35,6 @@ astar_planner:
     type: double
     default_value: 0.5
     description: "Acceptable distance to goal in metres"
-  # ── 未知区域处理 ───────────────────────────────────────────
-  allow_unknown:
-    type: bool
-    default_value: true
-    description: "Allow traversal of cells whose IMapView::isUnknown() returns true"
   # ── 搜索终止条件 ───────────────────────────────────────────
   max_iterations:
     type: int

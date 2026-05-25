@@ -14,7 +14,7 @@ namespace astar {
 // ── Two things you provide ────────────────────────────────────
 //
 //   1. World-coordinate queries
-//      isWalkable / getCost / isUnknown
+//      isWalkable / getCost
 //      All inputs are in world space (metres, WORLD_FIXED_FRAME).
 //
 //   2. Search step size  (getStepSize)
@@ -54,9 +54,6 @@ public:
     /// A* edge weight = step_cost * (1 + getCost(p)).
     /// Return 0.0 for a uniform-cost map.
     virtual double getCost(const finenav::Position3D& p) const = 0;
-    /// Is the occupancy at p unknown?  Default: no.
-    virtual bool isUnknown(const finenav::Position3D& p) const
-    { return false; }
     // ── discretisation hint ───────────────────────────────────
     /// Distance in metres that A* travels with each grid step.
     /// The planner uses this to discretise the world internally —

@@ -2,7 +2,7 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-#include "AstarPlanner_2d.hpp"
+#include "astar_path_search.hpp"
 
 #include <cmath>
 #include <geometry_msgs/msg/pose.hpp>
@@ -25,7 +25,6 @@ void AstarPathSearch::configure(const ConfigType& params)
     allow_diagonal_    = params.allow_diagonal;
     diagonal_weight_   = params.diagonal_weight;
     goal_tolerance_m_  = params.goal_tolerance;   // stored in metres
-    allow_unknown_     = params.allow_unknown;
     max_iterations_    = params.max_iterations;
     max_planning_time_ = params.max_planning_time;
 }
@@ -66,9 +65,6 @@ AstarPathSearch::Result AstarPathSearch::plan(
     auto get_cost = [&](const astar::Vec3& c) -> double {
         return map_view.getCost(cellCentre(c));
     };
-    auto is_unknown = [&](const astar::Vec3& c) -> bool {
-        return map_view.isUnknown(cellCentre(c));
-    };
 
     // ── run A* in grid space ───────────────────────────────────────────────
 
@@ -78,13 +74,12 @@ AstarPathSearch::Result AstarPathSearch::plan(
     astar::Vec3 start = worldToCell(sp.x, sp.y, sp.z);
     astar::Vec3 goal  = worldToCell(gp.x, gp.y, gp.z);
 
-    astar::AStarAlgorithm algo(is_walkable, get_cost, is_unknown);
+    astar::AStarAlgorithm algo(is_walkable, get_cost);
     algo.setDimension(dimension_);
     algo.setHeuristic(heuristic_);
     algo.setAllowDiagonal(allow_diagonal_);
     algo.setDiagonalWeight(diagonal_weight_);
     algo.setGoalTolerance(goal_tolerance_m_ / step);  // metres → cells
-    algo.setAllowUnknown(allow_unknown_);
     algo.setMaxIterations(max_iterations_);
     algo.setMaxPlanningTime(max_planning_time_);
 

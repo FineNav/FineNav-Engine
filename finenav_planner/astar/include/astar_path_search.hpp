@@ -14,6 +14,7 @@
 #include "astar_algorithm.hpp"
 #include "imap_view.hpp"
 
+
 namespace finenav {
 
 // =============================================================
@@ -81,7 +82,6 @@ private:
     bool   allow_diagonal_    = true;
     double diagonal_weight_   = std::sqrt(2.0);
     double goal_tolerance_m_  = 0.5;    // metres (converted to cells at plan time)
-    bool   allow_unknown_     = true;
     int    max_iterations_    = 1000000;
     double max_planning_time_ = 5.0;
 };

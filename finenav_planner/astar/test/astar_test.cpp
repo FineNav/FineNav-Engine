@@ -16,7 +16,7 @@
 #include <unordered_set>
 
 #include "astar_algorithm.hpp"
-#include "AstarPlanner_2d.hpp"
+#include "astar_path_search.hpp"
 #include "grid_map.hpp"    // test-only utility (in this directory)
 
 // ── helpers ──────────────────────────────────────────────────────────────
@@ -268,7 +268,6 @@ inline finenav::AstarPathSearch makePlanner()
     p.allow_diagonal  = false;
     p.diagonal_weight = 1.414;
     p.goal_tolerance  = 0.6;   // metres
-    p.allow_unknown   = true;
     p.max_iterations  = 1000000;
     p.max_planning_time = 5.0;
     planner.configure(p);
