@@ -78,14 +78,20 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPath(
 
             double step_cost   = calculateStepCost(current.pos, nb_pos);
             double map_cost    = get_cost_(nb_pos);
-            double tentative_g = current.g + step_cost * (1.0 + map_cost);// TODO：目前是乘法模型，实际上应该是加法模型？
+
+            // movement_weight是运动移动的权重，用于配平用户传入的map_cost，map_cost可以为任意值，不局限于传统ros2的costmap_2d的0-255范围。
+            // 比如如果用户的地图代价是0.0-1.0，运动权重可以设置为10.0，这样A*就会更重视运动距离，避免过度受地图代价影响。
+            double tentative_g = current.g + step_cost * (1.0 * movement_weight_ + map_cost);
+
 
             if (!came_from_.contains(nb_pos) ||
                 tentative_g < came_from_[nb_pos].g)
             {
                 AstarNode nb(nb_pos);
                 nb.g      = tentative_g;
-                nb.h      = calculateHeuristic(heuristic_, nb_pos, goal) * 1.001; // TODO： 是否要保留这个1.001的设计
+
+                // 设置贪心权重greedy_weight，让用户决定该算法是否要更加贪心（更快但可能更次优）。
+                nb.h      = calculateHeuristic(heuristic_, nb_pos, goal) * greedy_weight_;
                 nb.updateF();
                 nb.parent = current.pos;
 

@@ -93,6 +93,8 @@ private:
     double       goal_tolerance_  = 0.25;
     int          max_iterations_  = 1000000;
     double       max_planning_time_ = 5.0;
+    double       movement_weight_      = 1.0;
+    double       greedy_weight_        = 1.001;
 
     // ── search state (reset each findPath call) ───────────────
     std::priority_queue<AstarNode, std::vector<AstarNode>, AstarNodeCompare> open_set_;

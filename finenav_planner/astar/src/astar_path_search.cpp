@@ -27,6 +27,8 @@ void AstarPathSearch::configure(const ConfigType& params)
     goal_tolerance_m_  = params.goal_tolerance;
     max_iterations_    = params.max_iterations;
     max_planning_time_ = params.max_planning_time;
+    movement_weight_   = params.movement_weight;
+    greedy_weight_     = params.greedy_weight;
 }
 
 // ── plan ───────────────────────────────────────────────────────────────────

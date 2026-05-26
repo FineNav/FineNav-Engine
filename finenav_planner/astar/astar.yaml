@@ -46,3 +46,16 @@ astar_planner:
     type: double
     default_value: 5.0
     description: "Maximum planning wall-clock time in seconds"
+
+  #—— 运动移动权重 ————————————————————————————————————————————
+  movement_weight:
+    type: double
+    default_value: 1.0
+    description: "Weight for the movement cost in the A* evaluation function"
+
+  #—— 贪心算法参数 ————————————————————————————————————————————
+  greedy_weight:
+    type: double
+    default_value: 1.001
+    description: "Weight for the greedy heuristic in the path planning"
+
