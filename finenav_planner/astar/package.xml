@@ -10,9 +10,12 @@
     <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
     <depend>finenav_msgs</depend>
+    <depend>nav_msgs</depend>
+    <depend>rclcpp</depend>
     <depend>finenav_util</depend>
     <depend>finenav_core</depend>
     <depend>generate_parameter_library</depend>
+    <depend>opencv</depend>
 
     <export>
         <build_type>ament_cmake</build_type>

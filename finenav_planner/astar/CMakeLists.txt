@@ -5,7 +5,8 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 find_package(ament_cmake_auto REQUIRED)
-include_directories(include)
+find_package(OpenCV REQUIRED)
+include_directories(include ${OpenCV_INCLUDE_DIRS})
 ament_auto_find_build_dependencies()
 # ── parameter library (generated from astar.yaml) ──────────────────────────
 generate_parameter_library(
@@ -16,8 +17,9 @@ generate_parameter_library(
 ament_auto_add_library(astar_planner_lib
         src/astar_algorithm.cpp
         src/astar_path_search.cpp
+        src/occ_grid_map_view.cpp
 )
-target_link_libraries(astar_planner_lib astar_params)
+target_link_libraries(astar_planner_lib astar_params ${OpenCV_LIBS})
 # ── eval executable ─────────────────────────────────────────────────────────
 ament_auto_add_executable(astar_eval
     eval/astar_eval.cpp
@@ -39,6 +41,7 @@ if (BUILD_TESTING)
         finenav_core
         finenav_util
         finenav_msgs
+        rclcpp
     )
     target_include_directories(astar_test PRIVATE test)
     target_link_libraries(astar_test astar_params)
