@@ -277,7 +277,7 @@ int main(int argc, char** argv) {
     // ============================================================
 
     auto terrain_analyzer = std::make_shared<TerrainAnalyzer>(
-        map_server, node, passability_helper, costmap_helper, ground_helper);
+        map_server, node, passability_helper, costmap_helper);
 
     map_server->registerPreUpdateHook([stvl_manager, localizer](GridMap<Voxel> & map) {
         const auto & state = localizer->getState();
@@ -437,6 +437,8 @@ int main(int argc, char** argv) {
 
     rclcpp::Rate loop_rate(200); // 200Hz
     auto nav_state_pub = node->create_publisher<nav_msgs::msg::Odometry>("nav_state", 10);
+    auto nav_state_pose_pub = node->create_publisher<geometry_msgs::msg::PoseStamped>("nav_state_pose", 10);
+    auto nav_state_twist_pub = node->create_publisher<geometry_msgs::msg::TwistStamped>("nav_state_twist", 10);
 
     while (rclcpp::ok()) {
         auto robot_state = localizer->getState();
@@ -469,7 +471,20 @@ int main(int argc, char** argv) {
         }();
         nav_state_pub->publish(nav_state_msg);
 
-        // spin_some 已移至独立线程，主循环只做 nav_state 发布与限速
+        // nav_state_pose
+        geometry_msgs::msg::PoseStamped pose_msg;
+        pose_msg.header = nav_state_msg.header;
+        pose_msg.pose   = nav_state_msg.pose.pose;
+        nav_state_pose_pub->publish(pose_msg);
+
+        // nav_state_twist
+        geometry_msgs::msg::TwistStamped twist_msg;
+        twist_msg.header = nav_state_msg.header;
+        twist_msg.twist  = nav_state_msg.twist.twist;
+        nav_state_twist_pub->publish(twist_msg);
+
+
+  		// spin_some 已移至独立线程，主循环只做 nav_state 发布与限速
         loop_rate.sleep();
     }
 
