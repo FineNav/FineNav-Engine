@@ -14,11 +14,11 @@ namespace finenav {
 void AstarPathSearch::configure(const ConfigType& params)
 {
     // connectivity encodes both dimension and neighbourhood size
-    if      (params.connectivity == "4")  connectivity_ = astar::AStarAlgorithm::Connectivity::N4;
-    else if (params.connectivity == "8")  connectivity_ = astar::AStarAlgorithm::Connectivity::N8;
-    else if (params.connectivity == "6")  connectivity_ = astar::AStarAlgorithm::Connectivity::N6;
-    else if (params.connectivity == "18") connectivity_ = astar::AStarAlgorithm::Connectivity::N18;
-    else                                  connectivity_ = astar::AStarAlgorithm::Connectivity::N26;
+    if      (params.connectivity == "4")  connectivity_ = astar::AStarAlgorithm::Connectivity::N4; // 二维四方向：x+/x-/y+/y-
+    else if (params.connectivity == "8")  connectivity_ = astar::AStarAlgorithm::Connectivity::N8; // 二维八方向，允许对角线
+    else if (params.connectivity == "6")  connectivity_ = astar::AStarAlgorithm::Connectivity::N6; // 三维允许：六方向x+/x-/y+/y-/z+/z-
+    else if (params.connectivity == "18") connectivity_ = astar::AStarAlgorithm::Connectivity::N18; // 三维允许：面邻接，边邻接，但不允许有角点
+    else                                  connectivity_ = astar::AStarAlgorithm::Connectivity::N26; // 三维允许：一个立方体周围所有格子
 
     if      (params.heuristic == "Manhattan")  heuristic_ = astar::Heuristic::Manhattan;
     else if (params.heuristic == "Chebyshev")  heuristic_ = astar::Heuristic::Chebyshev;
@@ -53,6 +53,7 @@ AstarPathSearch::Result AstarPathSearch::plan(
         };
     };
 
+    // 加0.5是为了取方格的中心坐标
     auto cellCentre = [step](const astar::Vec3& c) -> Position3D {
         return { (c.x + 0.5) * step,
                  (c.y + 0.5) * step,

@@ -43,6 +43,7 @@ public:
 
     using ConfigType = astar_planner::Params;
 
+    // A*只需要起始点和终点位姿，不需要参考路径，即速度、加速度和时间
     static constexpr IOProfile InputProfile = {
         .pose  = true,
         .vel   = false,
