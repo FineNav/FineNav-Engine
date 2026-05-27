@@ -7,35 +7,55 @@
 # 节点路径: /hello_finenav
 # ──────────────────────────────────────────────────────────────────────────────
 
+# Observation Covariance Configuration for FineNavLocalizer
+#
+# 本文件控制喂给 localizer 的三类观测通道的协方差数值。
+# 调大某一项 → 对该维度的观测信任度降低（更依赖预测）。
+# 调小某一项 → 对该维度的观测信任度升高（更快跟随观测）。
+#
+# 通道说明:
+#   global_pose_cov_*  → /localization_pose (pose 通道)：信任 x/y/z/yaw，不信任 roll/pitch
+#   odom_pose_cov_*    → /Odometry (pose 通道)：仅信任 roll/pitch (IMU)，其余维度不信任
+#   odom_rel_cov_*     → /Odometry (relativePose 通道)：帧间增量不确定度（降频喂入）
+#
+# 节点路径: /hello_finenav
+# ──────────────────────────────────────────────────────────────────────────────
+
 hello_finenav:
   ros__parameters:
     obs_cov:
-      # ── 位姿观测 (/localization_pose) ────────────────────────────────────────
-      # 位置 (x, y, z) 的标准差 [m]；z 通常不可信时可调大
-      pose_cov_x:     0.01
-      pose_cov_y:     0.01
-      pose_cov_z:     0.1
-      # 姿态 (roll, pitch, yaw) 的方差；设极大值表示完全不信任该维度
-      pose_cov_roll:  1.0e9
-      pose_cov_pitch: 1.0e9
-#      pose_cov_roll: 0.001
-#      pose_cov_pitch: 0.001
-      pose_cov_yaw:   0.001
 
-      # ── 速度观测 (/Odometry) ─────────────────────────────────────────────────
-      # 线速度 (vx, vy, vz) 的标准差 [m/s]
-      twist_cov_vx:   0.00001
-      twist_cov_vy:   0.00001
-      twist_cov_vz:   0.00001
-      # 角速度 (wx, wy, wz) 的标准差 [rad/s]
-      twist_cov_wx:   0.00001
-      twist_cov_wy:   0.00001
-      twist_cov_wz:   0.00001
+      # ── Global pose (/localization_pose → pose channel) ──────────────────
+      # 策略: 信任 x/y/z/yaw；不信任 roll/pitch（全局位姿源无绝对重力对齐参考）
+      global_pose_cov_x:     0.01
+      global_pose_cov_y:     0.01
+      global_pose_cov_z:     0.1
+      global_pose_cov_roll:  1.0e9    # 不信任 — 设为极大方差
+      global_pose_cov_pitch: 1.0e9    # 不信任 — 设为极大方差
+      global_pose_cov_yaw:   0.001
 
-      # ── Odometry Roll/Pitch 观测 (/Odometry → PoseWithCovariance) ────────────
-      # 仅使用 Odometry orientation 中的 roll / pitch 进行修正，忽略 position 和 yaw。
-      # 前提：地图坐标系与机器人启动初始位置坐标系在同一水平面（通常满足）。
-      # 调大 → 对 fast-lio 的 roll/pitch 信任度降低；调小 → 信任度升高。
-      odom_rp_cov_roll:  0.00001
-      odom_rp_cov_pitch: 0.00001
+      # ── Odometry abs pose (/Odometry → pose channel) ─────────────────────
+      # 策略: 仅信任 roll/pitch（IMU 重力对齐可靠）；x/y/z/yaw 设极大方差不参与修正
+      # 前提：地图坐标系与机器人启动时初始位置坐标系在同一水平面（通常满足）。
+      odom_pose_cov_x:     1.0e6    # 不信任
+      odom_pose_cov_y:     1.0e6    # 不信任
+      odom_pose_cov_z:     1.0e6    # 不信任
+      odom_pose_cov_roll:  0.00001  # 信任 (IMU 倾角)
+      odom_pose_cov_pitch: 0.00001  # 信任 (IMU 倾角)
+      odom_pose_cov_yaw:   1.0e6    # 不信任
+
+      # ── Odometry relative pose (/Odometry → relativePose channel) ────────
+      # 设为帧间位移/转角的期望不确定度（方差值）
+      odom_rel_cov_x:     0.05
+      odom_rel_cov_y:     0.05
+      odom_rel_cov_z:     0.05
+      odom_rel_cov_roll:  0.005
+      odom_rel_cov_pitch: 0.005
+      odom_rel_cov_yaw:   0.01
+
+      # 时间累积窗口 [ms]：relativePose 观测的最小时间跨度
+      # ESKF 100Hz（10ms/槽），odom 200Hz（5ms/帧）。
+      # 若窗口过短(<10ms)，stamp_from 与 stamp_to 落在同一槽，H 相消，更新退化为 no-op。
+      # 50ms → ~5 个 ESKF 槽间距，保证有效修正，等效约 20Hz 观测频率。
+      acc_interval_ms:    50.0
 

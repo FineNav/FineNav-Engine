@@ -50,55 +50,56 @@ int main(int argc, char** argv) {
 
     auto stvl_manager = std::make_shared<StvlManager>(node);
 
-    // ── Covariance parameters for fast-lio fusion ──────────────────────────
+    // ── Covariance parameters (all loaded from obs_cov.yaml) ──────────────
     //
-    //  fast-lio has an internal IMU, so:
-    //    • roll / pitch  → absolute observations (gravity-aligned by IMU)
-    //    • x / y / z / yaw → relative observations only (no global anchor)
+    //  obs_cov.global_pose_cov_* : covariance for /localization_pose feed.
+    //    Trust x/y/z/yaw (small), DO NOT trust roll/pitch (large) because
+    //    the global pose source has no reliable absolute roll/pitch reference.
     //
-    //  abs_pose_sigma.*  : std-dev for the absolute-pose feed (pose_msg).
-    //    Set roll/pitch small (trusted), x/y/z/yaw large (distrusted = only
-    //    relative constraint carries these DOFs).
+    //  obs_cov.odom_pose_cov_*   : covariance for /Odometry → pose channel.
+    //    ONLY trust roll/pitch (small); x/y/z/yaw are set to large values
+    //    so only the relative-pose channel constrains those DOFs.
     //
-    //  rel_pose_sigma.*  : std-dev for the relative-pose feed (rel_obs).
-    //    All 6 DOFs are set to the expected inter-frame increment uncertainty.
+    //  obs_cov.odom_rel_cov_*    : covariance for /Odometry → relativePose channel.
+    //    All 6 DOFs set to the expected inter-frame increment uncertainty.
     //
     //  All parameters are re-read on every callback to support live tuning.
-    node->declare_parameter("abs_pose_sigma.x",     1e3);
-    node->declare_parameter("abs_pose_sigma.y",     1e3);
-    node->declare_parameter("abs_pose_sigma.z",     1e3);
-    node->declare_parameter("abs_pose_sigma.roll",  0.01);   // [rad] — trusted (IMU)
-    node->declare_parameter("abs_pose_sigma.pitch", 0.01);   // [rad] — trusted (IMU)
-    node->declare_parameter("abs_pose_sigma.yaw",   1e3);
-
-    node->declare_parameter("rel_pose_sigma.x",     0.05);   // [m]
-    node->declare_parameter("rel_pose_sigma.y",     0.05);   // [m]
-    node->declare_parameter("rel_pose_sigma.z",     0.05);   // [m]
-    node->declare_parameter("rel_pose_sigma.roll",  0.005);  // [rad]
-    node->declare_parameter("rel_pose_sigma.pitch", 0.005);  // [rad]
-    node->declare_parameter("rel_pose_sigma.yaw",   0.01);   // [rad]
 
     // ------------------------------ Launch Localization ----------------------------------
 
     // ── 从 obs_cov.yaml 读取观测协方差 ────────────────────────────────────────
-    node->declare_parameter("obs_cov.pose_cov_x",     0.01);
-    node->declare_parameter("obs_cov.pose_cov_y",     0.01);
-    node->declare_parameter("obs_cov.pose_cov_z",     0.01);
-    node->declare_parameter("obs_cov.pose_cov_roll",  1.0e9);
-    node->declare_parameter("obs_cov.pose_cov_pitch", 1.0e9);
-    node->declare_parameter("obs_cov.pose_cov_yaw",   0.001);
-    node->declare_parameter("obs_cov.twist_cov_vx",   0.01);
-    node->declare_parameter("obs_cov.twist_cov_vy",   0.01);
-    node->declare_parameter("obs_cov.twist_cov_vz",   0.01);
-    node->declare_parameter("obs_cov.twist_cov_wx",   0.001);
-    node->declare_parameter("obs_cov.twist_cov_wy",   0.001);
-    node->declare_parameter("obs_cov.twist_cov_wz",   0.001);
-    // Odometry orientation 中 roll/pitch 的协方差（yaw 和 position 设为无穷大，不参与修正）
-    // 备注：地图坐标系与机器人启动时初始位置坐标系在同一水平面，因此 fast-lio 的 roll/pitch 无坐标系歧义
-    node->declare_parameter("obs_cov.odom_rp_cov_roll",  0.001);
-    node->declare_parameter("obs_cov.odom_rp_cov_pitch", 0.001);
+    // Global pose (/localization_pose): 不信任 roll / pitch
+    node->declare_parameter("obs_cov.global_pose_cov_x",     0.01);
+    node->declare_parameter("obs_cov.global_pose_cov_y",     0.01);
+    node->declare_parameter("obs_cov.global_pose_cov_z",     0.1);
+    node->declare_parameter("obs_cov.global_pose_cov_roll",  1.0e9);  // 不信任
+    node->declare_parameter("obs_cov.global_pose_cov_pitch", 1.0e9);  // 不信任
+    node->declare_parameter("obs_cov.global_pose_cov_yaw",   0.001);
 
-    // /pose → PoseWithCovarianceStamped (pose only, no velocity)
+    // Odometry abs pose (/Odometry → pose channel): 仅信任 roll / pitch
+    node->declare_parameter("obs_cov.odom_pose_cov_x",     1.0e6);   // 不信任
+    node->declare_parameter("obs_cov.odom_pose_cov_y",     1.0e6);   // 不信任
+    node->declare_parameter("obs_cov.odom_pose_cov_z",     1.0e6);   // 不信任
+    node->declare_parameter("obs_cov.odom_pose_cov_roll",  0.00001); // 信任 (IMU)
+    node->declare_parameter("obs_cov.odom_pose_cov_pitch", 0.00001); // 信任 (IMU)
+    node->declare_parameter("obs_cov.odom_pose_cov_yaw",   1.0e6);   // 不信任
+
+    // Odometry relative pose (/Odometry → relativePose channel)
+    node->declare_parameter("obs_cov.odom_rel_cov_x",     0.05);
+    node->declare_parameter("obs_cov.odom_rel_cov_y",     0.05);
+    node->declare_parameter("obs_cov.odom_rel_cov_z",     0.05);
+    node->declare_parameter("obs_cov.odom_rel_cov_roll",  0.005);
+    node->declare_parameter("obs_cov.odom_rel_cov_pitch", 0.005);
+    node->declare_parameter("obs_cov.odom_rel_cov_yaw",   0.01);
+
+    // 相对位姿观测的时间累积窗口 [ms]
+    // ESKF 运行在 100Hz（10ms/槽）。若直接以 200Hz odom 帧间差（5ms）提交，
+    // stamp_from 与 stamp_to 几乎落在同一槽，H_to + H_from ≈ 0，更新退化为 no-op。
+    // 累积到 acc_interval_ms 后再提交，使两端至少跨越若干个 ESKF 槽，保证有效修正。
+    node->declare_parameter("obs_cov.acc_interval_ms", 50.0);  // ≈ 20Hz 观测
+
+    // /localization_pose → PoseWithCovarianceStamped (global pose, no velocity)
+    // 策略: 信任 x/y/z/yaw，不信任 roll/pitch（全局位姿无重力对齐参考）
     static std::atomic<bool> localizer_initialized{false};
     auto pose_sub = node->create_subscription<geometry_msgs::msg::PoseStamped>(
         "/localization_pose",
@@ -107,17 +108,18 @@ int main(int argc, char** argv) {
 
             // output delay millisecond
             auto delay = node->now() - rclcpp::Time(msg.header.stamp);
-            RCLCPP_INFO_STREAM(node->get_logger(), "Odometry delay with: " << delay.seconds() * 1000.0 << " ms");
+            RCLCPP_INFO_STREAM(node->get_logger(), "Global pose delay: " << delay.seconds() * 1000.0 << " ms");
 
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
             pose_msg.header = msg.header;
             pose_msg.pose.pose = msg.pose;
-            pose_msg.pose.covariance[0]  = node->get_parameter("obs_cov.pose_cov_x").as_double();
-            pose_msg.pose.covariance[7]  = node->get_parameter("obs_cov.pose_cov_y").as_double();
-            pose_msg.pose.covariance[14] = node->get_parameter("obs_cov.pose_cov_z").as_double();
-            pose_msg.pose.covariance[21] = node->get_parameter("obs_cov.pose_cov_roll").as_double();
-            pose_msg.pose.covariance[28] = node->get_parameter("obs_cov.pose_cov_pitch").as_double();
-            pose_msg.pose.covariance[35] = node->get_parameter("obs_cov.pose_cov_yaw").as_double();
+            pose_msg.pose.covariance.fill(0.0);
+            pose_msg.pose.covariance[0]  = node->get_parameter("obs_cov.global_pose_cov_x").as_double();
+            pose_msg.pose.covariance[7]  = node->get_parameter("obs_cov.global_pose_cov_y").as_double();
+            pose_msg.pose.covariance[14] = node->get_parameter("obs_cov.global_pose_cov_z").as_double();
+            pose_msg.pose.covariance[21] = node->get_parameter("obs_cov.global_pose_cov_roll").as_double();
+            pose_msg.pose.covariance[28] = node->get_parameter("obs_cov.global_pose_cov_pitch").as_double();
+            pose_msg.pose.covariance[35] = node->get_parameter("obs_cov.global_pose_cov_yaw").as_double();
 
             if (!localizer_initialized.load()) {
                 localizer->setInitialPose(pose_msg);
@@ -138,93 +140,102 @@ int main(int argc, char** argv) {
             auto& clock = *node->get_clock();
             RCLCPP_INFO_THROTTLE(node->get_logger(), clock, 2000, "[odom] receive delay: %.2f ms", delay_ms);
 
-            // ── Absolute pose (used for initialisation and drift correction) ──
+            // ── Absolute pose (used for roll/pitch correction only) ─────────────
+            // 策略: 仅信任 roll/pitch（IMU重力对齐可靠），x/y/z/yaw 设极大协方差
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
             pose_msg.header    = msg.header;
             pose_msg.pose.pose = msg.pose.pose;
 
-            // ── Read covariance parameters (live — supports dynamic reconfigure) ──
-            // abs_pose: layout [x, y, z, roll, pitch, yaw] (ROS REP-103, diagonal)
-            const double abs_sx  = node->get_parameter("abs_pose_sigma.x").as_double();
-            const double abs_sy  = node->get_parameter("abs_pose_sigma.y").as_double();
-            const double abs_sz  = node->get_parameter("abs_pose_sigma.z").as_double();
-            const double abs_sro = node->get_parameter("abs_pose_sigma.roll").as_double();
-            const double abs_spi = node->get_parameter("abs_pose_sigma.pitch").as_double();
-            const double abs_sya = node->get_parameter("abs_pose_sigma.yaw").as_double();
-
-            // Fill diagonal of 6×6 row-major covariance array.
-            // Off-diagonal elements remain zero (uncorrelated assumption).
             pose_msg.pose.covariance.fill(0.0);
-            pose_msg.pose.covariance[0]  = abs_sx  * abs_sx;   // x
-            pose_msg.pose.covariance[7]  = abs_sy  * abs_sy;   // y
-            pose_msg.pose.covariance[14] = abs_sz  * abs_sz;   // z
-            pose_msg.pose.covariance[21] = abs_sro * abs_sro;  // roll
-            pose_msg.pose.covariance[28] = abs_spi * abs_spi;  // pitch
-            pose_msg.pose.covariance[35] = abs_sya * abs_sya;  // yaw
+            pose_msg.pose.covariance[0]  = node->get_parameter("obs_cov.odom_pose_cov_x").as_double();
+            pose_msg.pose.covariance[7]  = node->get_parameter("obs_cov.odom_pose_cov_y").as_double();
+            pose_msg.pose.covariance[14] = node->get_parameter("obs_cov.odom_pose_cov_z").as_double();
+            pose_msg.pose.covariance[21] = node->get_parameter("obs_cov.odom_pose_cov_roll").as_double();
+            pose_msg.pose.covariance[28] = node->get_parameter("obs_cov.odom_pose_cov_pitch").as_double();
+            pose_msg.pose.covariance[35] = node->get_parameter("obs_cov.odom_pose_cov_yaw").as_double();
 
-            // rel_pose: layout [delta_p_x, delta_p_y, delta_p_z, delta_roll, delta_pitch, delta_yaw]
-            const double rel_sx  = node->get_parameter("rel_pose_sigma.x").as_double();
-            const double rel_sy  = node->get_parameter("rel_pose_sigma.y").as_double();
-            const double rel_sz  = node->get_parameter("rel_pose_sigma.z").as_double();
-            const double rel_sro = node->get_parameter("rel_pose_sigma.roll").as_double();
-            const double rel_spi = node->get_parameter("rel_pose_sigma.pitch").as_double();
-            const double rel_sya = node->get_parameter("rel_pose_sigma.yaw").as_double();
+            localizer->feedObservation(pose_msg);
 
-            // Cache for relative-pose increment computation
-            static std::optional<nav_msgs::msg::Odometry> prev_msg;
+            // ── Read relative-pose covariance parameters (live tuning) ─────────
+            const double rel_sx  = node->get_parameter("obs_cov.odom_rel_cov_x").as_double();
+            const double rel_sy  = node->get_parameter("obs_cov.odom_rel_cov_y").as_double();
+            const double rel_sz  = node->get_parameter("obs_cov.odom_rel_cov_z").as_double();
+            const double rel_sro = node->get_parameter("obs_cov.odom_rel_cov_roll").as_double();
+            const double rel_spi = node->get_parameter("obs_cov.odom_rel_cov_pitch").as_double();
+            const double rel_sya = node->get_parameter("obs_cov.odom_rel_cov_yaw").as_double();
+            const double acc_interval_ms = node->get_parameter("obs_cov.acc_interval_ms").as_double();
 
-            // ── Relative-pose (odometry) observation ───────────────────────────
-            // Uses stamp_from and stamp_to independently so the ESKF maps each
-            // epoch to its exact delay slot — no linearisation error from Δt_odom.
-            if (prev_msg.has_value()) {
-                const rclcpp::Time stamp_from(prev_msg->header.stamp);
+            // ── Relative-pose (odometry) observation — time-window accumulation ──
+            //
+            // Problem with per-frame (200Hz) relative-pose observations:
+            //   The ESKF runs at 100Hz (10ms/slot).  At 200Hz the inter-frame gap is
+            //   5ms, so stamp_to and stamp_from almost always map to the same delay
+            //   slot.  When ds_to == ds_from, H_to + H_from ≈ 0 (the two blocks
+            //   cancel), making every update a no-op.
+            //
+            // Fix: accumulate over acc_interval_ms before submitting one observation.
+            //   At 50ms the "from" slot sits ~5 ESKF ticks behind the "to" slot —
+            //   well resolved — and displacement SNR is much better than per-frame.
+            static std::optional<nav_msgs::msg::Odometry> window_start_msg;
+
+            if (window_start_msg.has_value()) {
+                const rclcpp::Time stamp_from(window_start_msg->header.stamp);
                 const rclcpp::Time stamp_to  (msg.header.stamp);
-                const double dt = (stamp_to - stamp_from).seconds();
+                const double window_ms = (stamp_to - stamp_from).seconds() * 1e3;
 
-                if (dt > 1e-6 && dt < 1.0) {
-                    const Eigen::Quaterniond q_prev{
-                        prev_msg->pose.pose.orientation.w,
-                        prev_msg->pose.pose.orientation.x,
-                        prev_msg->pose.pose.orientation.y,
-                        prev_msg->pose.pose.orientation.z};
-                    const Eigen::Quaterniond q_curr{
-                        msg.pose.pose.orientation.w,
-                        msg.pose.pose.orientation.x,
-                        msg.pose.pose.orientation.y,
-                        msg.pose.pose.orientation.z};
+                if (window_ms >= acc_interval_ms) {
+                    const double dt = (stamp_to - stamp_from).seconds();
 
-                    const Sophus::SO3d R_prev{q_prev.normalized().toRotationMatrix()};
-                    const Sophus::SO3d R_curr{q_curr.normalized().toRotationMatrix()};
+                    if (dt > 1e-6 && dt < 1.0) {
+                        const Eigen::Quaterniond q_prev{
+                            window_start_msg->pose.pose.orientation.w,
+                            window_start_msg->pose.pose.orientation.x,
+                            window_start_msg->pose.pose.orientation.y,
+                            window_start_msg->pose.pose.orientation.z};
+                        const Eigen::Quaterniond q_curr{
+                            msg.pose.pose.orientation.w,
+                            msg.pose.pose.orientation.x,
+                            msg.pose.pose.orientation.y,
+                            msg.pose.pose.orientation.z};
 
-                    const Eigen::Vector3d p_prev{
-                        prev_msg->pose.pose.position.x,
-                        prev_msg->pose.pose.position.y,
-                        prev_msg->pose.pose.position.z};
-                    const Eigen::Vector3d p_curr{
-                        msg.pose.pose.position.x,
-                        msg.pose.pose.position.y,
-                        msg.pose.pose.position.z};
+                        const Sophus::SO3d R_prev{q_prev.normalized().toRotationMatrix()};
+                        const Sophus::SO3d R_curr{q_curr.normalized().toRotationMatrix()};
 
-                    finenav::RelativePoseObs rel_obs;
-                    rel_obs.delta_p_body_obs = R_prev.inverse() * (p_curr - p_prev);
-                    rel_obs.delta_R_obs      = R_prev.inverse() * R_curr;
-                    rel_obs.stamp_to         = stamp_to;
-                    rel_obs.stamp_from       = stamp_from;
+                        const Eigen::Vector3d p_prev{
+                            window_start_msg->pose.pose.position.x,
+                            window_start_msg->pose.pose.position.y,
+                            window_start_msg->pose.pose.position.z};
+                        const Eigen::Vector3d p_curr{
+                            msg.pose.pose.position.x,
+                            msg.pose.pose.position.y,
+                            msg.pose.pose.position.z};
 
-                    // Displacement covariance (diagonal, body-frame):
-                    //   [0:3] translation  [3:6] rotation (SO3 log-map tangent space)
-                    rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Zero();
-                    rel_obs.R_noise(0, 0) = rel_sx  * rel_sx;
-                    rel_obs.R_noise(1, 1) = rel_sy  * rel_sy;
-                    rel_obs.R_noise(2, 2) = rel_sz  * rel_sz;
-                    rel_obs.R_noise(3, 3) = rel_sro * rel_sro;
-                    rel_obs.R_noise(4, 4) = rel_spi * rel_spi;
-                    rel_obs.R_noise(5, 5) = rel_sya * rel_sya;
+                        finenav::RelativePoseObs rel_obs;
+                        rel_obs.delta_p_body_obs = R_prev.inverse() * (p_curr - p_prev);
+                        rel_obs.delta_R_obs      = R_prev.inverse() * R_curr;
+                        rel_obs.stamp_to         = stamp_to;
+                        rel_obs.stamp_from       = stamp_from;
 
-                    localizer->feedRelativePose(rel_obs);
+                        // Displacement covariance (diagonal, body-frame):
+                        //   [0:3] translation  [3:6] rotation (SO3 log-map tangent space)
+                        rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Zero();
+                        rel_obs.R_noise(0, 0) = rel_sx  * rel_sx;
+                        rel_obs.R_noise(1, 1) = rel_sy  * rel_sy;
+                        rel_obs.R_noise(2, 2) = rel_sz  * rel_sz;
+                        rel_obs.R_noise(3, 3) = rel_sro * rel_sro;
+                        rel_obs.R_noise(4, 4) = rel_spi * rel_spi;
+                        rel_obs.R_noise(5, 5) = rel_sya * rel_sya;
+
+                        localizer->feedRelativePose(rel_obs);
+                    }
+
+                    // Reset accumulation window to current frame
+                    window_start_msg = msg;
                 }
+            } else {
+                // First odom message after initialization: start the window
+                window_start_msg = msg;
             }
-            prev_msg = msg;
         }
     );
 
