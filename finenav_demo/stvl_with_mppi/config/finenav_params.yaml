@@ -14,11 +14,11 @@
 hello_finenav/finenav_localizer:
   ros__parameters:
     # ESKF 更新循环频率 [Hz]
-    update_rate_hz: 20.0
+    update_rate_hz: 100.0
     # 最大可容忍的观测延迟 [s]
-    max_delay_sec: 0.6
+    max_delay_sec: 0.05
     # 位姿观测复用次数（R 矩阵按此倍数缩放）
-    pose_smoothing_steps: 4
+    pose_smoothing_steps: 1
     # 速度观测复用次数
     twist_smoothing_steps: 1
     # dt 上限 [s]
@@ -27,9 +27,9 @@ hello_finenav/finenav_localizer:
     max_obs_queue_size: 64
     model:
       # 线速度过程噪声标准差 [m/s/√s]
-      vel_noise_std: 0.10
+      vel_noise_std: 0.1
       # 角速度过程噪声标准差 [rad/s/√s]
-      omega_noise_std: 0.10
+      omega_noise_std: 0.1
 
 
 # ══════════════════════════════════════════════════════════════════════════════
