@@ -53,7 +53,7 @@ public:
         constexpr const char* kBehaviorTree     = "NavigateToPose";    // BT id in navigate_to_pose.xml
         constexpr const char* kMppiPlanTopic    = "/hello_finenav/mppi_layer_plan";
         constexpr const char* kNavPathTopic     = "/mppi_path";
-        constexpr const char* kLinePathNavTopic = "/line_path_nav";
+        constexpr const char* kLinePathNavTopic = "/path";
         constexpr int kNumPoints = 50;
 
         path_topic_          = kPathTopic;
