@@ -5,6 +5,7 @@
 #pragma once
 #include <cstddef>
 #include <cmath>
+#include <algorithm>
 
 namespace astar {
 
@@ -21,15 +22,26 @@ namespace astar {
             return Vec3{x + other.x, y + other.y, z + other.z};
         }
 
-        double distance(const Vec3& other) const {
+        // 欧几里德距离
+        double euclidean(const Vec3& other) const {
             double dx = x - other.x;
             double dy = y - other.y;
             double dz = z - other.z;
             return std::sqrt(dx*dx + dy*dy + dz*dz);
         }
 
+        // 曼哈顿距离
         int manhattan(const Vec3& other) const {
             return std::abs(x - other.x) + std::abs(y - other.y) + std::abs(z - other.z);
+        }
+
+        // 切比雪夫距离
+        int chebyshev(const Vec3& other) const {
+            return std::max({
+                std::abs(x - other.x),
+                std::abs(y - other.y),
+                std::abs(z - other.z)
+            });
         }
     };
 
