@@ -223,6 +223,54 @@ TEST(AStarAlgorithm3D, PathLength_FaceNeighbours)
     EXPECT_EQ(path->size(), 5u);
 }
 
+TEST(AStarAlgorithm2D, GoalTolerance_AllowsNearGoalSuccess)
+{
+    astar::GridMap grid(10, 10);
+
+    // =========================================
+    // Surround goal (5,5)
+    // =========================================
+
+    for (int d = -1; d <= 1; ++d)
+    {
+        grid.setObstacle(4, 5 + d, true);
+        grid.setObstacle(6, 5 + d, true);
+    }
+
+    grid.setObstacle(5, 4, true);
+    grid.setObstacle(5, 6, true);
+
+    auto [iw, gc] = makeGridLambdas(grid);
+
+    astar::AStarAlgorithm algo(iw, gc);
+
+    algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
+
+    // =========================================
+    // Allow stopping within 1.5 cells
+    // =========================================
+
+    algo.setGoalTolerance(2.1);
+
+    auto path = algo.findPath({0, 0, 0}, {5, 5, 0});
+
+    // Should now succeed
+    ASSERT_TRUE(path.has_value());
+
+    const auto& last = path->back();
+
+    // =========================================
+    // Verify last point is near goal
+    // =========================================
+
+    double dist =
+        std::sqrt(
+            std::pow(last.x - 5, 2) +
+            std::pow(last.y - 5, 2));
+
+    EXPECT_LE(dist, 2.1);
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Group 4: AstarPathSearch integration (IMapView + planner)
 // ─────────────────────────────────────────────────────────────────────────
