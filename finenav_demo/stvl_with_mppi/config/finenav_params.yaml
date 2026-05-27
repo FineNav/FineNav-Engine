@@ -16,9 +16,9 @@ hello_finenav/finenav_localizer:
     # ESKF 更新循环频率 [Hz]
     update_rate_hz: 100.0
     # 最大可容忍的观测延迟 [s]
-    max_delay_sec: 0.05
+    max_delay_sec: 0.08
     # 位姿观测复用次数（R 矩阵按此倍数缩放）
-    pose_smoothing_steps: 1
+    pose_smoothing_steps: 4
     # 速度观测复用次数
     twist_smoothing_steps: 1
     # dt 上限 [s]

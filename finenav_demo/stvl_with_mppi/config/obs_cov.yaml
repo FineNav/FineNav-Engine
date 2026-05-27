@@ -27,31 +27,31 @@ hello_finenav:
 
       # ── Global pose (/localization_pose → pose channel) ──────────────────
       # 策略: 信任 x/y/z/yaw；不信任 roll/pitch（全局位姿源无绝对重力对齐参考）
-      global_pose_cov_x:     0.01
-      global_pose_cov_y:     0.01
-      global_pose_cov_z:     0.1
+      global_pose_cov_x:     1.0e-6
+      global_pose_cov_y:     1.0e-6
+      global_pose_cov_z:     1.0e-6
       global_pose_cov_roll:  1.0e9    # 不信任 — 设为极大方差
       global_pose_cov_pitch: 1.0e9    # 不信任 — 设为极大方差
-      global_pose_cov_yaw:   0.001
+      global_pose_cov_yaw:   1.0e-6
 
       # ── Odometry abs pose (/Odometry → pose channel) ─────────────────────
       # 策略: 仅信任 roll/pitch（IMU 重力对齐可靠）；x/y/z/yaw 设极大方差不参与修正
       # 前提：地图坐标系与机器人启动时初始位置坐标系在同一水平面（通常满足）。
-      odom_pose_cov_x:     1.0e6    # 不信任
-      odom_pose_cov_y:     1.0e6    # 不信任
-      odom_pose_cov_z:     1.0e6    # 不信任
+      odom_pose_cov_x:     1.0e9    # 不信任
+      odom_pose_cov_y:     1.0e9    # 不信任
+      odom_pose_cov_z:     1.0e9    # 不信任
       odom_pose_cov_roll:  0.00001  # 信任 (IMU 倾角)
       odom_pose_cov_pitch: 0.00001  # 信任 (IMU 倾角)
-      odom_pose_cov_yaw:   1.0e6    # 不信任
+      odom_pose_cov_yaw:   1.0e9    # 不信任
 
       # ── Odometry relative pose (/Odometry → relativePose channel) ────────
       # 设为帧间位移/转角的期望不确定度（方差值）
-      odom_rel_cov_x:     0.05
-      odom_rel_cov_y:     0.05
-      odom_rel_cov_z:     0.05
-      odom_rel_cov_roll:  0.005
-      odom_rel_cov_pitch: 0.005
-      odom_rel_cov_yaw:   0.01
+      odom_rel_cov_x:     0.001
+      odom_rel_cov_y:     0.001
+      odom_rel_cov_z:     0.001
+      odom_rel_cov_roll:  0.001
+      odom_rel_cov_pitch: 0.001
+      odom_rel_cov_yaw:   0.001
 
       # 时间累积窗口 [ms]：relativePose 观测的最小时间跨度
       # ESKF 100Hz（10ms/槽），odom 200Hz（5ms/帧）。
