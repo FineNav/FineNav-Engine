@@ -1,0 +1,6 @@
+# Request: 发送一张二维地图 
+nav_msgs/OccupancyGrid map 
+---
+# Response: 反馈结果
+bool success 
+string message

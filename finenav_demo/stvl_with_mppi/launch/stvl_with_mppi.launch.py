@@ -23,46 +23,42 @@ def generate_launch_description():
     )
 
     finenav_simulator_pkg_dir = get_package_share_directory('finenav_simulator')
-    finenav_simulator_launch_file = os.path.join(
+    
+    # Only Gazebo and robot model infrastructure
+    simulator_infrastructure_launch_file = os.path.join(
         finenav_simulator_pkg_dir,
         'launch',
         'complete',
-        'finenav_simulator.launch.py'
+        'simulator_infrastructure.launch.py'
     )
 
-    start_finenav_simulator = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(finenav_simulator_launch_file),
+    start_finenav_simulator_infra = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(simulator_infrastructure_launch_file),
         launch_arguments={
             'use_sim_time': 'true',
             'lio_type': 'static',
             'world_name': 'flat_small_scale_maze.world',
-            'publish_map_tf': 'true',
         }.items()
     )
 
-    start_hello_finenav = Node(
-        package='finenav_demo',
-        executable='hello_finenav',
-        output='screen',
-        parameters=[
-            {'use_sim_time': True},
-            mppi_params_file,
-            finenav_params_file,
-        ]
-    )
+    # Navigation Stack launch file (managed by manager)
+    navigation_stack_launch = '/home/steven/FineNav-Engine/finenav_demo/stvl_with_mppi/launch/navigation_stack.launch.py'
 
-    start_goal_pose_bridge = Node(
-        package='finenav_demo',
-        executable='goal_pose_bridge_node',
+    # Navigation Manager Node
+    nav_manager_script = '/home/steven/FineNav-Engine/finenav_demo/stvl_with_mppi/src/nav_manager.py'
+    
+    start_nav_manager = Node(
+        executable='python3',
+        arguments=[nav_manager_script],
         output='screen',
         parameters=[
             {'use_sim_time': True},
+            {'launch_file': navigation_stack_launch}
         ]
     )
 
     ld = LaunchDescription()
-    ld.add_action(start_finenav_simulator)
-    ld.add_action(start_hello_finenav)
-    ld.add_action(start_goal_pose_bridge)
+    ld.add_action(start_finenav_simulator_infra)
+    ld.add_action(start_nav_manager)
 
     return ld

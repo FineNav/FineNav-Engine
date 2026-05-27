@@ -24,7 +24,7 @@ TerrainAnalyzer::TerrainAnalyzer(
     node_->declare_parameter<double>("terrain_analysis.cost_scaling_factor", 0.5);
     node_->declare_parameter<double>("terrain_analysis.robot_height", 1.0);
     node_->declare_parameter<double>("terrain_analysis.max_gradient", 0.8);
-    node_->declare_parameter<std::string>("terrain_analysis.global_map_topic", "/map");
+    node_->declare_parameter<std::string>("terrain_analysis.global_map_topic", "/map_terrain");
 
     node_->get_parameter("terrain_analysis.cost_scaling_factor", cost_scaling_factor_);
     node_->get_parameter("terrain_analysis.robot_height", robot_height_);

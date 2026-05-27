@@ -3,6 +3,7 @@ project(finenav_msgs)
 
 find_package(ament_cmake_auto REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 find_package(std_msgs REQUIRED)
@@ -13,9 +14,10 @@ rosidl_generate_interfaces(${PROJECT_NAME}
         msg/Trajectory.msg
         msg/RobotState.msg
         msg/NavStatus.msg
+        srv/SetMap.srv
         action/ComputePlan.action
         action/NavigateToPose.action
-        DEPENDENCIES geometry_msgs std_msgs
+        DEPENDENCIES geometry_msgs std_msgs nav_msgs
 )
 
 ament_auto_package()
