@@ -269,10 +269,10 @@ inline finenav::PlanningContext<finenav::AstarPathSearch>
 makeCtx(double sx, double sy, double gx, double gy)
 {
     finenav::PlanningContext<finenav::AstarPathSearch> ctx;
-    ctx.start_pose.position.x = sx;
-    ctx.start_pose.position.y = sy;
-    ctx.goal_pose.position.x  = gx;
-    ctx.goal_pose.position.y  = gy;
+    ctx.robot_state.pose.position.x = sx;
+    ctx.robot_state.pose.position.y = sy;
+    ctx.goal_pose.position.x        = gx;
+    ctx.goal_pose.position.y        = gy;
     return ctx;
 }
 
@@ -316,8 +316,3 @@ TEST(AstarPathSearch, OutputPoses_AreWorldCoordinates)
         EXPECT_LT(pose.position.y, 10.0);
     }
 }
-
-
-
-
-

@@ -44,7 +44,7 @@ public:
     using ConfigType = astar_planner::Params;
 
     static constexpr IOProfile InputProfile = {
-        .pose  = true,
+        .pose  = false,
         .vel   = false,
         .accel = false,
         .time  = false

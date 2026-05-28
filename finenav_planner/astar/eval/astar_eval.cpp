@@ -167,10 +167,10 @@ int main()
 
         // 4. Plan and time it
         finenav::PlanningContext<finenav::AstarPathSearch> ctx;
-        ctx.start_pose.position.x = sc.sx;
-        ctx.start_pose.position.y = sc.sy;
-        ctx.goal_pose.position.x  = sc.gx;
-        ctx.goal_pose.position.y  = sc.gy;
+        ctx.robot_state.pose.position.x = sc.sx;
+        ctx.robot_state.pose.position.y = sc.sy;
+        ctx.goal_pose.position.x        = sc.gx;
+        ctx.goal_pose.position.y        = sc.gy;
 
         const auto t0 = std::chrono::steady_clock::now();
         auto result = planner.plan(ctx, view);
@@ -209,4 +209,3 @@ int main()
 
     return 0;
 }
-

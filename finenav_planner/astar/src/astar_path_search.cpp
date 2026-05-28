@@ -70,7 +70,7 @@ AstarPathSearch::Result AstarPathSearch::plan(
 
     // ── run A* in grid space ───────────────────────────────────────────────
 
-    const auto& sp = ctx.start_pose.position;
+    const auto& sp = ctx.robot_state.pose.position;
     const auto& gp = ctx.goal_pose.position;
 
     astar::Vec3 start = worldToCell(sp.x, sp.y, sp.z);
