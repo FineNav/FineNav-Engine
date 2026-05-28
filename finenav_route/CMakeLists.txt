@@ -11,6 +11,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(finenav_msgs REQUIRED)
+find_package(finenav_planner_bfs REQUIRED)
 
 include_directories(include)
 
@@ -41,22 +42,23 @@ add_executable(compute_path_bridge_node
 )
 ament_target_dependencies(compute_path_bridge_node
   ${dependencies}
+  finenav_planner_bfs
 )
 target_link_libraries(compute_path_bridge_node
   ${library_name}
+  ${finenav_planner_bfs_LIBRARIES}
+  finenav_msgs::finenav_msgs__rosidl_typesupport_cpp
+)
+target_include_directories(compute_path_bridge_node PRIVATE
+  ${finenav_planner_bfs_INCLUDE_DIRS}
 )
 
 install(DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY launch test
+install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
-)
-
-install(PROGRAMS
-  scripts/send_compute_path_goal.py
-  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(TARGETS ${library_name}

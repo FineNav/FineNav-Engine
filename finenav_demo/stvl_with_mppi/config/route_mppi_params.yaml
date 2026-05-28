@@ -42,7 +42,7 @@
 
       # ── 速度约束 ──────────────────────────────────────────────────────────
       vx_max: 0.5             # 最大前向速度 (m/s)
-      vx_min: -0.35           # 最小前向速度（负值允许倒退）
+      vx_min: 0.0             # 最小前向速度；0 禁止倒退
       vy_max: 0.0             # 最大横向速度（差速底盘设为 0）
       wz_max: 2.0            # 最大角速度 (rad/s)
 
@@ -78,7 +78,7 @@
 
       # PreferForwardCritic：鼓励前进，抑制倒退
       PreferForwardCritic:
-        enabled: false            # 差速底盘若无需倒退可开启
+        enabled: true             # 禁用倒车时开启，鼓励采样保持前进
         cost_power: 1
         cost_weight: 5.0
         threshold_to_consider: 0.5
@@ -159,4 +159,3 @@
         enabled: false
         cost_power: 1
         cost_weight: 10.0
-

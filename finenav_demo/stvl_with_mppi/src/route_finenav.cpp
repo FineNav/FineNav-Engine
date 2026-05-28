@@ -9,6 +9,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <mutex>
 #include <unordered_set>
 #include <vector>
 
@@ -63,23 +64,6 @@ void assignPlanarOrientations(std::vector<geometry_msgs::msg::Pose>& poses)
     poses.back().orientation = poses[poses.size() - 2].orientation;
 }
 
-void prependCurrentPose(finenav_msgs::msg::Trajectory& traj, const geometry_msgs::msg::Pose& robot_pose)
-{
-    using T = finenav_msgs::msg::Trajectory;
-    if (!(traj.valid_fields & T::TRAJ_POSE) || traj.poses.empty()) {
-        return;
-    }
-
-    constexpr double kDuplicateToleranceSq = 1e-4;
-    const double dx = traj.poses.front().position.x - robot_pose.position.x;
-    const double dy = traj.poses.front().position.y - robot_pose.position.y;
-    if (dx * dx + dy * dy > kDuplicateToleranceSq) {
-        traj.poses.insert(traj.poses.begin(), robot_pose);
-    }
-
-    assignPlanarOrientations(traj.poses);
-}
-
 double yawFromQuaternion(const geometry_msgs::msg::Quaternion& q)
 {
     return std::atan2(
@@ -120,6 +104,57 @@ void trimPathPrefixBehindRobot(
     traj.poses.erase(traj.poses.begin(), traj.poses.begin() + static_cast<std::ptrdiff_t>(*first_forward_idx));
     assignPlanarOrientations(traj.poses);
 }
+
+class RouteTrackingProgress
+{
+public:
+    void trimPassedPrefix(
+        finenav_msgs::msg::Trajectory& traj,
+        const geometry_msgs::msg::Pose& robot_pose)
+    {
+        using T = finenav_msgs::msg::Trajectory;
+        if (!(traj.valid_fields & T::TRAJ_POSE) || traj.poses.size() < 2) {
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto stamp = rclcpp::Time(traj.header.stamp);
+        if (!initialized_ || stamp != episode_stamp_) {
+            initialized_ = true;
+            episode_stamp_ = stamp;
+            progress_idx_ = 0;
+        }
+
+        progress_idx_ = std::min(progress_idx_, traj.poses.size() - 1);
+
+        std::size_t nearest_idx = progress_idx_;
+        double nearest_dist_sq = std::numeric_limits<double>::max();
+        for (std::size_t i = progress_idx_; i < traj.poses.size(); ++i) {
+            const auto& p = traj.poses[i].position;
+            const double dx = p.x - robot_pose.position.x;
+            const double dy = p.y - robot_pose.position.y;
+            const double dist_sq = dx * dx + dy * dy;
+            if (dist_sq < nearest_dist_sq) {
+                nearest_dist_sq = dist_sq;
+                nearest_idx = i;
+            }
+        }
+
+        progress_idx_ = nearest_idx;
+        if (progress_idx_ > 0u) {
+            traj.poses.erase(
+                traj.poses.begin(),
+                traj.poses.begin() + static_cast<std::ptrdiff_t>(progress_idx_));
+            assignPlanarOrientations(traj.poses);
+        }
+    }
+
+private:
+    std::mutex mutex_;
+    bool initialized_{false};
+    rclcpp::Time episode_stamp_{0, 0, RCL_ROS_TIME};
+    std::size_t progress_idx_{0};
+};
 
 } // namespace
 
@@ -273,6 +308,7 @@ int main(int argc, char** argv) {
 
     // [DEBUG] 发布裁减后的参考轨迹，供 RViz 可视化验证
     auto trimmed_path_pub = node->create_publisher<nav_msgs::msg::Path>("/trimmed_ref_path", 10);
+    auto route_progress = std::make_shared<RouteTrackingProgress>();
 
     Region3D map_bounds;
     {
@@ -280,22 +316,21 @@ int main(int argc, char** argv) {
     }
 
     my_control_layer->set_on_pre_plan(
-    [map_bounds, map_server, localizer, node, trimmed_path_pub](finenav::PrePlanContext& ctx) -> bool {
-        // 1. Advance trajectory start to the route waypoint nearest to the robot,
-        // trim path points behind the robot, then prepend the current robot pose
-        // as a live connector segment.
+    [map_bounds, map_server, localizer, node, trimmed_path_pub, route_progress](finenav::PrePlanContext& ctx) -> bool {
+        // Route mode receives a complete episode path from compute_path_bridge:
+        // current pose connector + route graph path. Keep it fixed during the
+        // episode so topology and first-mile connection are not recomputed at 20 Hz.
         const auto& rp = ctx.robot_state.pose.position;
-        ctx.ref_traj | finenav::SeekToNearestPoint({rp.x, rp.y, rp.z});
+        route_progress->trimPassedPrefix(ctx.ref_traj, ctx.robot_state.pose);
         trimPathPrefixBehindRobot(ctx.ref_traj, ctx.robot_state.pose);
-        prependCurrentPose(ctx.ref_traj, ctx.robot_state.pose);
 
-        // 2. Trim trailing waypoints beyond the maximum tracking distance
+        // 1. Trim trailing waypoints beyond the maximum tracking distance
         //    (use the shorter dimension of the map as a conservative bound)
         // const auto bounds_size = map_bounds.max() - map_bounds.min();
         // const double max_dist = std::min(bounds_size.x(), bounds_size.y());
         // ctx.ref_traj | finenav::TrimByDistance(max_dist);
 
-        // 3. Trim waypoints that fall outside the current map AABB
+        // 2. Trim waypoints that fall outside the current map AABB
         const auto current_bounds = map_server->getLockedReadView()->getWindowBounds();
         ctx.ref_traj | finenav::TrimByAABB(current_bounds);
 

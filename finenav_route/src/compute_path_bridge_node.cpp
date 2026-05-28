@@ -5,26 +5,33 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <filesystem>
 #include <functional>
 #include <future>
 #include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <fstream>
+#include <sstream>
 #include <string>
+#include <stdexcept>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include <geometry_msgs/msg/pose.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+#include <nlohmann/json.hpp>
 
 #include "finenav_msgs/action/compute_path.hpp"
-#include "finenav_msgs/action/compute_plan.hpp"
+#include "finenav_msgs/action/navigate_to_pose.hpp"
 #include "finenav_msgs/msg/trajectory.hpp"
 #include "finenav_route/plugins/graph_file_loaders/geojson_graph_file_loader.hpp"
 #include "finenav_route/route_path_planner.hpp"
+#include "bfs_algorithm.hpp"
 
 namespace finenav_route
 {
@@ -33,6 +40,15 @@ namespace
 {
 
 constexpr double kDuplicatePoseTolerance = 1e-6;
+constexpr int kRouteCellZ = 0;
+constexpr unsigned int kAutoStartNodeId = 0;
+
+struct RouteStartCandidate
+{
+  unsigned int id{0};
+  double distance{0.0};
+  std::size_t bfs_depth{0};
+};
 
 geometry_msgs::msg::Quaternion orientationAroundZAxis(const double yaw)
 {
@@ -53,21 +69,114 @@ double planarDistance(
     a.position.y - b.position.y);
 }
 
+double planarDistance(
+  const Node & node,
+  const geometry_msgs::msg::Pose & pose)
+{
+  return std::hypot(
+    static_cast<double>(node.coords.x) - pose.position.x,
+    static_cast<double>(node.coords.y) - pose.position.y);
+}
+
+bfs::Vec3 toRouteCell(const double x, const double y, const double resolution)
+{
+  return {
+    static_cast<int>(std::floor(x / resolution)),
+    static_cast<int>(std::floor(y / resolution)),
+    kRouteCellZ
+  };
+}
+
+RouteStartCandidate pickClosestNodeInCell(
+  const Graph & graph,
+  const std::vector<unsigned int> & indices,
+  const geometry_msgs::msg::Pose & pose,
+  const std::size_t bfs_depth)
+{
+  RouteStartCandidate best;
+  best.distance = std::numeric_limits<double>::infinity();
+  best.bfs_depth = bfs_depth;
+
+  for (const auto index : indices) {
+    const auto distance = planarDistance(graph[index], pose);
+    if (distance < best.distance ||
+      (std::abs(distance - best.distance) <= 1e-9 && graph[index].nodeid < best.id))
+    {
+      best.id = graph[index].nodeid;
+      best.distance = distance;
+    }
+  }
+
+  return best;
+}
+
+RouteStartCandidate findNearestStartNodeWithBfsPlanner(
+  const Graph & graph,
+  const geometry_msgs::msg::Pose & pose,
+  const double resolution)
+{
+  if (graph.empty()) {
+    throw std::runtime_error("Route graph contains no nodes");
+  }
+
+  if (resolution <= 0.0 || !std::isfinite(resolution)) {
+    throw std::runtime_error("BFS nearest-node search resolution must be positive");
+  }
+
+  std::unordered_map<bfs::Vec3, std::vector<unsigned int>, bfs::Vec3Hash> nodes_by_cell;
+  const auto start_cell = toRouteCell(pose.position.x, pose.position.y, resolution);
+  int max_depth = 0;
+  for (unsigned int index = 0; index < graph.size(); ++index) {
+    const auto node_cell = toRouteCell(graph[index].coords.x, graph[index].coords.y, resolution);
+    nodes_by_cell[node_cell].push_back(index);
+    max_depth = std::max(
+      max_depth,
+      std::max(std::abs(node_cell.x - start_cell.x), std::abs(node_cell.y - start_cell.y)));
+  }
+
+  auto is_walkable = [max_depth, start_cell](const bfs::Vec3 & cell) {
+    return cell.z == kRouteCellZ &&
+      std::abs(cell.x - start_cell.x) <= max_depth &&
+      std::abs(cell.y - start_cell.y) <= max_depth;
+  };
+  auto is_goal = [&nodes_by_cell](const bfs::Vec3 & cell) {
+    return nodes_by_cell.contains(cell);
+  };
+
+  bfs::BfsAlgorithm bfs_search(is_walkable);
+  bfs_search.setConnectivity(bfs::BfsAlgorithm::Connectivity::N8);
+  bfs_search.setMaxIterations(-1);
+  bfs_search.setMaxPlanningTime(5.0);
+
+  const auto path = bfs_search.findPathToAny(start_cell, is_goal);
+  if (path.has_value() && !path->empty()) {
+    const auto cell_it = nodes_by_cell.find(path->back());
+    if (cell_it != nodes_by_cell.end()) {
+      return pickClosestNodeInCell(graph, cell_it->second, pose, path->size() - 1);
+    }
+  }
+
+  throw std::runtime_error("BFS nearest-node search did not find any route node");
+}
+
 }  // namespace
 
 class ComputePathBridge : public rclcpp::Node
 {
 public:
   using ComputePath = finenav_msgs::action::ComputePath;
-  using ComputePlan = finenav_msgs::action::ComputePlan;
+  using NavigateToPose = finenav_msgs::action::NavigateToPose;
   using ComputePathGoalHandle = rclcpp_action::ServerGoalHandle<ComputePath>;
 
   ComputePathBridge()
   : rclcpp::Node("compute_path_bridge")
   {
     action_name_ = declare_parameter<std::string>("action_name", "compute_path");
-    controller_action_name_ =
-      declare_parameter<std::string>("controller_action_name", "mppi_layer");
+    navigator_action_name_ =
+      declare_parameter<std::string>("navigator_action_name", "navigate_to_pose");
+    navigator_behavior_tree_ =
+      declare_parameter<std::string>("navigator_behavior_tree", "RouteNavigateToPose");
+    graph_dir_ = declare_parameter<std::string>("graph_dir", "");
     path_topic_ = declare_parameter<std::string>("path_topic", "line_path");
     nav_state_topic_ = declare_parameter<std::string>("nav_state_topic", "/nav_state");
     server_timeout_s_ = declare_parameter<double>("server_timeout_s", 2.0);
@@ -82,6 +191,17 @@ public:
       connector_density_ = 0.05;
     }
 
+    try {
+      graph_json_by_name_ = loadGraphsFromDirectory(graph_dir_);
+      RCLCPP_INFO(
+        get_logger(),
+        "Loaded %zu route graph(s) from graph_dir='%s'.",
+        graph_json_by_name_.size(), graph_dir_.c_str());
+    } catch (const std::exception & ex) {
+      RCLCPP_ERROR(get_logger(), "Failed to load route graphs: %s", ex.what());
+      throw;
+    }
+
     path_pub_ = create_publisher<finenav_msgs::msg::Trajectory>(path_topic_, 10);
     nav_state_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       nav_state_topic_,
@@ -90,8 +210,8 @@ public:
         std::lock_guard<std::mutex> lock(nav_state_mutex_);
         latest_nav_state_ = *msg;
       });
-    controller_client_ =
-      rclcpp_action::create_client<ComputePlan>(this, controller_action_name_);
+    navigator_client_ =
+      rclcpp_action::create_client<NavigateToPose>(this, navigator_action_name_);
 
     action_server_ = rclcpp_action::create_server<ComputePath>(
       this,
@@ -102,10 +222,10 @@ public:
 
     RCLCPP_INFO(
       get_logger(),
-      "ComputePath bridge ready: action='%s', path_topic='%s', controller_action='%s', "
-      "nav_state_topic='%s'",
-      action_name_.c_str(), path_topic_.c_str(), controller_action_name_.c_str(),
-      nav_state_topic_.c_str());
+      "ComputePath bridge ready: action='%s', path_topic='%s', navigator_action='%s', "
+      "nav_state_topic='%s', graph_dir='%s'",
+      action_name_.c_str(), path_topic_.c_str(), navigator_action_name_.c_str(),
+      nav_state_topic_.c_str(), graph_dir_.c_str());
   }
 
 private:
@@ -127,13 +247,15 @@ private:
     const rclcpp_action::GoalUUID &,
     const std::shared_ptr<const ComputePath::Goal> goal)
   {
-    if (goal->graph_json.empty()) {
-      RCLCPP_WARN(get_logger(), "Rejecting ComputePath goal with empty graph_json.");
+    if (goal->graph_name.empty()) {
+      RCLCPP_WARN(get_logger(), "Rejecting ComputePath goal with empty graph_name.");
       return rclcpp_action::GoalResponse::REJECT;
     }
 
-    if (goal->planner_id.empty()) {
-      RCLCPP_WARN(get_logger(), "Rejecting ComputePath goal with empty planner_id.");
+    if (!graph_json_by_name_.contains(goal->graph_name)) {
+      RCLCPP_WARN(
+        get_logger(), "Rejecting ComputePath goal with unknown graph_name='%s'.",
+        goal->graph_name.c_str());
       return rclcpp_action::GoalResponse::REJECT;
     }
 
@@ -155,12 +277,13 @@ private:
   {
     const auto start_time = now();
     const auto goal = goal_handle->get_goal();
+    const auto & graph_json = getGraphJson(goal->graph_name);
 
     unsigned int route_start_node_id = goal->start_node_id;
     geometry_msgs::msg::Pose current_pose;
     bool prepend_current_pose_connector = false;
 
-    if (use_current_pose_as_start_) {
+    if (use_current_pose_as_start_ || route_start_node_id == kAutoStartNodeId) {
       if (!waitForCurrentPose(current_pose, goal_handle)) {
         RCLCPP_ERROR(
           get_logger(),
@@ -171,17 +294,18 @@ private:
       }
 
       try {
-        const auto nearest = findNearestNode(goal->graph_json, current_pose);
-        route_start_node_id = nearest.id;
+        const auto start_candidate =
+          findBfsStartNode(graph_json, current_pose);
+        route_start_node_id = start_candidate.id;
         prepend_current_pose_connector = true;
         RCLCPP_INFO(
           get_logger(),
           "Using current pose (%.3f, %.3f) as virtual start. "
-          "Nearest route node is %u at %.3f m.",
+          "BFS-selected nearest route node is %u at %.3f m, search depth=%zu.",
           current_pose.position.x, current_pose.position.y,
-          nearest.id, nearest.distance);
+          start_candidate.id, start_candidate.distance, start_candidate.bfs_depth);
       } catch (const std::exception & ex) {
-        RCLCPP_ERROR(get_logger(), "Failed to find nearest route node: %s", ex.what());
+        RCLCPP_ERROR(get_logger(), "Failed to find nearest route start node by BFS: %s", ex.what());
         goal_handle->abort(makeResult(start_time));
         return;
       }
@@ -190,7 +314,7 @@ private:
     finenav_msgs::msg::Trajectory path;
     try {
       path = route_path_planner_.plan(
-        goal->graph_json, route_start_node_id, goal->goal_node_id);
+        graph_json, route_start_node_id, goal->goal_node_id);
     } catch (const std::exception & ex) {
       RCLCPP_ERROR(get_logger(), "Route path planning failed: %s", ex.what());
       goal_handle->abort(makeResult(start_time));
@@ -222,46 +346,47 @@ private:
 
     const auto timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::duration<double>(server_timeout_s_));
-    if (!controller_client_->wait_for_action_server(timeout)) {
+    if (!navigator_client_->wait_for_action_server(timeout)) {
       RCLCPP_ERROR(
         get_logger(),
-        "Controller action server '%s' is not available.",
-        controller_action_name_.c_str());
+        "Navigator action server '%s' is not available.",
+        navigator_action_name_.c_str());
       goal_handle->abort(makeResult(start_time));
       return;
     }
 
-    ComputePlan::Goal controller_goal;
-    controller_goal.goal = path.poses.back();
-    controller_goal.planner_id = goal->planner_id;
+    NavigateToPose::Goal navigator_goal;
+    navigator_goal.pose.header = path.header;
+    navigator_goal.pose.pose = path.poses.back();
+    navigator_goal.behavior_tree = navigator_behavior_tree_;
 
-    auto controller_goal_future = controller_client_->async_send_goal(controller_goal);
-    if (!waitForFuture(controller_goal_future, goal_handle)) {
+    auto navigator_goal_future = navigator_client_->async_send_goal(navigator_goal);
+    if (!waitForFuture(navigator_goal_future, goal_handle)) {
       goal_handle->canceled(makeResult(start_time));
       return;
     }
 
-    const auto controller_goal_handle = controller_goal_future.get();
-    if (!controller_goal_handle) {
-      RCLCPP_ERROR(get_logger(), "Controller rejected ComputePlan goal.");
+    const auto navigator_goal_handle = navigator_goal_future.get();
+    if (!navigator_goal_handle) {
+      RCLCPP_ERROR(get_logger(), "Navigator rejected NavigateToPose goal.");
       goal_handle->abort(makeResult(start_time));
       return;
     }
 
-    auto result_future = controller_client_->async_get_result(controller_goal_handle);
+    auto result_future = navigator_client_->async_get_result(navigator_goal_handle);
     if (!waitForFuture(result_future, goal_handle)) {
-      controller_client_->async_cancel_goal(controller_goal_handle);
+      navigator_client_->async_cancel_goal(navigator_goal_handle);
       goal_handle->canceled(makeResult(start_time));
       return;
     }
 
-    const auto controller_result = result_future.get();
-    if (controller_result.code == rclcpp_action::ResultCode::SUCCEEDED) {
+    const auto navigator_result = result_future.get();
+    if (navigator_result.code == rclcpp_action::ResultCode::SUCCEEDED) {
       goal_handle->succeed(makeResult(start_time));
       return;
     }
 
-    if (controller_result.code == rclcpp_action::ResultCode::CANCELED) {
+    if (navigator_result.code == rclcpp_action::ResultCode::CANCELED) {
       goal_handle->canceled(makeResult(start_time));
       return;
     }
@@ -274,6 +399,85 @@ private:
     auto result = std::make_shared<ComputePath::Result>();
     result->planning_time = now() - start_time;
     return result;
+  }
+
+  static std::unordered_map<std::string, std::string> loadGraphsFromDirectory(
+    const std::string & graph_dir)
+  {
+    if (graph_dir.empty()) {
+      throw std::runtime_error("graph_dir parameter is empty");
+    }
+
+    const std::filesystem::path graph_dir_path(graph_dir);
+    if (!std::filesystem::is_directory(graph_dir_path)) {
+      throw std::runtime_error("graph_dir is not a directory: " + graph_dir);
+    }
+
+    std::unordered_map<std::string, std::string> graph_json_by_name;
+    for (const auto & entry : std::filesystem::directory_iterator(graph_dir_path)) {
+      if (!entry.is_regular_file()) {
+        continue;
+      }
+
+      const auto graph_path = entry.path();
+      const auto extension = graph_path.extension().string();
+      if (extension != ".json" && extension != ".geojson") {
+        continue;
+      }
+
+      const auto graph_file = graph_path.string();
+      const auto graph_json = loadGraphJsonFromFile(graph_file);
+      const auto graph_name = parseGraphName(graph_json, graph_path.stem().string());
+      if (graph_name.empty()) {
+        throw std::runtime_error("Route graph has empty name: " + graph_file);
+      }
+      if (graph_json_by_name.contains(graph_name)) {
+        throw std::runtime_error("Duplicate route graph name: " + graph_name);
+      }
+      graph_json_by_name.emplace(graph_name, graph_json);
+    }
+
+    if (graph_json_by_name.empty()) {
+      throw std::runtime_error("graph_dir contains no .json or .geojson route graphs");
+    }
+    return graph_json_by_name;
+  }
+
+  static std::string parseGraphName(
+    const std::string & graph_json,
+    const std::string & fallback_name)
+  {
+    const auto json = nlohmann::json::parse(graph_json);
+    const auto name_it = json.find("name");
+    if (name_it != json.end() && name_it->is_string()) {
+      return name_it->get<std::string>();
+    }
+    return fallback_name;
+  }
+
+  static std::string loadGraphJsonFromFile(const std::string & graph_file)
+  {
+    if (graph_file.empty()) {
+      return {};
+    }
+
+    std::ifstream file(graph_file);
+    if (!file.is_open()) {
+      throw std::runtime_error("Could not open graph_file: " + graph_file);
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    const auto graph_json = buffer.str();
+    if (graph_json.empty()) {
+      throw std::runtime_error("graph_file is empty: " + graph_file);
+    }
+    return graph_json;
+  }
+
+  const std::string & getGraphJson(const std::string & graph_name) const
+  {
+    return graph_json_by_name_.at(graph_name);
   }
 
   bool waitForCurrentPose(
@@ -303,13 +507,7 @@ private:
     return false;
   }
 
-  struct NearestNode
-  {
-    unsigned int id{0};
-    double distance{0.0};
-  };
-
-  NearestNode findNearestNode(
+  RouteStartCandidate findBfsStartNode(
     const std::string & graph_json,
     const geometry_msgs::msg::Pose & pose)
   {
@@ -320,23 +518,7 @@ private:
       throw std::runtime_error("Failed to load route graph json");
     }
 
-    if (graph.empty()) {
-      throw std::runtime_error("Route graph contains no nodes");
-    }
-
-    NearestNode nearest;
-    nearest.distance = std::numeric_limits<double>::max();
-    for (const auto & node : graph) {
-      const double dx = static_cast<double>(node.coords.x) - pose.position.x;
-      const double dy = static_cast<double>(node.coords.y) - pose.position.y;
-      const double distance = std::hypot(dx, dy);
-      if (distance < nearest.distance) {
-        nearest.id = node.nodeid;
-        nearest.distance = distance;
-      }
-    }
-
-    return nearest;
+    return findNearestStartNodeWithBfsPlanner(graph, pose, connector_density_);
   }
 
   void prependCurrentPoseConnector(
@@ -404,7 +586,9 @@ private:
   }
 
   std::string action_name_;
-  std::string controller_action_name_;
+  std::string navigator_action_name_;
+  std::string navigator_behavior_tree_;
+  std::string graph_dir_;
   std::string path_topic_;
   std::string nav_state_topic_;
   double server_timeout_s_{2.0};
@@ -414,9 +598,10 @@ private:
 
   rclcpp::Publisher<finenav_msgs::msg::Trajectory>::SharedPtr path_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr nav_state_sub_;
-  rclcpp_action::Client<ComputePlan>::SharedPtr controller_client_;
+  rclcpp_action::Client<NavigateToPose>::SharedPtr navigator_client_;
   rclcpp_action::Server<ComputePath>::SharedPtr action_server_;
   RoutePathPlanner route_path_planner_;
+  std::unordered_map<std::string, std::string> graph_json_by_name_;
   std::mutex nav_state_mutex_;
   std::optional<nav_msgs::msg::Odometry> latest_nav_state_;
 };

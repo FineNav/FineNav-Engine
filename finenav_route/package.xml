@@ -15,6 +15,7 @@
   <depend>nav_msgs</depend>
   <depend>nlohmann-json-dev</depend>
   <depend>finenav_msgs</depend>
+  <depend>finenav_planner_bfs</depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

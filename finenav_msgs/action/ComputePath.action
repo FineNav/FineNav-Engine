@@ -1,6 +1,5 @@
 # Request
-string planner_id
-string graph_json
+string graph_name
 uint32 start_node_id
 uint32 goal_node_id
 ---

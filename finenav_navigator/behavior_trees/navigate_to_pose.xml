@@ -31,6 +31,23 @@
         </Sequence>
     </BehaviorTree>
 
+    <!-- Route 导航：ComputePath bridge 先发布完整 route 参考轨迹，再由本树追踪到终点 -->
+    <BehaviorTree ID="RouteNavigateToPose">
+        <Sequence name="RouteTrackThenStop">
+            <ReactiveFallback name="RouteNavigateOrSucceed">
+                <IsGoalReached  robot_pose="{robot_pose}"
+                                robot_twist="{robot_twist}"
+                                goal="{goal}"
+                                tolerance="0.15"
+                                speed_tolerance="0.1"/>
+                <ComputePlan    action_name="/route_finenav/mppi_layer"
+                                goal="{goal}"
+                                planner_id="finenav_mppi_controller"/>
+            </ReactiveFallback>
+            <PublishZeroCmdVel  topic_name="/cmd_vel"/>
+        </Sequence>
+    </BehaviorTree>
+
     <!-- 带卡死检测的导航：卡死时发布零速后整棵树 FAILURE -->
     <BehaviorTree ID="NavigateWithStuckDetection">
         <Sequence name="TrackThenStop">
@@ -57,4 +74,3 @@
     </BehaviorTree>
 
 </root>
-

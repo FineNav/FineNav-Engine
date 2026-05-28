@@ -2,7 +2,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -13,16 +13,13 @@ def generate_launch_description():
     demo_pkg_dir = get_package_share_directory("finenav_demo")
     simulator_pkg_dir = get_package_share_directory("finenav_simulator")
 
-    requested_graph_file = (
+    requested_graph_dir = (
         "/home/slam/FineNav_ws/src/FineNav-Engine/"
-        "finenav_route/test/test_graphs/rectangle_centered.json"
+        "finenav_route/config/graphs"
     )
-    default_graph_file = requested_graph_file if os.path.isfile(requested_graph_file) else os.path.join(
-        route_pkg_dir,
-        "test",
-        "test_graphs",
-        "rectangle_centered.json",
-    )
+    default_graph_dir = requested_graph_dir if os.path.isdir(
+        requested_graph_dir
+    ) else os.path.join(route_pkg_dir, "config", "graphs")
 
     simulator_launch_file = os.path.join(
         simulator_pkg_dir,
@@ -42,25 +39,10 @@ def generate_launch_description():
         "route_finenav_params.yaml",
     )
 
-    declare_graph_file = DeclareLaunchArgument(
-        "graph_file",
-        default_value=default_graph_file,
-        description="Route graph JSON file to send in the ComputePath goal.",
-    )
-    declare_start_node_id = DeclareLaunchArgument(
-        "start_node_id",
-        default_value="1",
-        description="Fallback start node id. The bridge uses current pose as start by default.",
-    )
-    declare_goal_node_id = DeclareLaunchArgument(
-        "goal_node_id",
-        default_value="5",
-        description="Goal node id in the route graph.",
-    )
-    declare_planner_id = DeclareLaunchArgument(
-        "planner_id",
-        default_value="finenav_mppi_controller",
-        description="Planner id forwarded to the MPPI control layer.",
+    declare_graph_dir = DeclareLaunchArgument(
+        "graph_dir",
+        default_value=default_graph_dir,
+        description="Directory containing route graph JSON files.",
     )
     declare_world_name = DeclareLaunchArgument(
         "world_name",
@@ -71,11 +53,6 @@ def generate_launch_description():
         "lio_type",
         default_value="gazebo_odom",
         description="Localization source for simulation.",
-    )
-    declare_send_goal_delay = DeclareLaunchArgument(
-        "send_goal_delay",
-        default_value="8.0",
-        description="Seconds to wait before sending the route ComputePath goal.",
     )
     declare_use_current_pose_as_start = DeclareLaunchArgument(
         "use_current_pose_as_start",
@@ -114,7 +91,9 @@ def generate_launch_description():
         parameters=[{
             "use_sim_time": True,
             "action_name": "/compute_path",
-            "controller_action_name": "/route_finenav/mppi_layer",
+            "navigator_action_name": "/route_finenav/navigate_to_pose",
+            "navigator_behavior_tree": "RouteNavigateToPose",
+            "graph_dir": LaunchConfiguration("graph_dir"),
             "path_topic": "/route_finenav/line_path",
             "nav_state_topic": "/nav_state",
             "use_current_pose_as_start": LaunchConfiguration("use_current_pose_as_start"),
@@ -122,37 +101,13 @@ def generate_launch_description():
         }],
     )
 
-    send_route_goal = TimerAction(
-        period=LaunchConfiguration("send_goal_delay"),
-        actions=[
-            Node(
-                package="finenav_route",
-                executable="send_compute_path_goal.py",
-                output="screen",
-                parameters=[{
-                    "use_sim_time": True,
-                    "action_name": "/compute_path",
-                    "graph_file": LaunchConfiguration("graph_file"),
-                    "start_node_id": LaunchConfiguration("start_node_id"),
-                    "goal_node_id": LaunchConfiguration("goal_node_id"),
-                    "planner_id": LaunchConfiguration("planner_id"),
-                }],
-            )
-        ],
-    )
-
     ld = LaunchDescription()
-    ld.add_action(declare_graph_file)
-    ld.add_action(declare_start_node_id)
-    ld.add_action(declare_goal_node_id)
-    ld.add_action(declare_planner_id)
+    ld.add_action(declare_graph_dir)
     ld.add_action(declare_world_name)
     ld.add_action(declare_lio_type)
-    ld.add_action(declare_send_goal_delay)
     ld.add_action(declare_use_current_pose_as_start)
     ld.add_action(start_simulator)
     ld.add_action(start_route_finenav)
     ld.add_action(start_compute_path_bridge)
-    ld.add_action(send_route_goal)
 
     return ld
