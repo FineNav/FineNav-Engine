@@ -12,6 +12,8 @@ import sensor_msgs_py.point_cloud2 as pc2
 import os
 import datetime
 import cv2
+import threading
+from flask import Flask, request, jsonify
 
 # Try to import custom service, fallback to a dummy if not available
 try:
@@ -95,7 +97,48 @@ class CloudToMapAdapter(Node):
         self.timer = self.create_timer(0.05, self.publish_pose)
         self.map_timer = self.create_timer(1.0, self.publish_map)
 
-        self.get_logger().info("Cloud to Map Adapter initialized.")
+        # Flask HTTP Server for map upload
+        self.flask_app = Flask(__name__)
+        self.setup_flask_routes()
+        self.flask_thread = threading.Thread(target=self.run_flask, daemon=True)
+        self.flask_thread.start()
+
+        self.get_logger().info("Cloud to Map Adapter initialized with HTTP interface on port 5000.")
+
+    def setup_flask_routes(self):
+        @self.flask_app.route('/upload_map', methods=['POST'])
+        def upload_map():
+            if 'pgm' not in request.files or 'yaml' not in request.files:
+                return jsonify({"success": False, "message": "Missing pgm or yaml file"}), 400
+            
+            pgm_file = request.files['pgm']
+            yaml_file = request.files['yaml']
+            
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            pgm_path = os.path.join(dir_path, "map.pgm")
+            yaml_path = os.path.join(dir_path, "map.yaml")
+            
+            try:
+                pgm_file.save(pgm_path)
+                yaml_file.save(yaml_path)
+                
+                # Reload map from disk
+                self.load_map()
+                # Trigger immediate publish
+                self.publish_map()
+                
+                self.get_logger().info(f"Map updated via HTTP interface.")
+                return jsonify({"success": True, "message": "Map files uploaded and loaded successfully"})
+            except Exception as e:
+                self.get_logger().error(f"Failed to save uploaded map: {e}")
+                return jsonify({"success": False, "message": str(e)}), 500
+
+    def run_flask(self):
+        # Run Flask without reloader and in a quiet mode
+        import logging
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+        self.flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
 
     def cloud_callback(self, msg):
         if not self.is_mapping:
@@ -366,9 +409,9 @@ class CloudToMapAdapter(Node):
             import yaml
             with open(yaml_path, 'r') as f:
                 data = yaml.safe_load(f)
-                self.resolution = data['resolution']
-                self.origin_x = data['origin'][0]
-                self.origin_y = data['origin'][1]
+                self.resolution = float(data['resolution'])
+                self.origin_x = float(data['origin'][0])
+                self.origin_y = float(data['origin'][1])
 
             # Load PGM using OpenCV
             # PGM: 0 black (occupied), 255 white (free), 205 gray (unknown)
