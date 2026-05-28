@@ -9,10 +9,13 @@
 
     <buildtool_depend>ament_cmake</buildtool_depend>
 
+    <depend>ament_index_cpp</depend>
     <depend>rclcpp</depend>
     <depend>finenav_engine</depend>
     <depend>finenav_map_grid_map</depend>
+    <depend>finenav_map_occ_grid_2d</depend>
     <depend>finenav_mppi_controller</depend>
+    <depend>finenav_planner_astar</depend>
     <depend>finenav_core</depend>
     <depend>finenav_collision_model</depend>
 
