@@ -1,0 +1,16 @@
+pgm_occ_grid_publisher_node:
+  ros__parameters:
+    map_topic: /map
+    map_frame: map
+    pgm_path: flat_small_scale_maze_2d.pgm
+
+    # For this coarse test map, each pixel represents 0.2 m.
+    resolution: 0.2
+    origin_x: 0.0
+    origin_y: 0.0
+    origin_yaw: 0.0
+
+    occupied_thresh: 80
+    free_thresh: 20
+    publish_hz: 1.0
+

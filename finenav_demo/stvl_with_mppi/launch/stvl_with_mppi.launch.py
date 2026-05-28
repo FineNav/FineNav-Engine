@@ -21,6 +21,16 @@ def generate_launch_description():
         'config',
         'finenav_params.yaml'
     )
+    pgm_map_params_file = os.path.join(
+        finenav_demo_pkg_dir,
+        'config',
+        'pgm_occ_grid_publisher.yaml'
+    )
+    pgm_map_file = os.path.join(
+        finenav_demo_pkg_dir,
+        'config',
+        'flat_small_scale_maze_2d.pgm'
+    )
 
     finenav_simulator_pkg_dir = get_package_share_directory('finenav_simulator')
     finenav_simulator_launch_file = os.path.join(
@@ -60,8 +70,20 @@ def generate_launch_description():
         ]
     )
 
+    start_pgm_map_publisher = Node(
+        package='finenav_demo',
+        executable='pgm_occ_grid_publisher_node',
+        output='screen',
+        parameters=[
+            {'use_sim_time': True},
+            pgm_map_params_file,
+            {'pgm_path': pgm_map_file},
+        ]
+    )
+
     ld = LaunchDescription()
     ld.add_action(start_finenav_simulator)
+    ld.add_action(start_pgm_map_publisher)
     ld.add_action(start_hello_finenav)
     ld.add_action(start_goal_pose_bridge)
 

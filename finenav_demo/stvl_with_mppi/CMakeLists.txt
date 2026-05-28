@@ -25,6 +25,9 @@ ament_target_dependencies(hello_finenav ${dependencies})
 add_executable(goal_pose_bridge_node src/goal_pose_bridge_node.cpp)
 ament_target_dependencies(goal_pose_bridge_node ${dependencies})
 
+add_executable(pgm_occ_grid_publisher_node src/pgm_occ_grid_publisher_node.cpp)
+ament_target_dependencies(pgm_occ_grid_publisher_node ${dependencies})
+
 install(TARGETS terrain_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
@@ -39,6 +42,10 @@ install(TARGETS goal_pose_bridge_node
         DESTINATION lib/${PROJECT_NAME}
 )
 
+install(TARGETS pgm_occ_grid_publisher_node
+        DESTINATION lib/${PROJECT_NAME}
+)
+
 install(DIRECTORY include/
         DESTINATION include
 )
@@ -50,3 +57,9 @@ install(DIRECTORY launch
 install(DIRECTORY config
         DESTINATION share/${PROJECT_NAME}
 )
+
+install(PROGRAMS
+        scripts/generate_flat_small_scale_maze_pgm.py
+        DESTINATION lib/${PROJECT_NAME}
+)
+

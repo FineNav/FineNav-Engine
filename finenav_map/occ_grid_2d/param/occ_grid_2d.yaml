@@ -5,25 +5,3 @@ occ_grid_2d:
     description: "Cells with occupancy value >= threshold are treated as obstacles [0, 100]"
     validation:
       bounds<>: [0, 100]
-
-  lethal_radius:
-    type: double
-    default_value: 0.10
-    description: "Hard inflation radius (m); cells within this distance from an obstacle receive cost=253 (inscribed)"
-    validation:
-      bounds<>: [0.0, 10.0]
-
-  inflation_radius:
-    type: double
-    default_value: 0.50
-    description: "Soft inflation outer radius (m); cells between lethal_radius and here get exponentially decayed cost"
-    validation:
-      bounds<>: [0.0, 20.0]
-
-  cost_scaling_factor:
-    type: double
-    default_value: 10.0
-    description: "Decay rate for soft inflation: cost = 253 * exp(-factor * (dist - lethal_radius))"
-    validation:
-      bounds<>: [0.01, 100.0]
-
