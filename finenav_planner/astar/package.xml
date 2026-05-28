@@ -14,6 +14,7 @@
     <depend>rclcpp</depend>
     <depend>finenav_util</depend>
     <depend>finenav_core</depend>
+    <depend>finenav_map_occ_grid_2d</depend>
     <depend>generate_parameter_library</depend>
     <depend>opencv</depend>
 
