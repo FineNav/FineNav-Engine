@@ -36,7 +36,9 @@ GroundTruthMapPublisher::GroundTruthMapPublisher(rclcpp::Node * node)
 void GroundTruthMapPublisher::PublishIdentityMapToOdom() const
 {
   geometry_msgs::msg::TransformStamped transform;
-  transform.header.stamp = node_->get_clock()->now();
+  // Use zero time for static transform to avoid synchronization issues
+  // or jump-back-in-time errors when sim_time starts.
+  transform.header.stamp = rclcpp::Time(0, 0, node_->get_clock()->get_clock_type());
   transform.header.frame_id = map_frame_;
   transform.child_frame_id = odom_frame_;
   transform.transform.rotation.w = 1.0;

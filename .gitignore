@@ -10,3 +10,6 @@ install/
 log/
 
 __pycache__/
+
+.vscode/*
+*.zip

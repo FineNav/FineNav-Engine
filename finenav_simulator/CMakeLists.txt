@@ -25,7 +25,7 @@ ament_auto_add_executable(simulator_helper_node #TODO: executable
 )
 
 ament_auto_package(
-  USE_SCOPED_HEADER_INSTALL_DIR
+  # USE_SCOPED_HEADER_INSTALL_DIR
   INSTALL_TO_SHARE
         launch
         resource

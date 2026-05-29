@@ -59,12 +59,16 @@ def generate_launch_description():
         }.items(),
     )
 
-    robot_ign_bridge = Node(
+    # Bridge for simulation clock. 
+    # We use multiple possible mappings to ensure compatibility with different ros_gz_bridge versions.
+    clock_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
         arguments=[
+            "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
             "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
         ],
+        output="screen"
     )
 
     ld = LaunchDescription()
@@ -74,6 +78,6 @@ def generate_launch_description():
     ld.add_action(append_enviroment_models)
     ld.add_action(append_enviroment_models_gz)
     ld.add_action(gazebo)
-    ld.add_action(robot_ign_bridge)
+    ld.add_action(clock_bridge)
 
     return ld

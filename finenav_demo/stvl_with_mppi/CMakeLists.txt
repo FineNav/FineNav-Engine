@@ -50,3 +50,15 @@ install(DIRECTORY launch
 install(DIRECTORY config
         DESTINATION share/${PROJECT_NAME}
 )
+
+install(PROGRAMS
+        src/adapter.py
+        src/nav_manager.py
+        DESTINATION share/${PROJECT_NAME}/src
+)
+
+install(FILES
+        src/map.pgm
+        src/map.yaml
+        DESTINATION share/${PROJECT_NAME}/src
+)

@@ -58,7 +58,11 @@ def generate_launch_description():
     )
 
     # Also include the adapter we created
-    adapter_script = '/home/steven/FineNav-Engine/finenav_demo/stvl_with_mppi/src/adapter.py'
+    adapter_script = os.path.join(
+        finenav_demo_pkg_dir,
+        'src',
+        'adapter.py'
+    )
     start_adapter = Node(
         executable='python3',
         arguments=[adapter_script],
