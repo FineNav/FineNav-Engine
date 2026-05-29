@@ -12,11 +12,14 @@ find_package(OpenCV REQUIRED)
 find_package(PCL REQUIRED)
 
 set(dependencies
+        ament_index_cpp
         rclcpp
         rclcpp_action
         finenav_engine
         finenav_map_grid_map
+        finenav_map_occ_grid_2d
         finenav_mppi_controller
+        finenav_planner_astar
         finenav_core
         finenav_collision_model
         finenav_motion_decorator

@@ -163,7 +163,9 @@ private:
                     "Published reference trajectory: %zu points", ref_traj.poses.size());
 
         // 2. 向 Navigator 发送 NavigateToPose action goal
-        sendNavigateGoal(*msg);
+        auto nav_goal = *msg;
+        nav_goal.pose.position.z = start_pose.position.z;
+        sendNavigateGoal(nav_goal);
     }
 
     finenav_msgs::msg::Trajectory generateStraightLineTrajectory(
