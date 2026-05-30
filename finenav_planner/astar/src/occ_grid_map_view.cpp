@@ -9,7 +9,10 @@ namespace astar {
 
 OccGridMapView::OccGridMapView(const finenav::OccGrid2DMap& map,
                                const OccGridMapViewConfig&  view_config) {
-    if (!map.hasMap()) return;
+    if (!map.hasMap()) {
+        fprintf(stderr, "[OccGridMapView] WARNING: map has no data yet, all cells will be non-walkable!\n");
+        return;
+    }
 
     const auto& grid = map.grid();
     const auto& cfg  = map.config();
@@ -33,9 +36,9 @@ OccGridMapView::OccGridMapView(const finenav::OccGrid2DMap& map,
 bool OccGridMapView::isWalkable(const finenav::Position3D& p) const {
     int col, row;
     if (!worldToGrid(p.x(), p.y(), col, row)) return false;
-    return cost_map_.at<uint8_t>(row, col) < 253;
+    uint8_t cost = cost_map_.at<uint8_t>(row, col);
+    return cost < 253;
 }
-
 double OccGridMapView::getCost(const finenav::Position3D& p) const {
     int col, row;
     if (!worldToGrid(p.x(), p.y(), col, row)) return 0.0;
@@ -60,7 +63,11 @@ void OccGridMapView::binarizeMap(const nav_msgs::msg::OccupancyGrid& msg, int th
 }
 
 void OccGridMapView::buildCostMap(double lethal_radius, double inflation_radius, double cost_scaling_factor) {
-    // 反转：0=占据, 254=空闲 → distanceTransform 计算到最近障碍的像素距离
+    // ↓ 添加
+    if (binary_map_.empty()) {
+        fprintf(stderr, "[OccGridMapView] buildCostMap: binary_map_ is empty, skipping!\n");
+        return;
+    }
     cv::Mat inverted;
     cv::subtract(cv::Scalar(254), binary_map_, inverted);
 
@@ -92,7 +99,11 @@ void OccGridMapView::buildCostMap(double lethal_radius, double inflation_radius,
 }
 
 bool OccGridMapView::worldToGrid(double x, double y, int& col, int& row) const {
-    if (cost_map_.empty()) return false;
+    if (cost_map_.empty()) {
+        fprintf(stderr, "[OccGridMapView] worldToGrid: cost_map_ is EMPTY! (width=%u height=%u)\n",
+                width_, height_);
+        return false;
+    }
     col = static_cast<int>(std::floor((x - origin_x_) / resolution_));
     row = static_cast<int>(std::floor((y - origin_y_) / resolution_));
     return col >= 0 && col < static_cast<int>(width_) &&

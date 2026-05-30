@@ -332,7 +332,7 @@ int main(int argc, char** argv) {
 
     auto occ_map_sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
         "/map",
-        rclcpp::QoS(1).transient_local().reliable(),
+        rclcpp::QoS(1).reliable().durability_volatile(),
         [occ_map_injector](const nav_msgs::msg::OccupancyGrid& msg) {
             occ_map_injector(nav_msgs::msg::OccupancyGrid(msg), rclcpp::Time(msg.header.stamp));
         });
