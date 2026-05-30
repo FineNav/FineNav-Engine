@@ -365,10 +365,18 @@ int main(int argc, char** argv) {
             return ctx.is_success;
         });
 
+    node->declare_parameter("astar_map_view.lethal_radius",       0.20);
+    node->declare_parameter("astar_map_view.inflation_radius",    0.50);
+    node->declare_parameter("astar_map_view.cost_scaling_factor", 10.0);
+
     astar_layer->bind_map_view(
         occ_grid_map_server,
-        [](const finenav::OccGrid2DMap& map) {
-            return std::make_shared<astar::OccGridMapView>(map);
+        [node](const finenav::OccGrid2DMap& map) {
+            astar::OccGridMapViewConfig cfg;
+            cfg.lethal_radius       = node->get_parameter("astar_map_view.lethal_radius").as_double();
+            cfg.inflation_radius    = node->get_parameter("astar_map_view.inflation_radius").as_double();
+            cfg.cost_scaling_factor = node->get_parameter("astar_map_view.cost_scaling_factor").as_double();
+            return std::make_shared<astar::OccGridMapView>(map, cfg);
         });
 
     using MppiPlanners = PlannerSet<nav2_mppi_controller::MPPIController>;
