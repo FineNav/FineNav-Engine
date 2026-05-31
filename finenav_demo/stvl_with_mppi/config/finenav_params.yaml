@@ -61,9 +61,9 @@ hello_finenav/finenav_navigator:
 hello_finenav:
   ros__parameters:
     astar_map_view:
-      lethal_radius: 0.20        # 硬膨胀半径 [m]，范围内 cost=253 不可通行
-      inflation_radius: 0.50     # 软膨胀外边界半径 [m]
-      cost_scaling_factor: 10.0  # 软膨胀指数衰减系数，越大衰减越快
+      lethal_radius: 1.4        # 硬膨胀半径 [m]，范围内 cost=253 不可通行
+      inflation_radius: 3.0     # 软膨胀外边界半径 [m]
+      cost_scaling_factor: 0.2 # 软膨胀指数衰减系数，越大衰减越快
     terrain_analysis:
       cost_scaling_factor: 0.5
       robot_height: 1.0
