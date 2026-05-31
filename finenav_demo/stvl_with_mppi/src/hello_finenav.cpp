@@ -13,8 +13,6 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <sophus/so3.hpp>
-
 #include "finenav_engine/finenav_engine.hpp"
 #include "grid_map.hpp" // TODO: resolve anti-pattern export
 
@@ -84,19 +82,15 @@ int main(int argc, char** argv) {
     node->declare_parameter("obs_cov.odom_pose_cov_pitch", 0.00001); // 信任 (IMU)
     node->declare_parameter("obs_cov.odom_pose_cov_yaw",   1.0e6);   // 不信任
 
-    // Odometry relative pose (/Odometry → relativePose channel)
-    node->declare_parameter("obs_cov.odom_rel_cov_x",     0.05);
-    node->declare_parameter("obs_cov.odom_rel_cov_y",     0.05);
-    node->declare_parameter("obs_cov.odom_rel_cov_z",     0.05);
-    node->declare_parameter("obs_cov.odom_rel_cov_roll",  0.005);
-    node->declare_parameter("obs_cov.odom_rel_cov_pitch", 0.005);
-    node->declare_parameter("obs_cov.odom_rel_cov_yaw",   0.01);
-
-    // 相对位姿观测的时间累积窗口 [ms]
-    // ESKF 运行在 100Hz（10ms/槽）。若直接以 200Hz odom 帧间差（5ms）提交，
-    // stamp_from 与 stamp_to 几乎落在同一槽，H_to + H_from ≈ 0，更新退化为 no-op。
-    // 累积到 acc_interval_ms 后再提交，使两端至少跨越若干个 ESKF 槽，保证有效修正。
-    node->declare_parameter("obs_cov.acc_interval_ms", 50.0);  // ≈ 20Hz 观测
+    // Odometry twist (/Odometry → twist channel): 直接注入角速度 / 线速度
+    //   lin_*  : 线速度 (body frame)；若不信任线速度可设极大方差
+    //   ang_*  : 角速度 (body frame)；提供对 omega 状态的直接约束，消除旋转滞后
+    node->declare_parameter("obs_cov.odom_twist_cov_lin_x",  1.0e9);   // 不信任
+    node->declare_parameter("obs_cov.odom_twist_cov_lin_y",  1.0e9);   // 不信任
+    node->declare_parameter("obs_cov.odom_twist_cov_lin_z",  1.0e9);   // 不信任
+    node->declare_parameter("obs_cov.odom_twist_cov_ang_x",  0.01);    // 信任 roll rate
+    node->declare_parameter("obs_cov.odom_twist_cov_ang_y",  0.01);    // 信任 pitch rate
+    node->declare_parameter("obs_cov.odom_twist_cov_ang_z",  0.01);    // 信任 yaw rate
 
     // /localization_pose → PoseWithCovarianceStamped (global pose, no velocity)
     // 策略: 信任 x/y/z/yaw，不信任 roll/pitch（全局位姿无重力对齐参考）
@@ -156,86 +150,36 @@ int main(int argc, char** argv) {
 
             localizer->feedObservation(pose_msg);
 
-            // ── Read relative-pose covariance parameters (live tuning) ─────────
-            const double rel_sx  = node->get_parameter("obs_cov.odom_rel_cov_x").as_double();
-            const double rel_sy  = node->get_parameter("obs_cov.odom_rel_cov_y").as_double();
-            const double rel_sz  = node->get_parameter("obs_cov.odom_rel_cov_z").as_double();
-            const double rel_sro = node->get_parameter("obs_cov.odom_rel_cov_roll").as_double();
-            const double rel_spi = node->get_parameter("obs_cov.odom_rel_cov_pitch").as_double();
-            const double rel_sya = node->get_parameter("obs_cov.odom_rel_cov_yaw").as_double();
-            const double acc_interval_ms = node->get_parameter("obs_cov.acc_interval_ms").as_double();
+            // ── Twist (velocity) observation — 直接注入角速度/线速度 ─────────────
+            // 读取动态参数（支持运行时 ros2 param set 调整）
+            const double tw_lin_x = node->get_parameter("obs_cov.odom_twist_cov_lin_x").as_double();
+            const double tw_lin_y = node->get_parameter("obs_cov.odom_twist_cov_lin_y").as_double();
+            const double tw_lin_z = node->get_parameter("obs_cov.odom_twist_cov_lin_z").as_double();
+            const double tw_ang_x = node->get_parameter("obs_cov.odom_twist_cov_ang_x").as_double();
+            const double tw_ang_y = node->get_parameter("obs_cov.odom_twist_cov_ang_y").as_double();
+            const double tw_ang_z = node->get_parameter("obs_cov.odom_twist_cov_ang_z").as_double();
 
-            // ── Relative-pose (odometry) observation — time-window accumulation ──
-            //
-            // Problem with per-frame (200Hz) relative-pose observations:
-            //   The ESKF runs at 100Hz (10ms/slot).  At 200Hz the inter-frame gap is
-            //   5ms, so stamp_to and stamp_from almost always map to the same delay
-            //   slot.  When ds_to == ds_from, H_to + H_from ≈ 0 (the two blocks
-            //   cancel), making every update a no-op.
-            //
-            // Fix: accumulate over acc_interval_ms before submitting one observation.
-            //   At 50ms the "from" slot sits ~5 ESKF ticks behind the "to" slot —
-            //   well resolved — and displacement SNR is much better than per-frame.
-            static std::optional<nav_msgs::msg::Odometry> window_start_msg;
+            // 构造 TwistWithCovarianceStamped，时间戳与 odom 原始帧一致，
+            // 保留延迟补偿路径（delay_step 由 timerCallback 计算）。
+            geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
+            twist_msg.header = msg.header;
+            twist_msg.twist.twist.linear.x  = msg.twist.twist.linear.x;
+            twist_msg.twist.twist.linear.y  = msg.twist.twist.linear.y;
+            twist_msg.twist.twist.linear.z  = msg.twist.twist.linear.z;
+            twist_msg.twist.twist.angular.x = msg.twist.twist.angular.x;
+            twist_msg.twist.twist.angular.y = msg.twist.twist.angular.y;
+            twist_msg.twist.twist.angular.z = msg.twist.twist.angular.z;
 
-            if (window_start_msg.has_value()) {
-                const rclcpp::Time stamp_from(window_start_msg->header.stamp);
-                const rclcpp::Time stamp_to  (msg.header.stamp);
-                const double window_ms = (stamp_to - stamp_from).seconds() * 1e3;
+            // 协方差矩阵布局: [lin_x, lin_y, lin_z, ang_x, ang_y, ang_z]，仅对角项有效
+            twist_msg.twist.covariance.fill(0.0);
+            twist_msg.twist.covariance[0]  = tw_lin_x;
+            twist_msg.twist.covariance[7]  = tw_lin_y;
+            twist_msg.twist.covariance[14] = tw_lin_z;
+            twist_msg.twist.covariance[21] = tw_ang_x;
+            twist_msg.twist.covariance[28] = tw_ang_y;
+            twist_msg.twist.covariance[35] = tw_ang_z;
 
-                if (window_ms >= acc_interval_ms) {
-                    const double dt = (stamp_to - stamp_from).seconds();
-
-                    if (dt > 1e-6 && dt < 1.0) {
-                        const Eigen::Quaterniond q_prev{
-                            window_start_msg->pose.pose.orientation.w,
-                            window_start_msg->pose.pose.orientation.x,
-                            window_start_msg->pose.pose.orientation.y,
-                            window_start_msg->pose.pose.orientation.z};
-                        const Eigen::Quaterniond q_curr{
-                            msg.pose.pose.orientation.w,
-                            msg.pose.pose.orientation.x,
-                            msg.pose.pose.orientation.y,
-                            msg.pose.pose.orientation.z};
-
-                        const Sophus::SO3d R_prev{q_prev.normalized().toRotationMatrix()};
-                        const Sophus::SO3d R_curr{q_curr.normalized().toRotationMatrix()};
-
-                        const Eigen::Vector3d p_prev{
-                            window_start_msg->pose.pose.position.x,
-                            window_start_msg->pose.pose.position.y,
-                            window_start_msg->pose.pose.position.z};
-                        const Eigen::Vector3d p_curr{
-                            msg.pose.pose.position.x,
-                            msg.pose.pose.position.y,
-                            msg.pose.pose.position.z};
-
-                        finenav::RelativePoseObs rel_obs;
-                        rel_obs.delta_p_body_obs = R_prev.inverse() * (p_curr - p_prev);
-                        rel_obs.delta_R_obs      = R_prev.inverse() * R_curr;
-                        rel_obs.stamp_to         = stamp_to;
-                        rel_obs.stamp_from       = stamp_from;
-
-                        // Displacement covariance (diagonal, body-frame):
-                        //   [0:3] translation  [3:6] rotation (SO3 log-map tangent space)
-                        rel_obs.R_noise = Eigen::Matrix<double, 6, 6>::Zero();
-                        rel_obs.R_noise(0, 0) = rel_sx  * rel_sx;
-                        rel_obs.R_noise(1, 1) = rel_sy  * rel_sy;
-                        rel_obs.R_noise(2, 2) = rel_sz  * rel_sz;
-                        rel_obs.R_noise(3, 3) = rel_sro * rel_sro;
-                        rel_obs.R_noise(4, 4) = rel_spi * rel_spi;
-                        rel_obs.R_noise(5, 5) = rel_sya * rel_sya;
-
-                        localizer->feedRelativePose(rel_obs);
-                    }
-
-                    // Reset accumulation window to current frame
-                    window_start_msg = msg;
-                }
-            } else {
-                // First odom message after initialization: start the window
-                window_start_msg = msg;
-            }
+            localizer->feedObservation(twist_msg);
         }
     );
 

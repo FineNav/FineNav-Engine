@@ -44,18 +44,14 @@ hello_finenav:
       odom_pose_cov_pitch: 0.00001  # 信任 (IMU 倾角)
       odom_pose_cov_yaw:   1.0e9    # 不信任
 
-      # ── Odometry relative pose (/Odometry → relativePose channel) ────────
-      # 设为帧间位移/转角的期望不确定度（方差值）
-      odom_rel_cov_x:     0.001
-      odom_rel_cov_y:     0.001
-      odom_rel_cov_z:     0.001
-      odom_rel_cov_roll:  0.001
-      odom_rel_cov_pitch: 0.001
-      odom_rel_cov_yaw:   0.001
-
-      # 时间累积窗口 [ms]：relativePose 观测的最小时间跨度
-      # ESKF 100Hz（10ms/槽），odom 200Hz（5ms/帧）。
-      # 若窗口过短(<10ms)，stamp_from 与 stamp_to 落在同一槽，H 相消，更新退化为 no-op。
-      # 50ms → ~5 个 ESKF 槽间距，保证有效修正，等效约 20Hz 观测频率。
-      acc_interval_ms:    50.0
+      # ── Odometry twist (/Odometry → twist channel) ───────────────────────
+      # 策略: 直接注入 body-frame 速度，对 omega 状态施加实时约束，消除旋转滞后。
+      #   lin_* : 线速度协方差（方差，m²/s²）；不信任线速度可设极大值
+      #   ang_* : 角速度协方差（方差，rad²/s²）；信任角速度以直接约束 omega 状态
+      odom_twist_cov_lin_x:  1.0e9    # 不信任
+      odom_twist_cov_lin_y:  1.0e9    # 不信任
+      odom_twist_cov_lin_z:  1.0e9    # 不信任
+      odom_twist_cov_ang_x:  0.01     # 信任 roll rate
+      odom_twist_cov_ang_y:  0.01     # 信任 pitch rate
+      odom_twist_cov_ang_z:  0.01     # 信任 yaw rate
 
