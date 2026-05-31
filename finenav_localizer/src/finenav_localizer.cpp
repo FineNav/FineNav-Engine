@@ -233,6 +233,89 @@ std::optional<NavStateD> FineNavLocalizer::getStateAt(const rclcpp::Time & query
 // ============================================================================
 void FineNavLocalizer::timerCallback()
 {
+    // 1. 检查参数更新
+    if (param_listener_->is_old(params_)) {
+        params_ = param_listener_->get_params();
+    }
+
+    const rclcpp::Time now = pnode_->now();
+
+    // ==========================================
+    // 情况 A: 透传模式 (Zero Calculation)
+    // ==========================================
+    if (params_.passthrough) {
+        bool has_new_data = false;
+        NavStateD next_state;
+
+        // 获取锁，保护 cached_state_ 和 eskf_ (虽然不运行eskf，但为了线程安全需要同步)
+        std::lock_guard<std::mutex> lk(filter_mutex_);
+        {
+            std::unique_lock<std::shared_mutex> cache_lk(cached_state_mutex_);
+            next_state = cached_state_; // 以旧状态为基础
+
+            // A1. 提取最新位姿 (Pose)
+            if (!pose_queue_->empty()) {
+                PoseMsg latest_pose;
+                while (!pose_queue_->empty()) {
+                    latest_pose = pose_queue_->pop_increment_age();
+                }
+                auto [pos, rot, R_pose] = extractObservation(latest_pose);
+                next_state.p = pos;
+                next_state.R = rot;
+                cached_covariance_.block<6, 6>(0, 0) = R_pose; // 更新位姿协方差
+                has_new_data = true;
+            }
+
+            // A2. 提取最新速度 (Twist/Odometry)
+            if (!twist_queue_->empty()) {
+                TwistMsg latest_twist;
+                while (!twist_queue_->empty()) {
+                    latest_twist = twist_queue_->pop_increment_age();
+                }
+                auto [lin_v_body, ang_v_body, R_twist] = extractObservation(latest_twist);
+
+                // 注意：Twist消息里通常是 Body Frame。
+                // 内部缓存要求 v 是 World Frame，以便 getState() 统一转换。
+                next_state.v = next_state.R * lin_v_body;
+                next_state.omega = ang_v_body;
+                cached_covariance_.block<6, 6>(6, 6) = R_twist; // 更新速度协方差
+                has_new_data = true;
+            }
+
+            if (has_new_data || is_initialized_.load(std::memory_order_acquire)) {
+                cached_state_ = next_state;
+                cached_time_  = now;
+                // 将透传状态同步给 ESKF，防止切回 NORMAL 模式时状态跳变太大
+                eskf_.setState(next_state);
+            }
+        }
+
+        if (is_initialized_.load(std::memory_order_acquire)) {
+            state_buffer_->push(now, next_state);
+            // 广播 TF (复用原有逻辑)
+            if (tf_br_) {
+                geometry_msgs::msg::TransformStamped tf;
+                tf.header.stamp = now;
+                tf.header.frame_id = "map";
+                tf.child_frame_id = "base_link";
+                tf.transform.translation.x = next_state.p.x();
+                tf.transform.translation.y = next_state.p.y();
+                tf.transform.translation.z = next_state.p.z();
+                const Eigen::Quaterniond q(next_state.R.matrix());
+                tf.transform.rotation.w = q.w();
+                tf.transform.rotation.x = q.x();
+                tf.transform.rotation.y = q.y();
+                tf.transform.rotation.z = q.z();
+                tf_br_->sendTransform(tf);
+            }
+        }
+        return; // 透传结束，直接返回，不执行下方 ESKF 逻辑
+    }
+
+    // ==========================================
+    // 情况 B: 正常 ESKF 模式 (原逻辑)
+    // ==========================================
+    
     if (!is_initialized_.load(std::memory_order_acquire)) {
         RCLCPP_WARN_THROTTLE(
             logger_, *pnode_->get_clock(), 2000,

@@ -1,4 +1,9 @@
 finenav_localizer:
+  passthrough: {
+    type: bool,
+    default_value: false,
+    description: "If true, bypass ESKF and output latest Pose/Twist directly (Zero calculation)",
+  }
   update_rate_hz: {
     type: double,
     default_value: 100.0,

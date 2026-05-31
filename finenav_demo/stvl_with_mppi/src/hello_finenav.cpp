@@ -136,19 +136,19 @@ int main(int argc, char** argv) {
 
             // ── Absolute pose (used for roll/pitch correction only) ─────────────
             // 策略: 仅信任 roll/pitch（IMU重力对齐可靠），x/y/z/yaw 设极大协方差
-            geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
-            pose_msg.header    = msg.header;
-            pose_msg.pose.pose = msg.pose.pose;
+            // geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
+            // pose_msg.header    = msg.header;
+            // pose_msg.pose.pose = msg.pose.pose;
 
-            pose_msg.pose.covariance.fill(0.0);
-            pose_msg.pose.covariance[0]  = node->get_parameter("obs_cov.odom_pose_cov_x").as_double();
-            pose_msg.pose.covariance[7]  = node->get_parameter("obs_cov.odom_pose_cov_y").as_double();
-            pose_msg.pose.covariance[14] = node->get_parameter("obs_cov.odom_pose_cov_z").as_double();
-            pose_msg.pose.covariance[21] = node->get_parameter("obs_cov.odom_pose_cov_roll").as_double();
-            pose_msg.pose.covariance[28] = node->get_parameter("obs_cov.odom_pose_cov_pitch").as_double();
-            pose_msg.pose.covariance[35] = node->get_parameter("obs_cov.odom_pose_cov_yaw").as_double();
+            // pose_msg.pose.covariance.fill(0.0);
+            // pose_msg.pose.covariance[0]  = node->get_parameter("obs_cov.odom_pose_cov_x").as_double();
+            // pose_msg.pose.covariance[7]  = node->get_parameter("obs_cov.odom_pose_cov_y").as_double();
+            // pose_msg.pose.covariance[14] = node->get_parameter("obs_cov.odom_pose_cov_z").as_double();
+            // pose_msg.pose.covariance[21] = node->get_parameter("obs_cov.odom_pose_cov_roll").as_double();
+            // pose_msg.pose.covariance[28] = node->get_parameter("obs_cov.odom_pose_cov_pitch").as_double();
+            // pose_msg.pose.covariance[35] = node->get_parameter("obs_cov.odom_pose_cov_yaw").as_double();
 
-            localizer->feedObservation(pose_msg);
+            // localizer->feedObservation(pose_msg);
 
             // ── Twist (velocity) observation — 直接注入角速度/线速度 ─────────────
             // 读取动态参数（支持运行时 ros2 param set 调整）
