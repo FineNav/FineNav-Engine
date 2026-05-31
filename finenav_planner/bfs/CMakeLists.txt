@@ -8,6 +8,7 @@ endif ()
 
 find_package(ament_cmake_auto REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(Eigen3 REQUIRED)
 include_directories(include)
 ament_auto_find_build_dependencies()
 
@@ -21,7 +22,7 @@ ament_auto_add_library(bfs_planner_lib
     src/bfs_path_search.cpp
     src/occ_grid_map_view.cpp
 )
-target_link_libraries(bfs_planner_lib bfs_params ${OpenCV_LIBS})
+target_link_libraries(bfs_planner_lib bfs_params ${OpenCV_LIBS} Eigen3::Eigen)
 
 if (BUILD_TESTING)
     find_package(ament_cmake_gtest REQUIRED)

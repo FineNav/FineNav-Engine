@@ -8,48 +8,72 @@
 
 #include "bfs_imap_view.hpp"
 #include "occ_grid_2d_map.hpp"
+#include "finenav_collision_model/obb_collision_model.hpp"
 
 namespace bfs {
 
 /**
  * @brief OccGridMapView 的处理参数
  *
- * 描述如何将原始占用值解释为可通行性，与地图数据本身无关。
- * BFS 只需要二值化结果，不需要代价值。
+ * 膨胀策略：纯指数衰减，无硬膨胀区。
+ * cost = 253 * exp(-cost_scaling_factor * dist_m)
+ * 当中心点代价 >= possibly_inscribed_cost 时，触发 OBB 精确碰撞检查。
  */
 struct OccGridMapViewConfig {
-    double lethal_radius    = 0.20; ///< 硬膨胀半径 (m)，范围内视为不可通行
-    double inflation_radius = 0.50; ///< 软膨胀半径 (m)，范围内也视为不可通行（保守策略）
+    double inflation_radius    = 0.50; ///< 膨胀半径 (m)，超出此范围代价归零
+    double cost_scaling_factor = 10.0; ///< 指数衰减系数，越大衰减越快
 };
 
 /**
  * @brief OccGridMapView — 基于 OccGrid2DMap 的 bfs::IMapView 实现
  *
- * BFS 使用均等代价搜索，只需区分可通行/不可通行，无需 getCost()。
- * 在构造时读取地图数据并完成二值化 + 膨胀，之后只读。
+ * 膨胀逻辑参照 MPPI CostCritic：
+ *   1. 对每格计算纯指数衰减代价（无硬膨胀区）
+ *   2. 中心点代价 < possibly_inscribed_cost_ → 可通行
+ *   3. 中心点代价 >= possibly_inscribed_cost_ → 用 OBBCollisionModel 精确判断
+ *
+ * OBB 尺寸硬编码为 (0.8, 0.7, 0.3)，与 MPPI SimpleGridMapView 一致。
+ * unknown(-1) 视为障碍（保守策略）。
  */
 class OccGridMapView : public IMapView {
 public:
     explicit OccGridMapView(const finenav::OccGrid2DMap& map,
                             const OccGridMapViewConfig&  view_config = {});
 
-    // --- IMapView 接口 ---
+    // ── IMapView 接口 ──────────────────────────────────────────────────────
     bool   isWalkable(const finenav::Position3D& p) const override;
     double getStepSize()                            const override;
 
 private:
+    // ── 地图构建 ───────────────────────────────────────────────────────────
     void binarizeMap(const nav_msgs::msg::OccupancyGrid& msg, int threshold);
-    void buildInflationMap(double lethal_radius, double inflation_radius);
+    void buildCostMap(double inflation_radius, double cost_scaling_factor);
+
+    // ── 坐标转换 ───────────────────────────────────────────────────────────
     bool worldToGrid(double x, double y, int& col, int& row) const;
 
-    double   resolution_ = 0.05;
-    uint32_t width_      = 0;
-    uint32_t height_     = 0;
-    double   origin_x_   = 0.0;
-    double   origin_y_   = 0.0;
+    // ── 代价计算辅助 ───────────────────────────────────────────────────────
+    // 给定像素距离（单位：格），返回指数衰减代价 [0, 253]
+    int computeExpCost(float dist_m) const;
 
-    cv::Mat binary_map_;     ///< 原始二值地图：254=障碍/未知，0=自由
-    cv::Mat walkable_map_;   ///< 膨胀后可通行掩码：0=不可通行，255=可通行
+    // ── 地图元数据 ─────────────────────────────────────────────────────────
+    double   resolution_          = 0.05;
+    uint32_t width_               = 0;
+    uint32_t height_              = 0;
+    double   origin_x_            = 0.0;
+    double   origin_y_            = 0.0;
+    double   cost_scaling_factor_ = 10.0;
+
+    cv::Mat binary_map_; ///< 二值地图：254=障碍/未知，0=自由
+    cv::Mat cost_map_;   ///< 指数衰减代价图 [0,253]，障碍格=254
+
+    // ── OBB 碰撞模型 ───────────────────────────────────────────────────────
+    // 尺寸硬编码 (L=0.8, W=0.7, H=0.3)，采样步长 0.1m，与 MPPI 一致
+    mutable finenav::OBBCollisionModel obb_model_;
+
+    // 中心点代价 >= 此阈值时才触发 OBB 精确碰撞检查
+    // = 253 * exp(-cost_scaling_factor * obb_outer_radius)
+    int possibly_inscribed_cost_ = 0;
 };
 
 } // namespace bfs
