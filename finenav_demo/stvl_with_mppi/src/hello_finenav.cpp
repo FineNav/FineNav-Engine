@@ -25,6 +25,7 @@
 #include "seek_to_nearest_point.hpp"
 #include "trim_by_aabb.hpp"
 #include "trim_by_distance.hpp"
+#include "smooth_path.hpp"
 
 // ROS messages
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -119,7 +120,7 @@ int main(int argc, char** argv) {
 
             // output delay millisecond
             auto delay = node->now() - rclcpp::Time(msg.header.stamp);
-            RCLCPP_INFO_STREAM(node->get_logger(), "Global pose delay: " << delay.seconds() * 1000.0 << " ms");
+            // RCLCPP_INFO_STREAM(node->get_logger(), "Global pose delay: " << delay.seconds() * 1000.0 << " ms");
 
             geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
             pose_msg.header = msg.header;
@@ -332,7 +333,7 @@ int main(int argc, char** argv) {
 
     auto occ_map_sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
         "/map",
-        rclcpp::QoS(1).reliable().durability_volatile(),
+        rclcpp::QoS(1).reliable().transient_local(),
         [occ_map_injector](const nav_msgs::msg::OccupancyGrid& msg) {
             occ_map_injector(nav_msgs::msg::OccupancyGrid(msg), rclcpp::Time(msg.header.stamp));
         });
@@ -348,6 +349,8 @@ int main(int argc, char** argv) {
     astar_layer->set_on_post_plan(
         [astar_path_pub](finenav::PostPlanContext& ctx) -> bool {
             if (ctx.is_success) {
+                // A* 输出的栅格路径做拉普拉斯平滑
+                ctx.result_traj | finenav::SmoothPath();
                 nav_msgs::msg::Path path_msg;
                 path_msg.header = ctx.result_traj.header;
                 if (path_msg.header.frame_id.empty()) {
