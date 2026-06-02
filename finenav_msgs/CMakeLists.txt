@@ -15,6 +15,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
         msg/NavStatus.msg
         action/ComputePlan.action
         action/NavigateToPose.action
+        action/ComputePath.action
         DEPENDENCIES geometry_msgs std_msgs
 )
 

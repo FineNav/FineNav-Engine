@@ -1,0 +1,10 @@
+# Request
+string graph_name
+uint32 start_node_id
+uint32 goal_node_id
+---
+# Result
+builtin_interfaces/Duration planning_time
+finenav_msgs/Trajectory path
+---
+# Feedback

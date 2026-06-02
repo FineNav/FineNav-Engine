@@ -206,13 +206,6 @@ int main(int argc, char** argv) {
     auto map_server = finenav_engine->createMapResource<GridMap<Voxel>>(
         "my_map_server", 10.0, true, 100.0);
 
-    // A* 使用的二维 OccupancyGrid 地图资源（数据注入属于 Mapping）
-    auto occ_grid_map_server = finenav_engine->createMapResource<finenav::OccGrid2DMap>(
-        "occ_grid_2d_map_server", 5.0, false);
-
-
-
-
 
     // ============================================================
     // 可视化点云 Helpers（由 main 持有，生命周期覆盖所有使用方）
@@ -318,70 +311,7 @@ int main(int argc, char** argv) {
             laser_injector(std::move(pcl_cloud), rclcpp::Time(msg.header.stamp));
         });
 
-    MapServer<finenav::OccGrid2DMap>::SourceBufferPolicy occ_policy;
-    occ_policy.max_buffer_size = 1;
-    occ_policy.observation_keep_time_sec = 0.0;
-
-    auto occ_map_injector = occ_grid_map_server->addUpdateSource<nav_msgs::msg::OccupancyGrid>(
-        "occ_grid_source",
-        occ_policy,
-        [](const nav_msgs::msg::OccupancyGrid& msg,
-           const rclcpp::Time&,
-           finenav::OccGrid2DMap& map) {
-            map.update(msg);
-        });
-
-    auto occ_map_sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
-        "/map",
-        rclcpp::QoS(1).reliable().transient_local(),
-        [occ_map_injector](const nav_msgs::msg::OccupancyGrid& msg) {
-            occ_map_injector(nav_msgs::msg::OccupancyGrid(msg), rclcpp::Time(msg.header.stamp));
-        });
-
-
     // --------------------------------- Launch Planning --------------------------------------
-    using AstarPlanners = PlannerSet<finenav::AstarPathSearch>;
-    auto astar_layer = finenav_engine->createControlLayer<AstarPlanners>(
-        "astar_layer", finenav::SingleShotPolicy{});
-
-    auto astar_path_pub = node->create_publisher<nav_msgs::msg::Path>("/astar_path", 10);
-
-    astar_layer->set_on_post_plan(
-        [astar_path_pub](finenav::PostPlanContext& ctx) -> bool {
-            if (ctx.is_success) {
-                // A* 输出的栅格路径做拉普拉斯平滑
-                ctx.result_traj | finenav::SmoothPath();
-                nav_msgs::msg::Path path_msg;
-                path_msg.header = ctx.result_traj.header;
-                if (path_msg.header.frame_id.empty()) {
-                    path_msg.header.frame_id = "map";
-                }
-                path_msg.poses.reserve(ctx.result_traj.poses.size());
-                for (const auto& pose : ctx.result_traj.poses) {
-                    geometry_msgs::msg::PoseStamped ps;
-                    ps.header = path_msg.header;
-                    ps.pose = pose;
-                    path_msg.poses.push_back(ps);
-                }
-                astar_path_pub->publish(path_msg);
-            }
-            return ctx.is_success;
-        });
-
-    node->declare_parameter("astar_map_view.lethal_radius",       0.20);
-    node->declare_parameter("astar_map_view.inflation_radius",    0.50);
-    node->declare_parameter("astar_map_view.cost_scaling_factor", 10.0);
-
-    astar_layer->bind_map_view(
-        occ_grid_map_server,
-        [node](const finenav::OccGrid2DMap& map) {
-            astar::OccGridMapViewConfig cfg;
-            cfg.lethal_radius       = node->get_parameter("astar_map_view.lethal_radius").as_double();
-            cfg.inflation_radius    = node->get_parameter("astar_map_view.inflation_radius").as_double();
-            cfg.cost_scaling_factor = node->get_parameter("astar_map_view.cost_scaling_factor").as_double();
-            return std::make_shared<astar::OccGridMapView>(map, cfg);
-        });
-
     using MppiPlanners = PlannerSet<nav2_mppi_controller::MPPIController>;
     auto my_control_layer = finenav_engine->createControlLayer<MppiPlanners>(
         "mppi_layer", finenav::TrackingPolicy{20.0});
@@ -451,14 +381,7 @@ int main(int argc, char** argv) {
 
     finenav_engine->registerPipeline(
         FineNavEngine::PipelineIO{
-            .input_topic = "",
-            .output_topic = "astar_layer_plan",
-        },
-        astar_layer);
-
-    finenav_engine->registerPipeline(
-        FineNavEngine::PipelineIO{
-            .input_topic = "astar_layer_plan",
+            .input_topic = "line_path",
             .output_topic = "mppi_layer_plan",
         },
         my_control_layer);

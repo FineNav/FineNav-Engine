@@ -22,6 +22,10 @@ add_executable(hello_finenav src/hello_finenav.cpp)
 target_link_libraries(hello_finenav terrain_lib)
 ament_target_dependencies(hello_finenav ${dependencies})
 
+add_executable(route_finenav src/route_finenav.cpp)
+target_link_libraries(route_finenav terrain_lib)
+ament_target_dependencies(route_finenav ${dependencies})
+
 add_executable(goal_pose_bridge_node src/goal_pose_bridge_node.cpp)
 ament_target_dependencies(goal_pose_bridge_node ${dependencies})
 
@@ -32,6 +36,10 @@ install(TARGETS terrain_lib
 )
 
 install(TARGETS hello_finenav
+        DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS route_finenav
         DESTINATION lib/${PROJECT_NAME}
 )
 
