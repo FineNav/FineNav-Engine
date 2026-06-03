@@ -339,9 +339,11 @@ int main(int argc, char** argv) {
         // const double max_dist = std::min(bounds_size.x(), bounds_size.y());
         // ctx.ref_traj | finenav::TrimByDistance(max_dist);
 
-        // 3. Trim waypoints that fall outside the current map AABB
-        const auto current_bounds = map_server->getLockedReadView()->getWindowBounds();
-        ctx.ref_traj | finenav::TrimByAABB(current_bounds);
+        // 3. 平滑参考轨迹（拓扑规划输出的折线做拉普拉斯平滑）
+        ctx.ref_traj | finenav::SmoothPath();
+
+        // 4. 只保留前方 3m 的轨迹点，MPPI 窗口够用即可
+        ctx.ref_traj | finenav::TrimByDistance(3.0);
 
         // [DEBUG] 发布裁减后的参考轨迹供 RViz 可视化验证
         {

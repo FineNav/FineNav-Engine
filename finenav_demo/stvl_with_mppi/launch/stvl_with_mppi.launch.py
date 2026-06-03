@@ -94,7 +94,7 @@ def generate_launch_description():
             'navigator_behavior_tree': 'RouteNavigateToPose',
             'graph_dir': LaunchConfiguration('graph_dir'),
             'path_topic': '/hello_finenav/line_path',
-            'nav_state_topic': '/hello_finenav/nav_state',
+            'nav_state_topic': '/nav_state',
             'use_current_pose_as_start': LaunchConfiguration('use_current_pose_as_start'),
             'connector_density': 0.05,
         }],
