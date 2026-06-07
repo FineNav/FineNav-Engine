@@ -27,11 +27,9 @@ ament_auto_add_library(finenav_route_planner_lib
     src/bfs_path_search.cpp          # BFS = AStarAlgorithm(Heuristic::Zero)
     # Topological route planner (FineNav PlannerConcept)
     src/route_path_search.cpp
-    # Route internals
-    src/route/route_planner.cpp
-    src/route/route_path_planner.cpp
-    src/route/path_converter.cpp
-    src/route/plugins/graph_file_loaders/geojson_graph_file_loader.cpp
+    # Route internals — graph loading (GeoJSON) + Dijkstra search
+    src/route/route_graph.cpp
+    src/route/route_search.cpp
 )
 target_link_libraries(finenav_route_planner_lib
     astar_params
