@@ -25,7 +25,7 @@ void RoutePathPlanner::configure(const Config & config)
   path_converter_.configure(config.path_converter);
 }
 
-finenav_msgs::msg::Trajectory RoutePathPlanner::plan(
+RoutePathPlanner::PlanResult RoutePathPlanner::plan(
   const std::string & graph_json,
   unsigned int start_node_id,
   unsigned int goal_node_id)
@@ -60,7 +60,29 @@ finenav_msgs::msg::Trajectory RoutePathPlanner::plan(
       graph, start_it->second, goal_it->second, {}, request);
   }
 
-  return toMsg(path_converter_.densify(route));
+  PlanResult result;
+  result.trajectory = toMsg(path_converter_.densify(route));
+  result.topological_poses = path_converter_.extractTopologicalPoses(route);
+
+  return result;
+}
+
+unsigned int RoutePathPlanner::findNodeIdByFrame(
+  const std::string & graph_json,
+  const std::string & frame_name)
+{
+  Graph graph;
+  GraphToIDMap id_to_graph_map;
+  if (!loader_.loadGraphFromJson(graph, id_to_graph_map, graph_json)) {
+    throw NoValidGraph("Failed to load route graph json");
+  }
+
+  for (const auto & node : graph) {
+    if (node.coords.frame_id == frame_name) {
+      return node.nodeid;
+    }
+  }
+  throw IndeterminantNodesOnGraph("Node with frame '" + frame_name + "' not found in graph.");
 }
 
 finenav_msgs::msg::Trajectory RoutePathPlanner::toMsg(

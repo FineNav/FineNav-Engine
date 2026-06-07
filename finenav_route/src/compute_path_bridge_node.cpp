@@ -22,6 +22,7 @@
 
 #include <geometry_msgs/msg/pose.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <nlohmann/json.hpp>
@@ -203,6 +204,7 @@ public:
     }
 
     path_pub_ = create_publisher<finenav_msgs::msg::Trajectory>(path_topic_, 10);
+    topological_path_pub_ = create_publisher<nav_msgs::msg::Path>("/topological_path", 10);
     nav_state_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       nav_state_topic_,
       10,
@@ -247,15 +249,8 @@ private:
     const rclcpp_action::GoalUUID &,
     const std::shared_ptr<const ComputePath::Goal> goal)
   {
-    if (goal->graph_name.empty()) {
-      RCLCPP_WARN(get_logger(), "Rejecting ComputePath goal with empty graph_name.");
-      return rclcpp_action::GoalResponse::REJECT;
-    }
-
-    if (!graph_json_by_name_.contains(goal->graph_name)) {
-      RCLCPP_WARN(
-        get_logger(), "Rejecting ComputePath goal with unknown graph_name='%s'.",
-        goal->graph_name.c_str());
+    if (goal->goal_node_name.empty()) {
+      RCLCPP_WARN(get_logger(), "Rejecting ComputePath goal with empty goal_node_name.");
       return rclcpp_action::GoalResponse::REJECT;
     }
 
@@ -277,49 +272,60 @@ private:
   {
     const auto start_time = now();
     const auto goal = goal_handle->get_goal();
-    const auto & graph_json = getGraphJson(goal->graph_name);
+    const auto & graph_json = getGraphJson();
 
-    unsigned int route_start_node_id = goal->start_node_id;
+    unsigned int route_start_node_id = 0;
+    unsigned int route_goal_node_id = 0;
+
+    try {
+      route_goal_node_id = route_path_planner_.findNodeIdByFrame(graph_json, goal->goal_node_name);
+    } catch (const std::exception & ex) {
+      RCLCPP_ERROR(get_logger(), "Failed to find goal node by name '%s': %s",
+        goal->goal_node_name.c_str(), ex.what());
+      goal_handle->abort(makeResult(start_time));
+      return;
+    }
+
     geometry_msgs::msg::Pose current_pose;
     bool prepend_current_pose_connector = false;
 
-    if (use_current_pose_as_start_ || route_start_node_id == kAutoStartNodeId) {
-      if (!waitForCurrentPose(current_pose, goal_handle)) {
-        RCLCPP_ERROR(
-          get_logger(),
-          "No nav_state received within %.2f s. Cannot connect current pose to route.",
-          nav_state_timeout_s_);
-        goal_handle->abort(makeResult(start_time));
-        return;
-      }
-
-      try {
-        const auto start_candidate =
-          findBfsStartNode(graph_json, current_pose);
-        route_start_node_id = start_candidate.id;
-        prepend_current_pose_connector = true;
-        RCLCPP_INFO(
-          get_logger(),
-          "Using current pose (%.3f, %.3f) as virtual start. "
-          "BFS-selected nearest route node is %u at %.3f m, search depth=%zu.",
-          current_pose.position.x, current_pose.position.y,
-          start_candidate.id, start_candidate.distance, start_candidate.bfs_depth);
-      } catch (const std::exception & ex) {
-        RCLCPP_ERROR(get_logger(), "Failed to find nearest route start node by BFS: %s", ex.what());
-        goal_handle->abort(makeResult(start_time));
-        return;
-      }
+    if (!waitForCurrentPose(current_pose, goal_handle)) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "No nav_state received within %.2f s. Cannot connect current pose to route.",
+        nav_state_timeout_s_);
+      goal_handle->abort(makeResult(start_time));
+      return;
     }
 
-    finenav_msgs::msg::Trajectory path;
     try {
-      path = route_path_planner_.plan(
-        graph_json, route_start_node_id, goal->goal_node_id);
+      const auto start_candidate =
+        findBfsStartNode(graph_json, current_pose);
+      route_start_node_id = start_candidate.id;
+      prepend_current_pose_connector = true;
+      RCLCPP_INFO(
+        get_logger(),
+        "Using current pose (%.3f, %.3f) as virtual start. "
+        "BFS-selected nearest route node is %u at %.3f m, search depth=%zu.",
+        current_pose.position.x, current_pose.position.y,
+        start_candidate.id, start_candidate.distance, start_candidate.bfs_depth);
+    } catch (const std::exception & ex) {
+      RCLCPP_ERROR(get_logger(), "Failed to find nearest route start node by BFS: %s", ex.what());
+      goal_handle->abort(makeResult(start_time));
+      return;
+    }
+
+    RoutePathPlanner::PlanResult plan_result;
+    try {
+      plan_result = route_path_planner_.plan(
+        graph_json, route_start_node_id, route_goal_node_id);
     } catch (const std::exception & ex) {
       RCLCPP_ERROR(get_logger(), "Route path planning failed: %s", ex.what());
       goal_handle->abort(makeResult(start_time));
       return;
     }
+
+    auto & path = plan_result.trajectory;
 
     if ((path.valid_fields & finenav_msgs::msg::Trajectory::TRAJ_POSE) == 0 ||
       path.poses.empty())
@@ -339,10 +345,22 @@ private:
     }
 
     path_pub_->publish(path);
+
+    // Publish topological path
+    nav_msgs::msg::Path topo_msg;
+    topo_msg.header = path.header;
+    for (const auto & pose : plan_result.topological_poses) {
+      geometry_msgs::msg::PoseStamped ps;
+      ps.header = topo_msg.header;
+      ps.pose = pose;
+      topo_msg.poses.push_back(ps);
+    }
+    topological_path_pub_->publish(topo_msg);
+
     RCLCPP_INFO(
       get_logger(),
-      "Published route reference trajectory with %zu poses from node %u to node %u.",
-      path.poses.size(), route_start_node_id, goal->goal_node_id);
+      "Published route reference trajectory with %zu poses and topological path with %zu nodes from node %u to node %u.",
+      path.poses.size(), plan_result.topological_poses.size(), route_start_node_id, route_goal_node_id);
 
     const auto timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::duration<double>(server_timeout_s_));
@@ -475,9 +493,16 @@ private:
     return graph_json;
   }
 
-  const std::string & getGraphJson(const std::string & graph_name) const
+  const std::string & getGraphJson()
   {
-    return graph_json_by_name_.at(graph_name);
+    if (graph_json_by_name_.empty()) {
+      throw std::runtime_error("No route graphs loaded.");
+    }
+    auto it = graph_json_by_name_.find("graph");
+    if (it != graph_json_by_name_.end()) {
+      return it->second;
+    }
+    return graph_json_by_name_.begin()->second;
   }
 
   bool waitForCurrentPose(
@@ -597,6 +622,7 @@ private:
   bool use_current_pose_as_start_{true};
 
   rclcpp::Publisher<finenav_msgs::msg::Trajectory>::SharedPtr path_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr topological_path_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr nav_state_sub_;
   rclcpp_action::Client<NavigateToPose>::SharedPtr navigator_client_;
   rclcpp_action::Server<ComputePath>::SharedPtr action_server_;

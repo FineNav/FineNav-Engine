@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#pragma once
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,9 +22,6 @@
 
 #include "finenav_route/route_exceptions.hpp"
 #include "finenav_route/interfaces/graph_file_loader.hpp"
-
-#ifndef finenav_route__PLUGINS__GRAPH_FILE_LOADERS__GEOJSON_GRAPH_FILE_LOADER_HPP_
-#define finenav_route__PLUGINS__GRAPH_FILE_LOADERS__GEOJSON_GRAPH_FILE_LOADER_HPP_
 
 namespace finenav_route
 {
@@ -161,5 +160,3 @@ NLOHMANN_JSON_SERIALIZE_ENUM(
   })
 
 }  // namespace finenav_route
-
-#endif  // finenav_route__PLUGINS__GRAPH_FILE_LOADERS__GEOJSON_GRAPH_FILE_LOADER_HPP_

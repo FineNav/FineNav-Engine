@@ -28,10 +28,20 @@ public:
 
   void configure(const Config & config);
 
-  finenav_msgs::msg::Trajectory plan(
+  struct PlanResult
+   {
+     finenav_msgs::msg::Trajectory trajectory;
+     std::vector<geometry_msgs::msg::Pose> topological_poses;
+   };
+
+  PlanResult plan(
     const std::string & graph_json,
     unsigned int start_node_id,
     unsigned int goal_node_id);
+
+  unsigned int findNodeIdByFrame(
+    const std::string & graph_json,
+    const std::string & frame_name);
 
 private:
   finenav_msgs::msg::Trajectory toMsg(const PathConverter::Trajectory & path) const;

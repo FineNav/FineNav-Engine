@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FINENAV_ROUTE__PATH_CONVERTER_HPP_
-#define FINENAV_ROUTE__PATH_CONVERTER_HPP_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -48,6 +47,8 @@ public:
     const Route & route,
     const ReroutingState & rerouting_info = ReroutingState()) const;
 
+  std::vector<geometry_msgs::msg::Pose> extractTopologicalPoses(const Route & route) const;
+
   void interpolateEdge(
     float x0, float y0, float x1, float y1,
     std::vector<geometry_msgs::msg::Pose> & poses) const;
@@ -67,4 +68,3 @@ protected:
 
 }  // namespace finenav_route
 
-#endif  // FINENAV_ROUTE__PATH_CONVERTER_HPP_

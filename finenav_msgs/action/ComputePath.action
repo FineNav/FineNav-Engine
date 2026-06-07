@@ -1,7 +1,5 @@
 # Request
-string graph_name
-uint32 start_node_id
-uint32 goal_node_id
+string goal_node_name
 ---
 # Result
 builtin_interfaces/Duration planning_time

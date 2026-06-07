@@ -4,8 +4,7 @@
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 
-#ifndef FINENAV_ROUTE__TYPES_HPP_
-#define FINENAV_ROUTE__TYPES_HPP_
+#pragma once
 
 #include <any>
 #include <cmath>
@@ -194,4 +193,3 @@ using NodeQueue = std::priority_queue<NodeElement, std::vector<NodeElement>, Nod
 
 }  // namespace finenav_route
 
-#endif  // FINENAV_ROUTE__TYPES_HPP_

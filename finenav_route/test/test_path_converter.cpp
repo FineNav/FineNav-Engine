@@ -193,12 +193,12 @@ TEST(RoutePathPlannerTest, PlansCenteredRectangleGraph)
     std::istreambuf_iterator<char>());
 
   RoutePathPlanner planner;
-  auto traj = planner.plan(graph_json, 1u, 5u);
+  auto result = planner.plan(graph_json, 1u, 5u);
 
-  ASSERT_FALSE(traj.poses.empty());
-  EXPECT_NEAR(traj.poses.front().position.x, -3.0, 0.01);
-  EXPECT_NEAR(traj.poses.front().position.y, -2.0, 0.01);
-  EXPECT_NEAR(traj.poses.back().position.x, -3.0, 0.01);
-  EXPECT_NEAR(traj.poses.back().position.y, -2.0, 0.01);
-  EXPECT_GT(traj.poses.size(), 300u);
+  ASSERT_FALSE(result.trajectory.poses.empty());
+  EXPECT_NEAR(result.trajectory.poses.front().position.x, -3.0, 0.01);
+  EXPECT_NEAR(result.trajectory.poses.front().position.y, -2.0, 0.01);
+  EXPECT_NEAR(result.trajectory.poses.back().position.x, -3.0, 0.01);
+  EXPECT_NEAR(result.trajectory.poses.back().position.y, -2.0, 0.01);
+  EXPECT_GT(result.trajectory.poses.size(), 300u);
 }

@@ -8,3 +8,5 @@ cmake-build-debug/
 build/
 install/
 log/
+
+code_collector*

@@ -4,8 +4,7 @@
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 
-#ifndef FINENAV_ROUTE__UTILS_HPP_
-#define FINENAV_ROUTE__UTILS_HPP_
+#pragma once
 
 #include <cmath>
 
@@ -73,4 +72,3 @@ inline float distance(const Coordinates & coords, const geometry_msgs::msg::Pose
 }  // namespace utils
 }  // namespace finenav_route
 
-#endif  // FINENAV_ROUTE__UTILS_HPP_

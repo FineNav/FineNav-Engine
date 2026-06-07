@@ -81,6 +81,22 @@ PathConverter::Trajectory PathConverter::densify(
   return trajectory;
 }
 
+std::vector<geometry_msgs::msg::Pose> PathConverter::extractTopologicalPoses(const Route & route) const
+{
+  std::vector<geometry_msgs::msg::Pose> poses;
+  if (!route.start_node) {
+    return poses;
+  }
+
+  poses.push_back(makePose(route.start_node->coords.x, route.start_node->coords.y));
+  for (const auto & edge : route.edges) {
+    poses.push_back(makePose(edge->end->coords.x, edge->end->coords.y));
+  }
+
+  assignOrientations(poses);
+  return poses;
+}
+
 void PathConverter::interpolateEdge(
   float x0, float y0, float x1, float y1,
   std::vector<geometry_msgs::msg::Pose> & poses) const

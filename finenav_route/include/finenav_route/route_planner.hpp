@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FINENAV_ROUTE__ROUTE_PLANNER_HPP_
-#define FINENAV_ROUTE__ROUTE_PLANNER_HPP_
+#pragma once
 
 #include <limits>
 #include <vector>
@@ -72,5 +71,3 @@ protected:
 };
 
 }  // namespace finenav_route
-
-#endif  // FINENAV_ROUTE__ROUTE_PLANNER_HPP_

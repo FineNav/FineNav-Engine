@@ -30,8 +30,7 @@ def generate_launch_description():
         'obs_cov.yaml'
     )
 
-    default_graph_dir = os.path.join(
-        finenav_route_pkg_dir, 'config', 'graphs', 'yunjing')
+    default_graph_dir = '/home/fins/Map/YunJing_Full/geojson/'
 
     declare_graph_dir = DeclareLaunchArgument(
         'graph_dir',
