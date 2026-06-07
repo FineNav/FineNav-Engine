@@ -12,6 +12,7 @@
 #include "finenav_route_planner/route_params.hpp"
 
 #include "astar_algorithm.hpp"
+#include "imap_view.hpp"
 #include "route/route_graph.hpp"
 #include "route/route_search.hpp"
 
@@ -22,10 +23,19 @@ namespace finenav {
 //
 // FineNav planner for topological-graph route planning.
 //
+// From the user's perspective this planner takes the same IMapView
+// as AstarPathSearch / BfsPathSearch.  The occupancy map is used to
+// guide obstacle-aware BFS when snapping the robot's current pose
+// and the goal pose to the nearest reachable route graph node.
+//
+// The route graph (GeoJSON) is loaded from the path configured via
+// the `graph_file` dynamic parameter in route.yaml; it is cached
+// across planning calls and reloaded only when the parameter changes.
+//
 // Planning flow in plan():
-//   1. Parse the GeoJSON graph from IGraphView.
-//   2. AStarAlgorithm::findPathToAny (h=0, virtual cell grid) to
-//      find the nearest route node to ctx.robot_state.pose.
+//   1. Use cached (or freshly loaded) route graph.
+//   2. AStarAlgorithm::findPathToAny (h=0 + map isWalkable/getCost)
+//      → find the nearest REACHABLE route node to ctx.robot_state.pose.
 //   3. Same search for ctx.goal_pose.
 //   4. Dijkstra on the route graph (route::findRoute).
 //   5. Return the densified pose list.
@@ -50,30 +60,35 @@ public:
         .time  = false
     };
 
-    // IGraphView: provide the GeoJSON string.
-    class IGraphView {
-    public:
-        virtual ~IGraphView() = default;
-        virtual const std::string& getGraphJson() const = 0;
-    };
+    // Same map interface as AstarPathSearch and BfsPathSearch.
+    // isWalkable / getCost are used during the BFS that snaps poses to
+    // the nearest route node so that the connector path avoids obstacles.
+    using IMapView = astar::IMapView;
 
     using Context = PlanningContext<RoutePathSearch>;
     using Result  = std::optional<OutputDataT<RoutePathSearch>>;
 
+    // Loads (or reloads) the graph when graph_file param changes.
     void configure(const ConfigType& params);
     void reset() {}
 
-    Result plan(const Context& ctx, const IGraphView& graph_view);
+    Result plan(const Context& ctx, const IMapView& map_view);
 
 private:
-    // BFS (Dijkstra h=0) on a virtual cell grid to find the nearest node.
+    // Obstacle-aware BFS (Dijkstra h=0 on the occupancy map) to snap a
+    // world pose to the nearest reachable route graph node.
     // Returns the node's index in graph.nodes, or SIZE_MAX on failure.
     size_t findNearestNodeIndex(
         const route::Graph&             graph,
-        const geometry_msgs::msg::Pose& pose) const;
+        const geometry_msgs::msg::Pose& pose,
+        const IMapView&                 map_view) const;
 
-    double connector_density_ = 0.05;   ///< cell size (m) for nearest-node BFS
-    double path_density_      = 0.05;   ///< interpolation step (m) for output path
+    // ── Cached graph ──────────────────────────────────────────
+    std::optional<route::Graph> cached_graph_;
+    std::string                 graph_file_;      ///< currently loaded file path
+
+    // ── Parameters ────────────────────────────────────────────
+    double path_density_ = 0.05;
 };
 
 } // namespace finenav
