@@ -60,6 +60,17 @@ if (BUILD_TESTING)
     ament_target_dependencies(bfs_test finenav_core finenav_util finenav_msgs)
     target_include_directories(bfs_test PRIVATE test)
     target_link_libraries(bfs_test bfs_params)
+
+    ament_add_gtest(route_test
+        test/route_test.cpp
+        src/astar_algorithm.cpp        # used internally for obstacle-aware node snapping
+        src/route_path_search.cpp
+        src/route/route_graph.cpp
+        src/route/route_search.cpp
+    )
+    ament_target_dependencies(route_test finenav_core finenav_util finenav_msgs geometry_msgs)
+    target_include_directories(route_test PRIVATE test)
+    target_link_libraries(route_test route_params)
 endif ()
 
 ament_auto_package()
