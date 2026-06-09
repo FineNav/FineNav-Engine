@@ -1,6 +1,7 @@
 add_library(terrain_lib
     src/terrain_analysis.cpp
     src/terrain_mapview.cpp
+    src/occ_grid_map_view.cpp
     src/stvl_manager.cpp
 )
 ament_target_dependencies(terrain_lib ${dependencies})

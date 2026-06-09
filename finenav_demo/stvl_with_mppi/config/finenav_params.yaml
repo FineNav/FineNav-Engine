@@ -69,3 +69,15 @@ hello_finenav:
       max_range: 50.0
       min_angle: 0.0
       max_angle: 1.047 # M_PI / 3.0
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RoutePathSearch（拓扑路网规划）
+# 完整节点路径: /hello_finenav/route_layer
+# 注意：ControlLayer 把 AlgoConfigurator 注册在 layer 自己的子节点上，
+# 而不是 hello_finenav 主节点上，所以这里必须用 "hello_finenav/route_layer" 作为顶层 key。
+# ══════════════════════════════════════════════════════════════════════════════
+hello_finenav/route_layer:
+  ros__parameters:
+    route_planner:
+      graph_file: "$(find-pkg-share finenav_demo)/config/test_route_graph.geojson"
+      path_density: 0.05

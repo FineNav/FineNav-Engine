@@ -19,7 +19,7 @@ set(dependencies
         finenav_map_grid_map
         finenav_map_occ_grid_2d
         finenav_mppi_controller
-        finenav_planner_astar
+        finenav_route_planner
         finenav_core
         finenav_collision_model
         finenav_motion_decorator

@@ -17,7 +17,7 @@
 // FineNav core
 #include "finenav_engine/finenav_engine.hpp"
 #include "grid_map.hpp" // TODO: resolve anti-pattern export
-#include "astar_path_search.hpp"
+#include "route_path_search.hpp"
 #include "occ_grid_map_view.hpp"
 #include "finenav_mppi_controller/controller.hpp"
 #include "finenav_util/cloud_publish_helper.hpp"
@@ -213,14 +213,14 @@ int main(int argc, char** argv) {
 
 
     // --------------------------------- Launch Planning --------------------------------------
-    using AstarPlanners = PlannerSet<finenav::AstarPathSearch>;
-    auto astar_layer = finenav_engine->createControlLayer<AstarPlanners>(
-        "astar_layer", finenav::SingleShotPolicy{});
+    using RoutePlanners = PlannerSet<finenav::RoutePathSearch>;
+    auto route_layer = finenav_engine->createControlLayer<RoutePlanners>(
+        "route_layer", finenav::SingleShotPolicy{});
 
-    auto astar_path_pub = node->create_publisher<nav_msgs::msg::Path>("/astar_path", 10);
+    auto route_path_pub = node->create_publisher<nav_msgs::msg::Path>("/route_path", 10);
 
-    astar_layer->set_on_post_plan(
-        [astar_path_pub](finenav::PostPlanContext& ctx) -> bool {
+    route_layer->set_on_post_plan(
+        [route_path_pub](finenav::PostPlanContext& ctx) -> bool {
             if (ctx.is_success) {
                 nav_msgs::msg::Path path_msg;
                 path_msg.header = ctx.result_traj.header;
@@ -234,12 +234,14 @@ int main(int argc, char** argv) {
                     ps.pose = pose;
                     path_msg.poses.push_back(ps);
                 }
-                astar_path_pub->publish(path_msg);
+                route_path_pub->publish(path_msg);
             }
             return ctx.is_success;
         });
 
-    astar_layer->bind_map_view(
+    // RoutePathSearch 与 AstarPathSearch/BfsPathSearch 共用同一个 IMapView，
+    // 占据栅格地图被用来做 obstacle-aware 的最近路网节点吸附。
+    route_layer->bind_map_view(
         occ_grid_map_server,
         [](const finenav::OccGrid2DMap& map) {
             return std::make_shared<astar::OccGridMapView>(map);
@@ -275,6 +277,16 @@ int main(int argc, char** argv) {
         // 3. Trim waypoints that fall outside the current map AABB
         const auto current_bounds = map_server->getLockedReadView()->getWindowBounds();
         ctx.ref_traj | finenav::TrimByAABB(current_bounds);
+
+        // 若裁减后参考轨迹为空，MPPIController 会以 (size-1) 计算 goal_idx，
+        // 对空 tensor 产生下溢访问而崩溃（segfault）。此处拦截本次规划，
+        // 等待机器人重新进入路径覆盖范围。
+        if (ctx.ref_traj.poses.empty()) {
+            RCLCPP_WARN_THROTTLE(node->get_logger(), *node->get_clock(), 1000,
+                "[hello_finenav] Reference trajectory became empty after trimming; "
+                "skipping this planning cycle to avoid feeding MPPI an empty path.");
+            return false;
+        }
 
         // [DEBUG] 发布裁减后的参考轨迹供 RViz 可视化验证
         {
@@ -315,13 +327,13 @@ int main(int argc, char** argv) {
     finenav_engine->registerPipeline(
         FineNavEngine::PipelineIO{
             .input_topic = "",
-            .output_topic = "astar_layer_plan",
+            .output_topic = "route_layer_plan",
         },
-        astar_layer);
+        route_layer);
 
     finenav_engine->registerPipeline(
         FineNavEngine::PipelineIO{
-            .input_topic = "astar_layer_plan",
+            .input_topic = "route_layer_plan",
             .output_topic = "mppi_layer_plan",
         },
         my_control_layer);

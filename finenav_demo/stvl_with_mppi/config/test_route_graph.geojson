@@ -1,0 +1,52 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [2.1, 2.1] },
+      "properties": { "id": 1, "frame": "map" }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [6.1, 2.1] },
+      "properties": { "id": 2, "frame": "map" }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [10.1, 2.1] },
+      "properties": { "id": 3, "frame": "map" }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[2.1, 2.1], [6.1, 2.1]]
+      },
+      "properties": { "startid": 1, "endid": 2 }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[6.1, 2.1], [2.1, 2.1]]
+      },
+      "properties": { "startid": 2, "endid": 1 }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[6.1, 2.1], [10.1, 2.1]]
+      },
+      "properties": { "startid": 2, "endid": 3 }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[10.1, 2.1], [6.1, 2.1]]
+      },
+      "properties": { "startid": 3, "endid": 2 }
+    }
+  ]
+}
