@@ -11,6 +11,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "imap_view.hpp"
+#include "occ_grid_2d_map.hpp"
 
 namespace astar {
 
@@ -27,6 +28,13 @@ public:
     explicit OccGridMapView(
         rclcpp::Node* node,
         const std::string& topic_name = "map");
+
+    explicit OccGridMapView(
+        const finenav::OccGrid2DMap& map,
+        int threshold = 50,
+        double lethal_radius = 0.1,
+        double inflation_radius = 0.55,
+        double cost_scaling_factor = 10.0);
 
     // --- IMapView 接口重写 ---
 

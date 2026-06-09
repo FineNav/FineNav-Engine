@@ -44,6 +44,25 @@ OccGridMapView::OccGridMapView(
         actual_topic, qos, std::bind(&OccGridMapView::mapCallback, this, std::placeholders::_1));
 }
 
+OccGridMapView::OccGridMapView(
+    const finenav::OccGrid2DMap& map,
+    int threshold,
+    double lethal_radius,
+    double inflation_radius,
+    double cost_scaling_factor)
+    : node_ptr_(nullptr) {
+    if (!map.hasMap()) return;
+    const auto& grid = map.grid();
+    resolution_ = grid.info.resolution;
+    width_      = grid.info.width;
+    height_     = grid.info.height;
+    origin_x_   = grid.info.origin.position.x;
+    origin_y_   = grid.info.origin.position.y;
+    binarizeMap(grid, threshold);
+    updateCostMap(lethal_radius, inflation_radius, cost_scaling_factor);
+    has_received_map_ = true;
+}
+
 void OccGridMapView::mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
     int threshold = node_ptr_->get_parameter("occupancy_threshold").as_int();
     double inflation_radius = node_ptr_->get_parameter("inflation_radius").as_double();

@@ -28,8 +28,8 @@ set(dependencies
         geometry_msgs
         sensor_msgs
         tf2
-        tf2_ros
         tf2_eigen
+        tf2_geometry_msgs
         message_filters
         pcl_conversions
 )
