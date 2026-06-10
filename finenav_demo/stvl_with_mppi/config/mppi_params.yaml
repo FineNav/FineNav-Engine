@@ -160,3 +160,15 @@
         cost_power: 1
         cost_weight: 10.0
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # RotateShim — 原地旋转对齐器
+    #
+    # 在 MPPI 追踪前执行，使机器人朝向对准参考路径前方采样点。
+    # 对齐后 plan() 返回 nullopt，由 TrackingPolicy 终止旋转循环，
+    # PlannerSet 自动切换到 MPPIController 继续追踪。
+    # ══════════════════════════════════════════════════════════════════════════
+    finenav_rotate_shim:
+      forward_sampling_distance: 0.5    # 参考路径前方采样距离 [m]
+      angular_speed: 0.4               # 恒定旋转角速度 [rad/s]
+      angular_dist_threshold: 0.785      # 朝向误差阈值，低于此值认为对齐完成 [rad]
+
