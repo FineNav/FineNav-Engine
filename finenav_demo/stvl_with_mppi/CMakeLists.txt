@@ -30,6 +30,9 @@ ament_target_dependencies(route_finenav ${dependencies})
 add_executable(goal_pose_bridge_node src/goal_pose_bridge_node.cpp)
 ament_target_dependencies(goal_pose_bridge_node ${dependencies})
 
+add_executable(dynamic_follow_test_node src/dynamic_follow_test_node.cpp)
+ament_target_dependencies(dynamic_follow_test_node ${dependencies})
+
 install(TARGETS terrain_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
@@ -45,6 +48,10 @@ install(TARGETS route_finenav
 )
 
 install(TARGETS goal_pose_bridge_node
+        DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS dynamic_follow_test_node
         DESTINATION lib/${PROJECT_NAME}
 )
 
