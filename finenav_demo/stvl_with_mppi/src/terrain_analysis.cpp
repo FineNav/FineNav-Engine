@@ -6,6 +6,7 @@
 // Created by fins on 26-4-27.
 //
 #include "terrain_analysis.hpp"
+#include <chrono>
 
 TerrainAnalyzer::TerrainAnalyzer(
     const std::shared_ptr<finenav::MapServer<finenav::GridMap<Voxel>>> map_server,
@@ -43,10 +44,34 @@ TerrainAnalyzer::TerrainAnalyzer(
 }
 
 void TerrainAnalyzer::update(float robot_pose_z, const finenav::GridMap<Voxel>& map) {
+    // using Clock = std::chrono::steady_clock;
+    // using Ms    = std::chrono::duration<double, std::milli>;
+
     cached_resolution_ = map.getResolution();
+
+    // auto t0 = Clock::now();
     TerrainAnalysis(robot_pose_z, map);
+    // auto t1 = Clock::now();
     MapInflation();
+    // auto t2 = Clock::now();
     publishMaps(map);
+    // auto t3 = Clock::now();
+    //
+    // const double ms_terrain   = Ms(t1 - t0).count();
+    // const double ms_inflation = Ms(t2 - t1).count();
+    // const double ms_publish   = Ms(t3 - t2).count();
+    // const double ms_total     = Ms(t3 - t0).count();
+    //
+    // auto& clk = *node_->get_clock();
+    // RCLCPP_INFO_THROTTLE(node_->get_logger(), clk, 2000,
+    //     "\n[TerrainAnalyzer] timing (map %zux%zu @ %.2fm/cell)\n"
+    //     "  TerrainAnalysis : %7.2f ms\n"
+    //     "  MapInflation    : %7.2f ms\n"
+    //     "  publishMaps     : %7.2f ms\n"
+    //     "  ─────────────────────────\n"
+    //     "  Total           : %7.2f ms",
+    //     map.getSize().x(), map.getSize().y(), cached_resolution_,
+    //     ms_terrain, ms_inflation, ms_publish, ms_total);
 }
 
 int TerrainAnalyzer::getCost(const finenav::Position3D& pos, const finenav::GridMap<Voxel>& map) const {
@@ -76,13 +101,18 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
 
     Eigen::ArrayXXf ground_array_ = Eigen::ArrayXXf::Constant(size_x, size_y, NAN);
 
+    std::vector<Voxel> voxels_along_z;
+    voxels_along_z.reserve(map.getSize().z());
+
+    std::vector<Voxel> valid_z_values;
+    valid_z_values.reserve(map.getSize().z());
+
     for (int x = sizeX_min; x <= sizeX_max; ++x) {
         for (int y = sizeY_min; y <= sizeY_max; ++y) {
-            // getVoxelsAlongZ now returns a deep-copied std::vector, safe across
-            // rolling-buffer shifts in z.
-            const std::vector<Voxel> voxels_along_z = map.getVoxelsAlongZ(static_cast<int>(x), static_cast<int>(y));
+            
+            map.getVoxelsAlongZ(x, y, voxels_along_z);
 
-            std::vector<Voxel> valid_z_values;
+            valid_z_values.clear();
             for (const auto& voxel : voxels_along_z) {
                 if (!std::isnan(voxel.z_height)) {
                     valid_z_values.push_back(voxel);
