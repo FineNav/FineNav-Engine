@@ -169,6 +169,6 @@
     # ══════════════════════════════════════════════════════════════════════════
     finenav_rotate_shim:
       forward_sampling_distance: 0.5    # 参考路径前方采样距离 [m]
-      angular_speed: 0.4               # 恒定旋转角速度 [rad/s]
+      angular_speed: 0.6               # 恒定旋转角速度 [rad/s]
       angular_dist_threshold: 0.785      # 朝向误差阈值，低于此值认为对齐完成 [rad]
 

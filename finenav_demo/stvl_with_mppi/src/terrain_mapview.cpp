@@ -19,7 +19,17 @@ SimpleGridMapView::SimpleGridMapView(
     , terrain_analyzer_(terrain_analyzer)
     , local_map_helper_(std::move(local_map_helper))
 {
-    collision_model_ = std::make_unique<finenav::OBBCollisionModel>(finenav::Vector3D(1.4, 0.8, 0.0));
+    if (!node_->has_parameter("collision_model.length")) {
+        node_->declare_parameter<double>("collision_model.length", 1.4);
+        node_->declare_parameter<double>("collision_model.width",  0.8);
+        node_->declare_parameter<double>("collision_model.height", 0.0);
+    }
+
+    double length = node_->get_parameter("collision_model.length").as_double();
+    double width  = node_->get_parameter("collision_model.width").as_double();
+    double height = node_->get_parameter("collision_model.height").as_double();
+
+    collision_model_ = std::make_unique<finenav::OBBCollisionModel>(finenav::Vector3D(length, width, height));
 }
 
 bool SimpleGridMapView::isTrackingUnknown() const {
