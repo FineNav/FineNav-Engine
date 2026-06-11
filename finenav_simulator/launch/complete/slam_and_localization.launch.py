@@ -138,6 +138,24 @@ def generate_launch_description():
         ),
     )
 
+    # non-fast_lio 模式 (static / gazebo_odom) 的 map->odom，z=-0.75 补偿 base_origin 高度
+    map_to_odom_static_node_non_fastlio = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='map_to_odom_non_fastlio',
+        arguments=[
+            '--x', '0.0', '--y', '0.0', '--z', '-0.75',
+            '--roll', '0.0', '--pitch', '0.0', '--yaw', '0.0',
+            '--frame-id', 'map', '--child-frame-id', 'odom',
+        ],
+        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+        condition=IfCondition(
+            PythonExpression([
+                "'", LaunchConfiguration('lio_type'), "' != 'fast_lio'"
+            ])
+        ),
+    )
+
     ld = LaunchDescription()
     ld.add_action(declare_use_sim_time)
     ld.add_action(declare_lio_type)
@@ -147,6 +165,7 @@ def generate_launch_description():
     ld.add_action(declare_publish_map_tf)
     ld.add_action(declare_nav_mode)
     ld.add_action(map_to_odom_static_node)
+    ld.add_action(map_to_odom_static_node_non_fastlio)
     ld.add_action(fast_lio_node)
     ld.add_action(octomap_server_node)
 

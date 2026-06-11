@@ -42,6 +42,7 @@ def _load_spawn_pose(config_path, world_name):
         "y": str(float(pose["y"])),
         "z": str(float(pose["z"])),
         "yaw": str(float(pose.get("yaw", 0.0))),
+        "map_odom_z_offset": str(float(pose.get("map_odom_z_offset", 0.0))),
     }
 
 
@@ -60,6 +61,7 @@ def _launch_setup(context):
     y_pose = spawn_pose["y"]
     z_pose = spawn_pose["z"]
     yaw = spawn_pose["yaw"]
+    map_odom_z_offset = spawn_pose["map_odom_z_offset"]
 
     remappings = [("/tf", "tf"), ("/tf_static", "tf_static")]
 
@@ -120,7 +122,7 @@ def _launch_setup(context):
             "input_odom_topic": PythonExpression(["'/Odometry' if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else '/odom'"]),
             "path_topic": "/path",
             "max_path_points": 2000,
-            "publish_tf": PythonExpression(["'False' if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else 'True'"]),
+            "publish_tf": PythonExpression(["False if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else True"]),
             "path_odom_frame": "odom",
             "path_base_frame": "base_link",
             "teleop_input_topic": "/keyboard/keypress",
@@ -135,8 +137,9 @@ def _launch_setup(context):
             "max_angular_speed": 3.0,
             "enable_keyboard_teleop": True,
             "enable_path_publisher": True,
+            "map_odom_z_offset": float(map_odom_z_offset),
             "enable_identity_map_to_odom": PythonExpression([
-                "'False' if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else 'True'"
+                "False if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else True"
             ]),
         }],
     )
@@ -155,7 +158,7 @@ def generate_launch_description():
     ld.add_action(
         DeclareLaunchArgument(
             "lio_type",
-            default_value="fast_lio",
+            default_value="gazebo_odom",
             description="Choose localization chain: fast_lio or gazebo_odom",
         )
     )
