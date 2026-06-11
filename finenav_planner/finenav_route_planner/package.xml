@@ -19,6 +19,7 @@
 
     <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
+    <depend>std_msgs</depend>
     <depend>finenav_msgs</depend>
     <depend>nav_msgs</depend>
     <depend>geometry_msgs</depend>

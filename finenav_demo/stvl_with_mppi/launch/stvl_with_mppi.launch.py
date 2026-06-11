@@ -30,13 +30,6 @@ def generate_launch_description():
         'obs_cov.yaml'
     )
 
-    default_graph_dir = '/home/fins/Map/YunJing_Full/geojson/'
-
-    declare_graph_dir = DeclareLaunchArgument(
-        'graph_dir',
-        default_value=default_graph_dir,
-        description='Directory containing route graph JSON files.')
-
     declare_use_current_pose_as_start = DeclareLaunchArgument(
         'use_current_pose_as_start',
         default_value='true',
@@ -91,7 +84,6 @@ def generate_launch_description():
             'action_name': '/compute_path',
             'navigator_action_name': '/hello_finenav/navigate_to_pose',
             'navigator_behavior_tree': 'RouteNavigateToPose',
-            'graph_dir': LaunchConfiguration('graph_dir'),
             'path_topic': '/hello_finenav/line_path',
             'nav_state_topic': '/nav_state',
             'use_current_pose_as_start': LaunchConfiguration('use_current_pose_as_start'),
@@ -103,7 +95,6 @@ def generate_launch_description():
     #ld.add_action(start_finenav_simulator)
     ld.add_action(start_hello_finenav)
     ld.add_action(start_goal_pose_bridge)
-    ld.add_action(declare_graph_dir)
     ld.add_action(declare_use_current_pose_as_start)
     ld.add_action(start_compute_path_bridge)
 

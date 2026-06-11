@@ -81,9 +81,17 @@ finenav::RoutePathSearch makePlanner(const std::string& graph_file, double path_
 {
     finenav::RoutePathSearch planner;
     route_planner::Params p;
-    p.graph_file   = graph_file;
     p.path_density = path_density;
     planner.configure(p);
+
+    if (!graph_file.empty()) {
+        std::ifstream f(graph_file);
+        if (f.is_open()) {
+            std::ostringstream buf;
+            buf << f.rdbuf();
+            planner.updateGraph(buf.str());
+        }
+    }
     return planner;
 }
 

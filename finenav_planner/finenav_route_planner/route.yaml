@@ -1,9 +1,5 @@
 # route.yaml - RoutePathSearch 参数定义
 route_planner:
-  graph_file:
-    type: string
-    default_value: ""
-    description: "Absolute path to the GeoJSON route graph file (.json / .geojson)"
   path_density:
     type: double
     default_value: 0.05

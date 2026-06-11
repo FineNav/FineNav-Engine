@@ -68,7 +68,7 @@ if (BUILD_TESTING)
         src/route/route_graph.cpp
         src/route/route_search.cpp
     )
-    ament_target_dependencies(route_test finenav_core finenav_util finenav_msgs geometry_msgs)
+    ament_target_dependencies(route_test finenav_core finenav_util finenav_msgs geometry_msgs std_msgs)
     target_include_directories(route_test PRIVATE test)
     target_link_libraries(route_test route_params)
 endif ()

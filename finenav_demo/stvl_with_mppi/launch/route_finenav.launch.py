@@ -20,14 +20,6 @@ def generate_launch_description():
     obs_cov_file = os.path.join(
         finenav_demo_pkg_dir, 'config', 'obs_cov.yaml')
 
-    default_graph_dir = os.path.join(
-        finenav_route_pkg_dir, 'config', 'graphs', 'yunjing')
-
-    declare_graph_dir = DeclareLaunchArgument(
-        'graph_dir',
-        default_value=default_graph_dir,
-        description='Directory containing route graph JSON files.')
-
     declare_use_current_pose_as_start = DeclareLaunchArgument(
         'use_current_pose_as_start',
         default_value='true',
@@ -54,7 +46,6 @@ def generate_launch_description():
             'action_name': '/compute_path',
             'navigator_action_name': '/route_finenav/navigate_to_pose',
             'navigator_behavior_tree': 'RouteNavigateToPose',
-            'graph_dir': LaunchConfiguration('graph_dir'),
             'path_topic': '/route_finenav/line_path',
             'nav_state_topic': '/nav_state',
             'use_current_pose_as_start': LaunchConfiguration('use_current_pose_as_start'),
@@ -63,7 +54,6 @@ def generate_launch_description():
     )
 
     ld = LaunchDescription()
-    ld.add_action(declare_graph_dir)
     ld.add_action(declare_use_current_pose_as_start)
     ld.add_action(start_route_finenav)
     ld.add_action(start_compute_path_bridge)

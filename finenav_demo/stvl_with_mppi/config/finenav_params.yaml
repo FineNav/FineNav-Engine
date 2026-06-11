@@ -96,5 +96,4 @@ hello_finenav:
 hello_finenav/route_layer:
   ros__parameters:
     route_planner:
-      graph_file: "/home/fins/Map/YunJing_Full/geojson/graph.json"
       path_density: 0.05

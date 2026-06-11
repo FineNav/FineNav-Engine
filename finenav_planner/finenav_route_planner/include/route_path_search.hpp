@@ -6,6 +6,8 @@
 
 #include <optional>
 #include <string>
+#include <mutex>
+#include <std_msgs/msg/string.hpp>
 
 #include "finenav_core/concepts.hpp"
 #include "finenav_util/algo_configurator.hpp"
@@ -74,6 +76,12 @@ public:
 
     Result plan(const Context& ctx, const IMapView& map_view);
 
+    /**
+     * @brief 从 GeoJSON 格式的字符串更新缓存的路网图
+     * @param geojson_str GeoJSON 格式的数据内容
+     */
+    void updateGraph(const std::string& geojson_str);
+
 private:
     // Obstacle-aware BFS (Dijkstra h=0 on the occupancy map) to snap a
     // world pose to the nearest reachable route graph node.
@@ -83,9 +91,9 @@ private:
         const geometry_msgs::msg::Pose& pose,
         const IMapView&                 map_view) const;
 
-    // ── Cached graph ──────────────────────────────────────────
+    // ── Cached graph & Mutex ──────────────────────────────────
+    mutable std::unique_ptr<std::mutex> graph_mutex_ = std::make_unique<std::mutex>();
     std::optional<route::Graph> cached_graph_;
-    std::string                 graph_file_;      ///< currently loaded file path
 
     // ── Parameters ────────────────────────────────────────────
     double path_density_ = 0.05;
@@ -93,4 +101,36 @@ private:
 
 } // namespace finenav
 
-FINENAV_REGISTER_ALGO_CONFIG(finenav::RoutePathSearch, route_planner)
+//TODO: 不用 FINENAV_REGISTER_ALGO_CONFIG(finenav::RoutePathSearch, route_planner) 的做法有待商榷
+namespace finenav {
+
+template <>
+struct AlgoConfigurator<finenav::RoutePathSearch> {
+    static constexpr std::string_view name = "route_planner";
+    static std::shared_ptr<void> load(rclcpp::Node::SharedPtr node, finenav::RoutePathSearch& algo) {
+        auto listener = std::make_shared<route_planner::ParamListener>(node, "route_planner");
+        algo.configure(listener->get_params());
+        listener->setUserCallback([&algo](const auto& params) {
+            algo.configure(params);
+        });
+
+        struct LifetimeKeeper {
+            std::shared_ptr<route_planner::ParamListener> listener;
+            rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub;
+        };
+
+        auto keeper = std::make_shared<LifetimeKeeper>();
+        keeper->listener = listener;
+        keeper->sub = node->create_subscription<std_msgs::msg::String>(
+            "/geojson",
+            rclcpp::QoS(1).transient_local(),
+            [&algo](const std_msgs::msg::String::SharedPtr msg) {
+                algo.updateGraph(msg->data);
+            }
+        );
+
+        return keeper;
+    }
+};
+
+} // namespace finenav

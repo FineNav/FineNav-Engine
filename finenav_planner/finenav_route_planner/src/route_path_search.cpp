@@ -5,10 +5,9 @@
 #include "route_path_search.hpp"
 
 #include <cmath>
-#include <fstream>
 #include <limits>
-#include <sstream>
 #include <unordered_map>
+#include <mutex>
 
 #include <geometry_msgs/msg/pose.hpp>
 
@@ -22,30 +21,24 @@ namespace finenav {
 void RoutePathSearch::configure(const ConfigType& params)
 {
     path_density_ = params.path_density;
+}
 
-    if (params.graph_file == graph_file_) return;   // no change
+// ── updateGraph ────────────────────────────────────────────────────────────
 
-    graph_file_   = params.graph_file;
-    cached_graph_ = std::nullopt;
-
-    if (graph_file_.empty()) return;
-
-    std::ifstream f(graph_file_);
-    if (!f.is_open()) {
-        fprintf(stderr,
-                "[RoutePathSearch] Cannot open graph_file: %s\n",
-                graph_file_.c_str());
-        return;
-    }
-
-    std::ostringstream buf;
-    buf << f.rdbuf();
-    cached_graph_ = route::loadFromJson(buf.str());
+void RoutePathSearch::updateGraph(const std::string& geojson_str)
+{
+    std::lock_guard<std::mutex> lock(*graph_mutex_);
+    cached_graph_ = route::loadFromJson(geojson_str);
 
     if (!cached_graph_) {
-        fprintf(stderr,
-                "[RoutePathSearch] Failed to parse route graph: %s\n",
-                graph_file_.c_str());
+        RCLCPP_ERROR(
+            rclcpp::get_logger("RoutePathSearch"),
+            "Failed to parse route graph from /geojson topic.");
+    } else {
+        RCLCPP_INFO(
+            rclcpp::get_logger("RoutePathSearch"),
+            "Successfully loaded route graph from /geojson topic with %zu nodes.",
+            cached_graph_->nodes.size());
     }
 }
 
@@ -55,6 +48,8 @@ RoutePathSearch::Result RoutePathSearch::plan(
     const Context&  ctx,
     const IMapView& map_view)
 {
+    std::lock_guard<std::mutex> lock(*graph_mutex_);
+
     if (!cached_graph_ || cached_graph_->nodes.empty()) return std::nullopt;
     const auto& graph = *cached_graph_;
 
