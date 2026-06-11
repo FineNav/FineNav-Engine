@@ -19,10 +19,12 @@
 
 #include <string>
 #include <memory>
+#include <chrono>
 
 #include <xtensor/xtensor.hpp>
 #include <xtensor/xview.hpp>
 
+#include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 
@@ -84,6 +86,7 @@ public:
   	{
   	    name_ = name;
   	    critics_ = std::move(critics);
+  	    num_critics_ = critics_.size();
 
   	    getParams(params);
 
@@ -148,11 +151,42 @@ public:
     	const nav_msgs::msg::Path & plan,
     	const nav2_mppi_controller::IMapView& map_view)
     {
+    using Clock = std::chrono::steady_clock;
+    using Ms    = std::chrono::duration<double, std::milli>;
+
+    const auto t_total = Clock::now();
+    const auto t_prep_start = Clock::now();
     prepare(robot_pose, robot_speed, plan);
+    const double ms_prepare = Ms(Clock::now() - t_prep_start).count();
 
-
+    double ms_generate = 0.0, ms_critics = 0.0, ms_update = 0.0;
     do {
-      optimize(map_view);
+      const auto t_iter = Clock::now();
+      optimize(map_view, ms_generate, ms_critics, ms_update);
+      const double ms_iter = Ms(Clock::now() - t_iter).count();
+
+      static bool first_frame = true;
+      static rclcpp::Clock log_clk{RCL_STEADY_TIME};
+      if (first_frame) {
+        first_frame = false;
+        RCLCPP_INFO(logger_,
+          "[MPPI Timing] Per-frame timing active — logged every 2 s via throttled INFO.");
+      }
+      RCLCPP_INFO_THROTTLE(
+        logger_, log_clk, 2000,
+        "[MPPI Timing] ── Frame ──────────────────────\n"
+        "  prepare              : %7.2f ms\n"
+        "  optimize (iter)      : %7.2f ms\n"
+        "    generate_noise     : %7.2f ms\n"
+        "    critics            : %7.2f ms\n"
+        "    update_control     : %7.2f ms\n"
+        "  total                : %7.2f ms\n"
+        "  batch=%u  time_steps=%u  critics=%zu",
+        ms_prepare, ms_iter,
+        ms_generate, ms_critics, ms_update,
+        Ms(Clock::now() - t_total).count(),
+        settings_.batch_size, settings_.time_steps, num_critics_);
+
     } while (fallback(critics_data_.fail_flag));
     // utils::savitskyGolayFilter(control_sequence_, control_history_, settings_);
     auto control = getControlFromSequenceAsTwist(plan.header.stamp, map_view);
@@ -278,13 +312,29 @@ protected:
    * @brief Main function to generate, score, and return trajectories
    */
 
-	void optimize(const nav2_mppi_controller::IMapView& map_view)
+	void optimize(const nav2_mppi_controller::IMapView& map_view,
+	              double & ms_generate, double & ms_critics, double & ms_update)
 	{
-  	for (size_t i = 0; i < settings_.iteration_count; ++i) {
-    	generateNoisedTrajectories();
-    	critic_manager_.evalTrajectoriesScores(critics_data_,map_view);
-    	updateControlSequence();
- 		}
+	  using Clock = std::chrono::steady_clock;
+	  using Ms    = std::chrono::duration<double, std::milli>;
+
+	  ms_generate = 0.0;
+	  ms_critics  = 0.0;
+	  ms_update   = 0.0;
+
+	  for (size_t i = 0; i < settings_.iteration_count; ++i) {
+	    const auto t1 = Clock::now();
+	    generateNoisedTrajectories();
+	    ms_generate += Ms(Clock::now() - t1).count();
+
+	    const auto t2 = Clock::now();
+	    critic_manager_.evalTrajectoriesScores(critics_data_, map_view);
+	    ms_critics += Ms(Clock::now() - t2).count();
+
+	    const auto t3 = Clock::now();
+	    updateControlSequence();
+	    ms_update += Ms(Clock::now() - t3).count();
+	  }
 	}
   /**
    * @brief Prepare state information on new request for trajectory rollouts
@@ -622,6 +672,7 @@ protected:
   CriticManager critic_manager_;
   NoiseGenerator noise_generator_;
   std::vector<std::unique_ptr<critics::CriticFunction>> critics_;
+  size_t num_critics_{0};
 
   models::OptimizerSettings settings_;
 

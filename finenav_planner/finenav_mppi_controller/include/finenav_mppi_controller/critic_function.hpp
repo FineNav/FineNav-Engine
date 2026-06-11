@@ -89,11 +89,19 @@ public:
   virtual void initialize(const finenav_mppi_controller::Params & params) = 0;
 
   /**
-    * @brief Get name of critic#include "finenav_control_layers/local_layer.hpp"
+    * @brief Get name of critic
     */
   std::string getName()
   {
     return name_;
+  }
+
+  /**
+    * @brief Set name of critic
+    */
+  void setName(const std::string & name)
+  {
+    name_ = name;
   }
 
 protected:

@@ -1,0 +1,8 @@
+# Request
+string goal_node_name
+---
+# Result
+builtin_interfaces/Duration planning_time
+finenav_msgs/Trajectory path
+---
+# Feedback

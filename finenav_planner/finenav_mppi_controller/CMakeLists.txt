@@ -145,6 +145,11 @@ install(DIRECTORY include/
   DESTINATION include/
 )
 
+install(PROGRAMS
+  scripts/critics_visualizer.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)

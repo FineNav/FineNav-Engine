@@ -40,6 +40,10 @@ finenav_mppi_controller:
     description: "Motion model type: DiffDrive, Omni, Ackermann"
     validation:
       one_of<>: [["DiffDrive", "Omni", "Ackermann"]]
+  visualize:
+    type: bool
+    default_value: false
+    description: "Publish CriticsStats messages for debugging/visualization of critic performance"
 
   # ── Velocity constraints ───────────────────────────────────────────────────
   vx_max:
@@ -65,19 +69,19 @@ finenav_mppi_controller:
     default_value: 0.2
     description: "Sampling standard deviation for forward velocity"
     validation:
-      gt<>: [0.0]
+      gt<>: [-0.01]
   vy_std:
     type: double
     default_value: 0.2
     description: "Sampling standard deviation for lateral velocity"
     validation:
-      gt<>: [0.0]
+      gt<>: [-0.01]
   wz_std:
     type: double
     default_value: 0.4
     description: "Sampling standard deviation for angular velocity"
     validation:
-      gt<>: [0.0]
+      gt<>: [-0.01]
 
   # ── Critics ────────────────────────────────────────────────────────────────
   ConstraintCritic:

@@ -72,18 +72,18 @@ public:
     using ConfigType = finenav_mppi_controller::Params;
     void configure(const ConfigType& params) {              //应该传入参数 因测试先去除
 
-        registerCritic(std::make_unique<critics::ConstraintCritic>());
-        registerCritic(std::make_unique<critics::CostCritic>());
-        registerCritic(std::make_unique<critics::GoalAngleCritic>());
-        registerCritic(std::make_unique<critics::GoalCritic>());
-        // registerCritic(std::make_unique<critics::ObstaclesCritic>());
-        registerCritic(std::make_unique<critics::PathAlignCritic>());
-        registerCritic(std::make_unique<critics::PathAlignLegacyCritic>());
-        registerCritic(std::make_unique<critics::PathAngleCritic>());
-        registerCritic(std::make_unique<critics::PathFollowCritic>());
-        registerCritic(std::make_unique<critics::PreferForwardCritic>());
-        registerCritic(std::make_unique<critics::TwirlingCritic>());
-        registerCritic(std::make_unique<critics::VelocityDeadbandCritic>());
+        registerCritic(std::make_unique<critics::ConstraintCritic>(),       "ConstraintCritic");
+        registerCritic(std::make_unique<critics::CostCritic>(),              "CostCritic");
+        registerCritic(std::make_unique<critics::GoalAngleCritic>(),         "GoalAngleCritic");
+        registerCritic(std::make_unique<critics::GoalCritic>(),              "GoalCritic");
+        // registerCritic(std::make_unique<critics::ObstaclesCritic>(),     "ObstaclesCritic");
+        registerCritic(std::make_unique<critics::PathAlignCritic>(),         "PathAlignCritic");
+        registerCritic(std::make_unique<critics::PathAlignLegacyCritic>(),   "PathAlignLegacyCritic");
+        registerCritic(std::make_unique<critics::PathAngleCritic>(),         "PathAngleCritic");
+        registerCritic(std::make_unique<critics::PathFollowCritic>(),        "PathFollowCritic");
+        registerCritic(std::make_unique<critics::PreferForwardCritic>(),     "PreferForwardCritic");
+        registerCritic(std::make_unique<critics::TwirlingCritic>(),          "TwirlingCritic");
+        registerCritic(std::make_unique<critics::VelocityDeadbandCritic>(),  "VelocityDeadbandCritic");
 
         std::cout<<"[nav2_mppi_controller] Critics registered. Initializing optimizer..."<<std::endl;
         std::cout<<"[nav2_mppi_controller] Number of critics: "<<critics_.size()<<std::endl;
@@ -97,6 +97,9 @@ public:
     }
 
      std::optional<finenav::DataPacket<OutputProfile>>plan(const finenav::PlanningContext<MPPIController>& ctx, const IMapView& map_view) {
+        // using Clock = std::chrono::steady_clock;
+        // using Ms    = std::chrono::duration<double, std::milli>;
+        // const auto t_plan_start = Clock::now();
 
         finenav::DataPacket<OutputProfile> traj;
         // 从框架注入的 RobotState 中取出 pose 和 twist，无需 TF 查询
@@ -111,11 +114,14 @@ public:
         start_pose_stamped.header.stamp = rclcpp::Clock().now();
         start_pose_stamped.header.frame_id = "map";
 
+        // const auto t_optimize_start = Clock::now();
         computeVelocityCommands(
             start_pose_stamped,
             robot_state.twist,  // 直接使用当前实际速度
             map_view
             );
+        // const double ms_optimize = Ms(Clock::now() - t_optimize_start).count();
+
         // 装填输出轨迹
 
     // 获取最优轨迹
@@ -144,6 +150,17 @@ public:
         traj.twists.push_back(twist);
     }
 
+    // const double ms_total = Ms(Clock::now() - t_plan_start).count();
+    // {
+    //     static rclcpp::Clock throttle_clk{RCL_STEADY_TIME};
+    //     RCLCPP_INFO_THROTTLE(
+    //         rclcpp::get_logger("MPPIController"), throttle_clk, 2000,
+    //         "\n[MPPIController] plan() timing\n"
+    //         "  evalControl (optimize) : %7.2f ms\n"
+    //         "  total plan()           : %7.2f ms",
+    //         ms_optimize, ms_total);
+    // }
+
     return traj;
 }
 
@@ -171,8 +188,12 @@ public:
       optimizer_.reset();
   }
 
-    void registerCritic (std::unique_ptr<critics::CriticFunction> critic) {
-        critics_.push_back(std::move(critic));        //TODO:在初始化的时候要换成注册
+    void registerCritic (
+        std::unique_ptr<critics::CriticFunction> critic,
+        const std::string & name)
+    {
+        critic->setName(name);
+        critics_.push_back(std::move(critic));
     }
 
 

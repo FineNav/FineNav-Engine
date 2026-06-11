@@ -79,8 +79,8 @@ def generate_launch_description():
     ld.add_action(SetParameter(name='use_sim_time', value=True))
 
     ld.add_action(start_finenav_simulator) 
-    # ld.add_action(start_hello_finenav) 
-    # ld.add_action(start_goal_pose_bridge) 
-    # ld.add_action(start_adapter)
+    ld.add_action(start_hello_finenav) 
+    ld.add_action(start_goal_pose_bridge) 
+    ld.add_action(start_adapter)
  
     return ld
