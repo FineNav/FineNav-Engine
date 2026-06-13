@@ -55,7 +55,6 @@ double yawFromQuat(const geometry_msgs::msg::Quaternion& q)
  *   - target_height   (double, 默认 0.0 m):  目标点 Z 坐标
  *   - circle_center_x (double, 默认 0.0 m):  圆心 X
  *   - circle_center_y (double, 默认 0.0 m):  圆心 Y
- *   - line_path_points (int,   默认 30):     参考轨迹点数
  */
 class DynamicFollowTestNode : public rclcpp::Node
 {
@@ -73,20 +72,19 @@ public:
     this->declare_parameter<double>("target_height", 0.0);
     this->declare_parameter<double>("circle_center_x", 0.0);
     this->declare_parameter<double>("circle_center_y", 0.0);
-    this->declare_parameter<int>("line_path_points", 30);
-
     circle_radius_   = this->get_parameter("circle_radius").as_double();
     circle_period_   = this->get_parameter("circle_period").as_double();
     follow_distance_ = this->get_parameter("follow_distance").as_double();
     target_height_   = this->get_parameter("target_height").as_double();
     circle_center_x_ = this->get_parameter("circle_center_x").as_double();
     circle_center_y_ = this->get_parameter("circle_center_y").as_double();
-    line_path_points_ = static_cast<size_t>(this->get_parameter("line_path_points").as_int());
 
     // ---------- 发布者 ----------
     target_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/target_pose", 10);
+    // MPPI ControlLayer 的 input_topic 在 hello_finenav.cpp 中被设为 "route_layer_plan"，
+    // 节点命名空间为 /hello_finenav，故完整 topic 为 /hello_finenav/route_layer_plan。
     line_path_pub_   = this->create_publisher<finenav_msgs::msg::Trajectory>(
-        "/hello_finenav/line_path", 10);
+        "/hello_finenav/route_layer_plan", 10);
 
     // ---------- 订阅者 ----------
     nav_state_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
@@ -161,38 +159,7 @@ private:
   }
 
   // ──────────────────────────────────────────────
-  // 生成直线参考轨迹
-  // ──────────────────────────────────────────────
-  finenav_msgs::msg::Trajectory generateLineTrajectory(
-      const geometry_msgs::msg::Pose& start,
-      const geometry_msgs::msg::Pose& end) const
-  {
-    auto traj = finenav_msgs::msg::Trajectory();
-    traj.header.stamp    = this->now();
-    traj.header.frame_id = "map";
-    traj.valid_fields    = TRAJ_POSE;
-    traj.poses.reserve(line_path_points_);
-
-    const double dx  = end.position.x - start.position.x;
-    const double dy  = end.position.y - start.position.y;
-    const double dz  = end.position.z - start.position.z;
-    const double yaw = std::atan2(dy, dx);
-    const auto   q   = quatFromYaw(yaw);
-
-    for (size_t i = 0; i < line_path_points_; ++i) {
-      const double t = static_cast<double>(i) / static_cast<double>(line_path_points_ - 1);
-      geometry_msgs::msg::Pose pose;
-      pose.position.x  = start.position.x + t * dx;
-      pose.position.y  = start.position.y + t * dy;
-      pose.position.z  = start.position.z + t * dz;
-      pose.orientation = q;
-      traj.poses.push_back(pose);
-    }
-    return traj;
-  }
-
-  // ──────────────────────────────────────────────
-  // 发布 /target_pose + /hello_finenav/line_path
+  // 发布 /target_pose + route_layer_plan
   // ──────────────────────────────────────────────
   void publishTarget()
   {
@@ -207,18 +174,24 @@ private:
       target_pose_pub_->publish(msg);
     }
 
-    // 2. 发布参考轨迹（ControlLayer prePlan 读取）
+    // 2. 发布单点参考轨迹（MPPI ControlLayer prePlan 读取）
     {
       geometry_msgs::msg::Pose robot_pose;
       {
         std::lock_guard<std::mutex> lk(pose_mutex_);
         if (!has_pose_) {
-          return;  // 还没有位姿，等下一帧
+          return;
         }
         robot_pose = latest_pose_;
       }
       const auto follow_goal = computeFollowGoal(robot_pose, target_pose);
-      line_path_pub_->publish(generateLineTrajectory(robot_pose, follow_goal));
+
+      finenav_msgs::msg::Trajectory traj;
+      traj.header.stamp    = this->now();
+      traj.header.frame_id = "map";
+      traj.valid_fields    = TRAJ_POSE;
+      traj.poses.push_back(follow_goal);
+      line_path_pub_->publish(traj);
     }
   }
 
@@ -289,7 +262,6 @@ private:
   double target_height_   = 0.0;
   double circle_center_x_ = 0.0;
   double circle_center_y_ = 0.0;
-  size_t line_path_points_ = 30;
 
   // ────────── 发布者 ──────────
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_pub_;

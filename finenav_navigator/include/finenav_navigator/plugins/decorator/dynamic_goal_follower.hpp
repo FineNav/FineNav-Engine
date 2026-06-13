@@ -66,6 +66,9 @@ public:
       BT::OutputPort<geometry_msgs::msg::Pose>("goal", "Computed follow goal"),
       BT::InputPort<double>("follow_distance", 0.0, "Distance behind target to follow [m]"),
       BT::InputPort<double>("update_distance", 0.05, "Min displacement to trigger update [m]"),
+      BT::InputPort<double>("min_distance", 0.5, "Stop following if target is closer than this [m]"),
+      BT::InputPort<double>("max_distance", 5.0, "Stop following and fail if target is farther than this [m]"),
+      BT::InputPort<double>("timeout_sec", 1.0, "Timeout in seconds to consider target inactive")
     };
   }
 
@@ -113,6 +116,9 @@ private:
   // 上次写入 blackboard 的 goal（用于 update_distance 抖动抑制）
   geometry_msgs::msg::Pose last_goal_;
   bool has_last_goal_{false};
+
+  // 上一次收到 /target_pose 的时间戳
+  rclcpp::Time last_msg_time_{0, 0, RCL_ROS_TIME};
 };
 
 }  // namespace finenav

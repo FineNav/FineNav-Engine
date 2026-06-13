@@ -12,10 +12,12 @@ TerrainAnalyzer::TerrainAnalyzer(
     const std::shared_ptr<finenav::MapServer<finenav::GridMap<Voxel>>> map_server,
     rclcpp::Node::SharedPtr node,
     std::shared_ptr<finenav_utils::CloudPublishHelper> passability_helper,
-    std::shared_ptr<finenav_utils::CloudPublishHelper> costmap_helper)
+    std::shared_ptr<finenav_utils::CloudPublishHelper> costmap_helper,
+    std::shared_ptr<finenav_utils::CloudPublishHelper> ground_helper)
     : node_(node)
     , passability_helper_(std::move(passability_helper))
     , costmap_helper_(std::move(costmap_helper))
+    , ground_helper_(std::move(ground_helper))
 {
     const auto map_ro = map_server->getLockedReadView();
     passability_image_ = cv::Mat::zeros(map_ro->getSize().x(), map_ro->getSize().y(), CV_8UC1);
@@ -25,11 +27,15 @@ TerrainAnalyzer::TerrainAnalyzer(
     node_->declare_parameter<double>("terrain_analysis.cost_scaling_factor", 0.5);
     node_->declare_parameter<double>("terrain_analysis.robot_height", 1.0);
     node_->declare_parameter<double>("terrain_analysis.max_gradient", 0.8);
+    node_->declare_parameter<double>("terrain_analysis.nan_fill_radius", 1.0);
+    node_->declare_parameter<double>("terrain_analysis.ground_z_offset", 0.125);
     node_->declare_parameter<std::string>("terrain_analysis.global_map_topic", "/map");
 
     node_->get_parameter("terrain_analysis.cost_scaling_factor", cost_scaling_factor_);
     node_->get_parameter("terrain_analysis.robot_height", robot_height_);
     node_->get_parameter("terrain_analysis.max_gradient", max_gradient_);
+    node_->get_parameter("terrain_analysis.nan_fill_radius", nan_fill_radius_);
+    node_->get_parameter("terrain_analysis.ground_z_offset", ground_z_offset_);
 
     std::string global_map_topic;
     node_->get_parameter("terrain_analysis.global_map_topic", global_map_topic);
@@ -44,34 +50,34 @@ TerrainAnalyzer::TerrainAnalyzer(
 }
 
 void TerrainAnalyzer::update(float robot_pose_z, const finenav::GridMap<Voxel>& map) {
-    // using Clock = std::chrono::steady_clock;
-    // using Ms    = std::chrono::duration<double, std::milli>;
+    using Clock = std::chrono::steady_clock;
+    using Ms    = std::chrono::duration<double, std::milli>;
 
     cached_resolution_ = map.getResolution();
 
-    // auto t0 = Clock::now();
+    auto t0 = Clock::now();
     TerrainAnalysis(robot_pose_z, map);
-    // auto t1 = Clock::now();
+    auto t1 = Clock::now();
     MapInflation();
-    // auto t2 = Clock::now();
+    auto t2 = Clock::now();
     publishMaps(map);
-    // auto t3 = Clock::now();
+    auto t3 = Clock::now();
     //
-    // const double ms_terrain   = Ms(t1 - t0).count();
-    // const double ms_inflation = Ms(t2 - t1).count();
-    // const double ms_publish   = Ms(t3 - t2).count();
-    // const double ms_total     = Ms(t3 - t0).count();
-    //
-    // auto& clk = *node_->get_clock();
-    // RCLCPP_INFO_THROTTLE(node_->get_logger(), clk, 2000,
-    //     "\n[TerrainAnalyzer] timing (map %zux%zu @ %.2fm/cell)\n"
-    //     "  TerrainAnalysis : %7.2f ms\n"
-    //     "  MapInflation    : %7.2f ms\n"
-    //     "  publishMaps     : %7.2f ms\n"
-    //     "  ─────────────────────────\n"
-    //     "  Total           : %7.2f ms",
-    //     map.getSize().x(), map.getSize().y(), cached_resolution_,
-    //     ms_terrain, ms_inflation, ms_publish, ms_total);
+    const double ms_terrain   = Ms(t1 - t0).count();
+    const double ms_inflation = Ms(t2 - t1).count();
+    const double ms_publish   = Ms(t3 - t2).count();
+    const double ms_total     = Ms(t3 - t0).count();
+    
+    auto& clk = *node_->get_clock();
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), clk, 2000,
+        "\n[TerrainAnalyzer] timing (map %zux%zu @ %.2fm/cell)\n"
+        "  TerrainAnalysis : %7.2f ms\n"
+        "  MapInflation    : %7.2f ms\n"
+        "  publishMaps     : %7.2f ms\n"
+        "  ─────────────────────────\n"
+        "  Total           : %7.2f ms",
+        map.getSize().x(), map.getSize().y(), cached_resolution_,
+        ms_terrain, ms_inflation, ms_publish, ms_total);
 }
 
 int TerrainAnalyzer::getCost(const finenav::Position3D& pos, const finenav::GridMap<Voxel>& map) const {
@@ -99,7 +105,7 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
     size_t half_size_x = size_x / 2;
     size_t half_size_y = size_y / 2;
 
-    Eigen::ArrayXXf ground_array_ = Eigen::ArrayXXf::Constant(size_x, size_y, NAN);
+    ground_array_ = Eigen::ArrayXXf::Constant(size_x, size_y, NAN);
 
     std::vector<Voxel> voxels_along_z;
     voxels_along_z.reserve(map.getSize().z());
@@ -139,6 +145,20 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
     }
 
     ApplyGroundMeanFilter(ground_array_, 3);
+
+    // 将地图中心附近一定范围内仍为 NAN 的栅格填充为 robot_pose_z
+    for (size_t x = 0; x < size_x; ++x) {
+        for (size_t y = 0; y < size_y; ++y) {
+            if (std::isnan(ground_array_(x, y))) {
+                double dist_to_center = std::hypot(
+                    static_cast<double>(x) - static_cast<double>(half_size_x),
+                    static_cast<double>(y) - static_cast<double>(half_size_y)) * cached_resolution_;
+                if (dist_to_center < nan_fill_radius_) {
+                    ground_array_(x, y) = robot_pose_z;
+                }
+            }
+        }
+    }
 
     for (size_t x = 0; x < size_x; ++x) {
         for (size_t y = 0; y < size_y; ++y) {
@@ -271,6 +291,7 @@ void TerrainAnalyzer::publishMaps(const finenav::GridMap<Voxel>& map) {
     // 颜色编码: 0（可通行）→ 绿色; 254（障碍）→ 红色; 其余 → 灰色
     if (passability_helper_) {
         passability_helper_->reserve(size_x * size_y);
+        passability_helper_->reserve(size_x * size_y);
         for (size_t px = 0; px < size_x; ++px) {
             for (size_t py = 0; py < size_y; ++py) {
                 finenav::Index idx(
@@ -328,5 +349,50 @@ void TerrainAnalyzer::publishMaps(const finenav::GridMap<Voxel>& map) {
             }
         }
         costmap_helper_->publish(stamp);
+    }
+
+    // ---- ground_cloud ----
+    // 每个有效 ground 格子以实际 z 高度发布，颜色按高度热力图（蓝低→红高）
+    if (ground_helper_ && ground_array_.size() > 0) {
+        ground_helper_->reserve(size_x * size_y);
+        float z_min = std::numeric_limits<float>::max();
+        float z_max = std::numeric_limits<float>::lowest();
+        for (size_t px = 0; px < size_x; ++px) {
+            for (size_t py = 0; py < size_y; ++py) {
+                float z = ground_array_(px, py);
+                if (!std::isnan(z)) {
+                    z_min = std::min(z_min, z);
+                    z_max = std::max(z_max, z);
+                }
+            }
+        }
+        const float z_range = (z_max > z_min) ? (z_max - z_min) : 1.0f;
+        // jet colormap: blue(0) → cyan → green → yellow → red(1)
+        auto jet = [](float t) -> std::array<uint8_t, 3> {
+            t = std::clamp(t, 0.0f, 1.0f);
+            float r = std::clamp(1.5f - std::abs(4.0f * t - 3.0f), 0.0f, 1.0f);
+            float g = std::clamp(1.5f - std::abs(4.0f * t - 2.0f), 0.0f, 1.0f);
+            float b = std::clamp(1.5f - std::abs(4.0f * t - 1.0f), 0.0f, 1.0f);
+            return {static_cast<uint8_t>(255 * r),
+                    static_cast<uint8_t>(255 * g),
+                    static_cast<uint8_t>(255 * b)};
+        };
+        for (size_t px = 0; px < size_x; ++px) {
+            for (size_t py = 0; py < size_y; ++py) {
+                float z = ground_array_(px, py);
+                if (std::isnan(z)) continue;
+                finenav::Index idx(
+                    static_cast<int>(px) - static_cast<int>(half_size_x),
+                    static_cast<int>(py) - static_cast<int>(half_size_y),
+                    0);
+                if (!map.isInside(idx)) continue;
+                const auto pos = map.getPosition(idx);
+                ground_helper_->addPoint(
+                    static_cast<float>(pos.x()),
+                    static_cast<float>(pos.y()),
+                    z, jet((z - z_min) / z_range));
+            }
+        }
+        ground_helper_->publish(stamp);
     }
 }

@@ -250,7 +250,7 @@ int main(int argc, char** argv) {
     // ============================================================
 
     auto terrain_analyzer = std::make_shared<TerrainAnalyzer>(
-        map_server, node, passability_helper, costmap_helper);
+        map_server, node, passability_helper, costmap_helper, ground_helper);
 
     using Clock = std::chrono::steady_clock;
     using Ms    = std::chrono::duration<double, std::milli>;
@@ -267,7 +267,7 @@ int main(int argc, char** argv) {
 
     map_server->registerPostUpdateHook([node, map_cloud_helper, terrain_analyzer, localizer, cycle_t0](GridMap<Voxel> & map) {
 
-        terrain_analyzer->update(localizer->getState().p.z(), map);
+        terrain_analyzer->update(localizer->getState().p.z() - terrain_analyzer->getGroundZOffset(), map);
 
         // /map_cloud 可视化：所有有效 Voxel，高度映射到颜色（蓝低红高，简化为白色）
         if (map_cloud_helper->hasSubscribers()) {

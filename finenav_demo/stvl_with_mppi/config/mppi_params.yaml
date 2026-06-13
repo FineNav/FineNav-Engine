@@ -88,7 +88,7 @@
         enabled: true
         cost_power: 1
         cost_weight: 3.81
-        critical_cost: 100.0      # costmap 代价 ≥ 253 时施加此惩罚
+        critical_cost: 200.0      # costmap 代价 ≥ 253 时施加此惩罚
         consider_footprint: true  # 使用完整 footprint 检查
         collision_cost: 1000000.0 # 碰撞轨迹惩罚
         near_goal_distance: 1.0   # 距目标 ≤ 此距离时关闭 CostCritic (m)
@@ -99,9 +99,9 @@
         enabled: false
         cost_power: 1
         consider_footprint: true
-        collision_cost: 10.0
+        collision_cost: 20.0
         collision_margin_distance: 0.05
-        critical_weight: 20.0
+        critical_weight: 30.0
         near_goal_distance: 0.5
         repulsion_weight: 2.5
         inflation_radius: 0.5     # 膨胀半径 (m)，需与 costmap 膨胀层匹配

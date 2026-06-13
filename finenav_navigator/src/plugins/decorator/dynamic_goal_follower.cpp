@@ -16,12 +16,18 @@ DynamicGoalFollower::DynamicGoalFollower(
   const BT::NodeConfig & conf,
   const BT::RosNodeParams & params)
 : BT::DecoratorNode(name, conf),
-  node_(params.nh)
+  node_(params.nh),
+  last_msg_time_(0, 0, RCL_ROS_TIME)
 {
 }
 
 void DynamicGoalFollower::initialize()
 {
+  // 订阅只创建一次，避免 halt/retry 循环中重复订阅导致旧消息队列丢失
+  if (sub_) {
+    return;
+  }
+
   auto node = node_.lock();
   if (!node) {
     throw BT::RuntimeError("DynamicGoalFollower: ROS node has gone out of scope.");
@@ -57,19 +63,58 @@ BT::NodeStatus DynamicGoalFollower::tick()
   // 处理积压的 ROS 回调，获取最新目标位姿
   callback_executor_.spin_some();
 
+  auto node = node_.lock();
+  if (!node) {
+    return BT::NodeStatus::FAILURE;
+  }
+
+  double timeout_sec = 1.0;
+  getInput("timeout_sec", timeout_sec);
+
+  // 1. 检查超时或是否接收到目标 (Timeout / Availability check)
+  if (!last_msg_received_ || (node->now() - last_msg_time_).seconds() > timeout_sec) {
+    RCLCPP_DEBUG(node->get_logger(), "DynamicGoalFollower: No active target pose received within timeout.");
+    return BT::NodeStatus::FAILURE;
+  }
+
   // 从 blackboard 获取机器人当前位姿
   geometry_msgs::msg::Pose robot_pose;
-  getInput("robot_pose", robot_pose);
+  if (!getInput("robot_pose", robot_pose)) {
+    RCLCPP_WARN(node->get_logger(), "DynamicGoalFollower: robot_pose not available on blackboard.");
+    return BT::NodeStatus::FAILURE;
+  }
 
-  // 如果有新目标且能获取机器人位姿，计算跟随目标
-  if (last_msg_received_) {
-    const auto follow_goal = computeFollowGoal(robot_pose, last_msg_.pose);
+  // 2. 计算并检查距离阈值 (Range checks)
+  const double dx = last_msg_.pose.position.x - robot_pose.position.x;
+  const double dy = last_msg_.pose.position.y - robot_pose.position.y;
+  const double dist = std::hypot(dx, dy);
 
-    if (shouldUpdate(follow_goal)) {
-      setOutput("goal", follow_goal);
-      last_goal_ = follow_goal;
-      has_last_goal_ = true;
-    }
+  double min_distance = 0.5;
+  double max_distance = 5.0;
+  getInput("min_distance", min_distance);
+  getInput("max_distance", max_distance);
+
+  // 目标过远：停止跟随并上报 FAILURE (让行为树可以走 fallback 恢复)
+  if (dist > max_distance) {
+    RCLCPP_WARN_THROTTLE(node->get_logger(), *node->get_clock(), 2000,
+      "DynamicGoalFollower: Target is too far (%.2fm > %.2fm). Stopping follow (Failure).", dist, max_distance);
+    return BT::NodeStatus::FAILURE;
+  }
+
+  // 目标过近：视为抵达，停止跟随并上报 SUCCESS
+  if (dist < min_distance) {
+    RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 2000,
+      "DynamicGoalFollower: Target is within reach (%.2fm < %.2fm). Stopping follow (Success).", dist, min_distance);
+    return BT::NodeStatus::SUCCESS;
+  }
+
+  // 3. 计算跟随目标
+  const auto follow_goal = computeFollowGoal(robot_pose, last_msg_.pose);
+
+  if (shouldUpdate(follow_goal)) {
+    setOutput("goal", follow_goal);
+    last_goal_ = follow_goal;
+    has_last_goal_ = true;
   }
 
   // 透传子节点状态
@@ -80,8 +125,8 @@ BT::NodeStatus DynamicGoalFollower::tick()
 
 void DynamicGoalFollower::halt()
 {
-  // 重置状态，但保留订阅（下次 tick 会重新激活）
-  last_msg_received_ = false;
+  // 保留订阅和 last_msg_received_ 状态：halt/retry 循环中不能丢弃已收到的消息，
+  // 否则新 tick 的 timeout 检查会因为没有"新"消息而立即返回 FAILURE，造成死循环。
   has_last_goal_ = false;
   DecoratorNode::halt();
 }
@@ -139,6 +184,9 @@ void DynamicGoalFollower::onTargetPose(
 {
   last_msg_ = *msg;
   last_msg_received_ = true;
+  if (auto node = node_.lock()) {
+    last_msg_time_ = node->now();
+  }
 }
 
 }  // namespace finenav

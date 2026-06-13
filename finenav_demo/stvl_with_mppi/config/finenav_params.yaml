@@ -63,10 +63,11 @@ hello_finenav:
     terrain_analysis:
       cost_scaling_factor: 0.5
       robot_height: 1.0
-      max_gradient: 0.08
+      max_gradient: 0.12
+      nan_fill_radius: 1.5
     stvl_manager:
-      decay_time_sec: 0.5
-      decay_time_fov_sec: 0.5
+      decay_time_sec: 2.0
+      decay_time_fov_sec: 2.0
       min_range: 0.0
       max_range: 50.0
       min_angle: 0.0
@@ -76,10 +77,10 @@ hello_finenav:
       # 机器人本体坐标系：X=前, Y=左, Z=上。所有值均为正数，表示从机器人中心
       # 到对应方向边缘的距离。当 front 参数存在时优先使用非对称模式，
       # 否则回退到对称的 length/width/height。
-      front:  1.0   # [m] 机器人中心 → 前方边缘 (+X)
-      back:   0.4   # [m] 机器人中心 → 后方边缘 (-X，取正)
-      left:   0.5   # [m] 机器人中心 → 左侧边缘 (+Y)
-      right:  0.5   # [m] 机器人中心 → 右侧边缘 (-Y，取正)
+      front:  0.8   # [m] 机器人中心 → 前方边缘 (+X)
+      back:   0.3   # [m] 机器人中心 → 后方边缘 (-X，取正)
+      left:   0.4   # [m] 机器人中心 → 左侧边缘 (+Y)
+      right:  0.4   # [m] 机器人中心 → 右侧边缘 (-Y，取正)
       top:    0.0   # [m] 机器人中心 → 上方边缘 (+Z)
       bottom: 0.0   # [m] 机器人中心 → 下方边缘 (-Z，取正)
       # ── 对称 OBB 模式（向后兼容）───────────────────────────────────────────

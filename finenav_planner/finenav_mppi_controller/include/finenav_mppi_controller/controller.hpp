@@ -97,9 +97,9 @@ public:
     }
 
      std::optional<finenav::DataPacket<OutputProfile>>plan(const finenav::PlanningContext<MPPIController>& ctx, const IMapView& map_view) {
-        // using Clock = std::chrono::steady_clock;
-        // using Ms    = std::chrono::duration<double, std::milli>;
-        // const auto t_plan_start = Clock::now();
+        using Clock = std::chrono::steady_clock;
+        using Ms    = std::chrono::duration<double, std::milli>;
+        const auto t_plan_start = Clock::now();
 
         finenav::DataPacket<OutputProfile> traj;
         // 从框架注入的 RobotState 中取出 pose 和 twist，无需 TF 查询
@@ -114,13 +114,77 @@ public:
         start_pose_stamped.header.stamp = rclcpp::Clock().now();
         start_pose_stamped.header.frame_id = "map";
 
-        // const auto t_optimize_start = Clock::now();
+        const auto t_optimize_start
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        = Clock::now();
         computeVelocityCommands(
             start_pose_stamped,
             robot_state.twist,  // 直接使用当前实际速度
             map_view
             );
-        // const double ms_optimize = Ms(Clock::now() - t_optimize_start).count();
+        const double ms_optimize = Ms(Clock::now() - t_optimize_start).count();
 
         // 装填输出轨迹
 
@@ -150,16 +214,16 @@ public:
         traj.twists.push_back(twist);
     }
 
-    // const double ms_total = Ms(Clock::now() - t_plan_start).count();
-    // {
-    //     static rclcpp::Clock throttle_clk{RCL_STEADY_TIME};
-    //     RCLCPP_INFO_THROTTLE(
-    //         rclcpp::get_logger("MPPIController"), throttle_clk, 2000,
-    //         "\n[MPPIController] plan() timing\n"
-    //         "  evalControl (optimize) : %7.2f ms\n"
-    //         "  total plan()           : %7.2f ms",
-    //         ms_optimize, ms_total);
-    // }
+    const double ms_total = Ms(Clock::now() - t_plan_start).count();
+    {
+        static rclcpp::Clock throttle_clk{RCL_STEADY_TIME};
+        RCLCPP_INFO_THROTTLE(
+            rclcpp::get_logger("MPPIController"), throttle_clk, 2000,
+            "\n[MPPIController] plan() timing\n"
+            "  evalControl (optimize) : %7.2f ms\n"
+            "  total plan()           : %7.2f ms",
+            ms_optimize, ms_total);
+    }
 
     return traj;
 }
