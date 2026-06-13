@@ -82,4 +82,8 @@ private:
     double nan_fill_grace_time_{3.0};
     double cached_resolution_{0.1};
 
+    // Simple Z-threshold mode
+    bool use_simple_z_threshold_{false};
+    double z_obstacle_threshold_{0.3};  // voxels with z > robot_pose_z + threshold are obstacles
+
 };

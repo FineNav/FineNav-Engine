@@ -29,6 +29,8 @@ TerrainAnalyzer::TerrainAnalyzer(
     node_->declare_parameter<double>("terrain_analysis.max_gradient", 0.8);
     node_->declare_parameter<double>("terrain_analysis.nan_fill_radius", 1.0);
     node_->declare_parameter<double>("terrain_analysis.ground_z_offset", 0.125);
+    node_->declare_parameter<bool>("terrain_analysis.use_simple_z_threshold", false);
+    node_->declare_parameter<double>("terrain_analysis.z_obstacle_threshold", 0.3);
     node_->declare_parameter<std::string>("terrain_analysis.global_map_topic", "/map");
 
     node_->get_parameter("terrain_analysis.cost_scaling_factor", cost_scaling_factor_);
@@ -36,6 +38,8 @@ TerrainAnalyzer::TerrainAnalyzer(
     node_->get_parameter("terrain_analysis.max_gradient", max_gradient_);
     node_->get_parameter("terrain_analysis.nan_fill_radius", nan_fill_radius_);
     node_->get_parameter("terrain_analysis.ground_z_offset", ground_z_offset_);
+    node_->get_parameter("terrain_analysis.use_simple_z_threshold", use_simple_z_threshold_);
+    node_->get_parameter("terrain_analysis.z_obstacle_threshold", z_obstacle_threshold_);
 
     std::string global_map_topic;
     node_->get_parameter("terrain_analysis.global_map_topic", global_map_topic);
@@ -113,6 +117,85 @@ void TerrainAnalyzer::TerrainAnalysis(float robot_pose_z, const finenav::GridMap
     std::vector<Voxel> valid_z_values;
     valid_z_values.reserve(map.getSize().z());
 
+    // ── Simple Z-threshold mode ──────────────────────────────────────────
+    // Each (x,y) column is an obstacle if the highest voxel exceeds
+    //   robot_pose_z + z_obstacle_threshold_.
+    // No gradient analysis, no ground-height gap detection.
+    if (use_simple_z_threshold_) {
+        for (int x = sizeX_min; x <= sizeX_max; ++x) {
+            for (int y = sizeY_min; y <= sizeY_max; ++y) {
+                map.getVoxelsAlongZ(x, y, voxels_along_z);
+
+                float max_z = -std::numeric_limits<float>::infinity();
+                float min_z =  std::numeric_limits<float>::infinity();
+                for (const auto& voxel : voxels_along_z) {
+                    if (!std::isnan(voxel.z_height)) {
+                        max_z = std::max(max_z, voxel.z_height);
+                        min_z = std::min(min_z, voxel.z_height);
+                    }
+                }
+
+                const size_t px = x + half_size_x;
+                const size_t py = y + half_size_y;
+
+                if (std::isfinite(max_z) && (max_z - robot_pose_z) > z_obstacle_threshold_) {
+                    passability_image_.at<uchar>(py, px) = 254;  // obstacle
+                } else {
+                    passability_image_.at<uchar>(py, px) = 0;    // free
+                }
+
+                ground_array_(px, py) = std::isfinite(min_z) ? min_z : NAN;
+            }
+        }
+
+        ApplyGroundMeanFilter(ground_array_, 3);
+
+        // Fill NaN cells near the map center with robot_pose_z
+        for (size_t x = 0; x < size_x; ++x) {
+            for (size_t y = 0; y < size_y; ++y) {
+                if (std::isnan(ground_array_(x, y))) {
+                    double dist_to_center = std::hypot(
+                        static_cast<double>(x) - static_cast<double>(half_size_x),
+                        static_cast<double>(y) - static_cast<double>(half_size_y)) * cached_resolution_;
+                    if (dist_to_center < nan_fill_radius_) {
+                        ground_array_(x, y) = robot_pose_z;
+                    }
+                }
+            }
+        }
+
+        // Fuse global occupancy grid (same as complex mode)
+        if (global_map_) {
+            const double map_res = global_map_->info.resolution;
+            const double origin_x = global_map_->info.origin.position.x;
+            const double origin_y = global_map_->info.origin.position.y;
+            const int map_w = global_map_->info.width;
+            const int map_h = global_map_->info.height;
+
+            for (size_t x = 0; x < size_x; ++x) {
+                for (size_t y = 0; y < size_y; ++y) {
+                    finenav::Index idx(
+                        static_cast<int>(x) - static_cast<int>(half_size_x),
+                        static_cast<int>(y) - static_cast<int>(half_size_y),
+                        0);
+                    if (map.isInside(idx)) {
+                        auto pos = map.getPosition(idx);
+                        int gx = std::floor((pos.x() - origin_x) / map_res);
+                        int gy = std::floor((pos.y() - origin_y) / map_res);
+                        if (gx >= 0 && gx < map_w && gy >= 0 && gy < map_h) {
+                            int g_idx = gy * map_w + gx;
+                            if (global_map_->data[g_idx] == 100) {
+                                passability_image_.at<uchar>(y, x) = 254;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return;
+    }
+
+    // ── Original complex terrain analysis ────────────────────────────────
     for (int x = sizeX_min; x <= sizeX_max; ++x) {
         for (int y = sizeY_min; y <= sizeY_max; ++y) {
             

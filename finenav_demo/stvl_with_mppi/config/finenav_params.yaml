@@ -65,6 +65,11 @@ hello_finenav:
       robot_height: 1.0
       max_gradient: 0.12
       nan_fill_radius: 1.5
+      # ── Simple Z-threshold mode ──────────────────────────────────────
+      # 设为 true 则用简单的 Z 高度阈值判断障碍物（忽略坡度等复杂分析）。
+      # 每个栅格柱上的最高 voxel z 超过 robot_pose_z + z_obstacle_threshold 即为障碍。
+      use_simple_z_threshold: true
+      z_obstacle_threshold: 0.3    # [m] 高于机器人当前 Z 多少即视为障碍
     stvl_manager:
       decay_time_sec: 2.0
       decay_time_fov_sec: 2.0
