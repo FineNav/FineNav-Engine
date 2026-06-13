@@ -53,27 +53,77 @@ RoutePathSearch::Result RoutePathSearch::plan(
     if (!cached_graph_ || cached_graph_->nodes.empty()) return std::nullopt;
     const auto& graph = *cached_graph_;
 
-    // Obstacle-aware BFS to snap start and goal to nearest reachable graph nodes
-    const size_t start_idx = findNearestNodeIndex(graph, ctx.robot_state.pose, map_view);
-    if (start_idx == SIZE_MAX) return std::nullopt;
+    // Obstacle-aware BFS to snap start and goal to nearest reachable graph nodes.
+    // Each SnapResult also carries the world-frame connector path (pose → node).
+    const auto start_snap = findNearestNodeIndex(graph, ctx.robot_state.pose, map_view);
+    if (start_snap.node_index == SIZE_MAX) return std::nullopt;
 
-    const size_t goal_idx = findNearestNodeIndex(graph, ctx.goal_pose, map_view);
-    if (goal_idx == SIZE_MAX) return std::nullopt;
+    const auto goal_snap = findNearestNodeIndex(graph, ctx.goal_pose, map_view);
+    if (goal_snap.node_index == SIZE_MAX) return std::nullopt;
 
     // Dijkstra on the topological graph
-    auto route_opt = route::findRoute(graph, start_idx, goal_idx, path_density_);
+    auto route_opt = route::findRoute(graph, start_snap.node_index, goal_snap.node_index, path_density_);
     if (!route_opt || route_opt->empty()) return std::nullopt;
 
-    // Pack output — orientations are set by a higher layer
     OutputDataT<RoutePathSearch> output;
-    output.poses.reserve(route_opt->size());
-    for (auto [x, y] : *route_opt) {
+    output.poses.reserve(start_snap.connector_path.size()
+                       + goal_snap.connector_path.size()
+                       + route_opt->size());
+
+    auto appendPose = [&](double x, double y) {
         geometry_msgs::msg::Pose p;
         p.position.x    = x;
         p.position.y    = y;
         p.orientation.w = 1.0;
         output.poses.push_back(p);
+    };
+
+    auto isDegenerate = [](const std::vector<Position3D>& conn) -> bool {
+        if (conn.size() < 2) return true;
+        const double d = (conn.front() - conn.back()).norm();
+        return d < 1e-6;
+    };
+
+    // ── Start connector (robot_pose → start_node) ──
+    if (!isDegenerate(start_snap.connector_path)) {
+        for (const auto& pt : start_snap.connector_path)
+            appendPose(pt.x(), pt.y());
     }
+
+    // ── Topological route ──
+    // If we already added a start connector whose last point IS the start node,
+    // skip the first route point when it coincides to avoid a duplicate.
+    bool skip_first_route = false;
+    if (!isDegenerate(start_snap.connector_path) && !output.poses.empty()) {
+        const auto& last_conn = output.poses.back().position;
+        const auto& first_route_x = (*route_opt)[0].first;
+        const auto& first_route_y = (*route_opt)[0].second;
+        skip_first_route = (std::hypot(last_conn.x - first_route_x,
+                                        last_conn.y - first_route_y) < 1e-6);
+    }
+
+    for (size_t i = (skip_first_route ? 1 : 0); i < route_opt->size(); ++i)
+        appendPose((*route_opt)[i].first, (*route_opt)[i].second);
+
+    // ── Goal connector (goal_node → goal_pose), reversed ──
+    if (!isDegenerate(goal_snap.connector_path)) {
+        // Last point of route ≈ goal_node position; skip if coincident.
+        const auto& route_end = output.poses.back().position;
+        const auto& goal_last = goal_snap.connector_path.back();  // goal node
+        const bool route_ends_at_node =
+            std::hypot(route_end.x - goal_last.x(),
+                       route_end.y - goal_last.y()) < 1e-6;
+
+        // Walk backwards: goal_node → ... → goal_pose
+        const size_t start_i = route_ends_at_node
+            ? goal_snap.connector_path.size() - 2   // skip duplicate node
+            : goal_snap.connector_path.size() - 1;
+
+        for (size_t i = start_i; i != SIZE_MAX; --i)
+            appendPose(goal_snap.connector_path[i].x(),
+                       goal_snap.connector_path[i].y());
+    }
+
     return output;
 }
 
@@ -88,8 +138,11 @@ RoutePathSearch::Result RoutePathSearch::plan(
 //
 // Cell size = map_view.getStepSize() (map resolution) so the BFS is in the
 // same cell space as AstarPathSearch / BfsPathSearch.
+//
+// Returns a SnapResult with both the node index and the world-frame connector
+// path from `pose` to that node.
 
-size_t RoutePathSearch::findNearestNodeIndex(
+RoutePathSearch::SnapResult RoutePathSearch::findNearestNodeIndex(
     const route::Graph&             graph,
     const geometry_msgs::msg::Pose& pose,
     const IMapView&                 map_view) const
@@ -140,7 +193,7 @@ size_t RoutePathSearch::findNearestNodeIndex(
     algo.setMaxPlanningTime(5.0); // TODO: 后面这些应该也成为动态参数
 
     const auto path = algo.findPathToAny(origin, is_goal);
-    if (!path || path->empty()) return SIZE_MAX;
+    if (!path || path->empty()) return {SIZE_MAX, {}};
 
     // Among nodes in the found cell, pick the one geometrically closest to pose
     const auto& candidates = cell_nodes.at(path->back());
@@ -158,7 +211,29 @@ size_t RoutePathSearch::findNearestNodeIndex(
             best_dist = d;
         }
     }
-    return best_idx;
+
+    // ── Build world-frame connector path (pose → nearest node) ──────────
+    // The grid path runs from origin (robot/goal cell) to the cell
+    // containing the route node.  Convert it to world coordinates,
+    // anchoring the first point at the exact continuous pose and the
+    // last point at the exact node position.
+    std::vector<Position3D> connector;
+    connector.reserve(path->size() + 1);
+
+    // First point: exact continuous pose
+    connector.push_back({pose.position.x, pose.position.y, 0.0});
+
+    // Interior grid cells → cell centres (skip origin if it coincides)
+    const bool skip_first = (path->size() >= 2 && (*path)[0] == origin);
+    for (size_t i = (skip_first ? 1 : 0); i < path->size(); ++i) {
+        connector.push_back(cellCentre((*path)[i]));
+    }
+
+    // Last point (which is the cell containing the chosen node):
+    // replace with the exact node position for precision.
+    connector.back() = {graph.nodes[best_idx].x, graph.nodes[best_idx].y, 0.0};
+
+    return {best_idx, std::move(connector)};
 }
 
 } // namespace finenav

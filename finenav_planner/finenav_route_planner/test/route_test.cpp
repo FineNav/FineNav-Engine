@@ -10,6 +10,8 @@
 //     fixed-cost-override route selection / start==goal snapping)
 //   - Obstacle-aware pose-to-node snapping (findNearestNodeIndex), including
 //     skipping a geometrically-closer but unreachable node
+//   - Connector paths: obstacle-aware grid paths from robot/goal pose to
+//     nearest route node are stitched into the output
 //   - Output shape: world-frame poses, densification, exact endpoints
 
 #include <gtest/gtest.h>
@@ -258,8 +260,11 @@ TEST(RoutePathSearch, ConfigureSucceeds_LoadsValidGraph)
 // Dijkstra routing over the topological graph
 // =========================================================================
 
-TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsMatchNodes)
+TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
 {
+    // The output now includes obstacle-aware connector paths:
+    //   robot (0.5,0.5) → node A (0,0) → route → node C (10,0) → goal (9.5,0.5)
+    // First point should be near the robot pose, last near the goal pose.
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     astar::GridMap grid(12, 12);
@@ -269,10 +274,23 @@ TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsMatchNodes)
     ASSERT_TRUE(result.has_value());
     ASSERT_GE(result->poses.size(), 2u);
 
-    // Start of path snaps near node A (0,0); end is exactly node C (10,0).
-    EXPECT_LT(dist(result->poses.front().position.x, result->poses.front().position.y, 0.0, 0.0), 1.0);
-    EXPECT_NEAR(result->poses.back().position.x, 10.0, 1e-6);
-    EXPECT_NEAR(result->poses.back().position.y, 0.0,  1e-6);
+    // First point near robot (0.5, 0.5), not near node A (0, 0)
+    EXPECT_NEAR(result->poses.front().position.x, 0.5, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 0.5, 1e-6);
+
+    // Last point near goal (9.5, 0.5), not node C (10, 0)
+    EXPECT_NEAR(result->poses.back().position.x, 9.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
+
+    // The route graph interior still passes through the expected nodes
+    // (verify by checking that node A (0,0) and node C (10,0) appear)
+    bool has_node_a = false, has_node_c = false;
+    for (const auto& p : result->poses) {
+        if (std::hypot(p.position.x - 0.0, p.position.y - 0.0) < 0.01) has_node_a = true;
+        if (std::hypot(p.position.x - 10.0, p.position.y - 0.0) < 0.01) has_node_c = true;
+    }
+    EXPECT_TRUE(has_node_a);
+    EXPECT_TRUE(has_node_c);
 }
 
 TEST(RoutePathSearch, PlanFails_DisconnectedGraph_NoRouteBetweenComponents)
@@ -298,29 +316,58 @@ TEST(RoutePathSearch, PlanPrefersLowerCost_OverFixedExpensiveDirectEdge)
     ASSERT_TRUE(result.has_value());
 
     // The fixed-cost direct edge (cost=100) is far more expensive than the
-    // detour via node 2 (~20.8), so the route must visit node 2 -> 3 waypoints.
-    ASSERT_EQ(result->poses.size(), 3u);
-    EXPECT_NEAR(result->poses[0].position.x, 0.0, 1e-6);
-    EXPECT_NEAR(result->poses[0].position.y, 0.0, 1e-6);
-    EXPECT_NEAR(result->poses[1].position.x, 0.0, 1e-6);
-    EXPECT_NEAR(result->poses[1].position.y, 8.0, 1e-6);
-    EXPECT_NEAR(result->poses[2].position.x, 10.0, 1e-6);
-    EXPECT_NEAR(result->poses[2].position.y, 0.0, 1e-6);
+    // detour via node 2 (~20.8), so the route must visit node 2.
+    // Output now includes connectors: robot→node0, route, node1→goal.
+    // Verify the node sequence: node 0 → node 2 → node 1 appears in order.
+    ASSERT_GE(result->poses.size(), 3u);
+
+    // Find the positions of the three nodes in the output
+    auto findNode = [&](double x, double y) -> std::optional<size_t> {
+        for (size_t i = 0; i < result->poses.size(); ++i)
+            if (std::hypot(result->poses[i].position.x - x,
+                           result->poses[i].position.y - y) < 1e-6)
+                return i;
+        return std::nullopt;
+    };
+
+    auto i0 = findNode(0.0, 0.0);
+    auto i2 = findNode(0.0, 8.0);
+    auto i1 = findNode(10.0, 0.0);
+    ASSERT_TRUE(i0.has_value());
+    ASSERT_TRUE(i2.has_value());
+    ASSERT_TRUE(i1.has_value());
+    EXPECT_LT(*i0, *i2);
+    EXPECT_LT(*i2, *i1);
 }
 
-TEST(RoutePathSearch, Plan_SingleNodeGraph_StartEqualsGoal_ReturnsOnePoint)
+TEST(RoutePathSearch, Plan_SingleNodeGraph_StartEqualsGoal_ConnectorsBothSides)
 {
+    // Both start and goal snap to the same node.  The output now includes
+    // connectors on both sides: robot → node → goal.
     TempFile graph(kIsolatedNodeGraph);
     auto planner = makePlanner(graph.path());
     astar::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
-    // Both start and goal must snap to the same (only) node.
     auto result = planner.plan(makeCtx(5.6, 5.6, 5.4, 5.4), view);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->poses.size(), 1u);
-    EXPECT_NEAR(result->poses.front().position.x, 5.5, 1e-6);
-    EXPECT_NEAR(result->poses.front().position.y, 5.5, 1e-6);
+    ASSERT_GE(result->poses.size(), 2u);
+
+    // First point is the robot pose
+    EXPECT_NEAR(result->poses.front().position.x, 5.6, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 5.6, 1e-6);
+
+    // Last point is the goal pose
+    EXPECT_NEAR(result->poses.back().position.x, 5.4, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 5.4, 1e-6);
+
+    // The node (5.5, 5.5) appears somewhere in the middle
+    bool has_node = false;
+    for (const auto& p : result->poses) {
+        if (std::hypot(p.position.x - 5.5, p.position.y - 5.5) < 1e-6)
+            has_node = true;
+    }
+    EXPECT_TRUE(has_node);
 }
 
 // =========================================================================
@@ -339,16 +386,22 @@ TEST(RoutePathSearch, Plan_Densification_SpacingMatchesPathDensity)
     ASSERT_TRUE(result.has_value());
     ASSERT_GE(result->poses.size(), 3u);
 
-    // Interior segment spacing should track the configured density closely
-    // (the final segment may be shorter to land exactly on the goal node).
+    // Interior segment spacing should track the configured density closely.
+    // Skip the start/goal connector segments: those have non-zero y (robot
+    // at y=0.5) and/or diagonal steps (~0.707 m), while route edges lie on y=0.
     for (size_t i = 1; i + 1 < result->poses.size(); ++i) {
-        const double seg = dist(result->poses[i - 1].position.x, result->poses[i - 1].position.y,
-                                result->poses[i].position.x,     result->poses[i].position.y);
+        const auto& a = result->poses[i - 1].position;
+        const auto& b = result->poses[i].position;
+        // Connector segments have y ≠ 0 or x outside the route extent [0, 10].
+        const bool a_on_route = (std::abs(a.y) < 1e-6 && a.x >= 0.0 && a.x <= 10.0);
+        const bool b_on_route = (std::abs(b.y) < 1e-6 && b.x >= 0.0 && b.x <= 10.0);
+        if (!a_on_route || !b_on_route) continue;
+        const double seg = dist(a.x, a.y, b.x, b.y);
         EXPECT_NEAR(seg, kDensity, 0.2);
     }
 }
 
-TEST(RoutePathSearch, Plan_ZeroDensity_ReturnsNodeCentresOnly)
+TEST(RoutePathSearch, Plan_ZeroDensity_IncludesNodeCentresAndConnectors)
 {
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.0);
@@ -358,11 +411,25 @@ TEST(RoutePathSearch, Plan_ZeroDensity_ReturnsNodeCentresOnly)
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
     ASSERT_TRUE(result.has_value());
 
-    // Route A -> B -> C: exactly the three node centres, no interpolation.
-    ASSERT_EQ(result->poses.size(), 3u);
-    EXPECT_NEAR(result->poses[0].position.x, 0.0,  1e-6);
-    EXPECT_NEAR(result->poses[1].position.x, 5.0,  1e-6);
-    EXPECT_NEAR(result->poses[2].position.x, 10.0, 1e-6);
+    // With zero density, route graph contributes node centres only: A(0,0), B(5,0), C(10,0).
+    // Connectors: robot(0.5,0.5)→A(0,0) and C(10,0)→goal(9.5,0.5).
+    // Verify the node centres appear in order.
+    auto findNode = [&](double x, double y) -> std::optional<size_t> {
+        for (size_t i = 0; i < result->poses.size(); ++i)
+            if (std::hypot(result->poses[i].position.x - x,
+                           result->poses[i].position.y - y) < 1e-4)
+                return i;
+        return std::nullopt;
+    };
+
+    auto iA = findNode(0.0, 0.0);
+    auto iB = findNode(5.0, 0.0);
+    auto iC = findNode(10.0, 0.0);
+    ASSERT_TRUE(iA.has_value());
+    ASSERT_TRUE(iB.has_value());
+    ASSERT_TRUE(iC.has_value());
+    EXPECT_LT(*iA, *iB);
+    EXPECT_LT(*iB, *iC);
 }
 
 TEST(RoutePathSearch, Plan_OutputPoses_HaveValidOrientation)
@@ -383,7 +450,7 @@ TEST(RoutePathSearch, Plan_OutputPoses_HaveValidOrientation)
     }
 }
 
-TEST(RoutePathSearch, Plan_TotalLength_RoughlyMatchesGraphDistance)
+TEST(RoutePathSearch, Plan_TotalLength_CoversRobotToGoal)
 {
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), 0.25);
@@ -393,34 +460,62 @@ TEST(RoutePathSearch, Plan_TotalLength_RoughlyMatchesGraphDistance)
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
     ASSERT_TRUE(result.has_value());
 
-    // A(0,0) -> B(5,0) -> C(10,0): 10 m of graph distance.
-    EXPECT_NEAR(pathLength(result->poses), 10.0, 0.5);
+    // Path covers robot(0.5,0.5) → node A(0,0) → node B(5,0) → node C(10,0) → goal(9.5,0.5).
+    // Minimum straight-line distance from robot to goal = 9.0 m,
+    // but the path backtracks from robot to node A then forward again.
+    // robot→A ≈ 0.71, A→B→C = 10.0, C→goal ≈ 0.71 → total ≈ 11.4 m.
+    const double len = pathLength(result->poses);
+    EXPECT_GT(len, 9.0);
+    EXPECT_LT(len, 12.0);
 }
 
 // =========================================================================
 // Obstacle-aware pose -> route-node snapping (findNearestNodeIndex)
 // =========================================================================
 
-TEST(RoutePathSearch, Plan_SnapsToReachableNode_SkipsObstacleEnclosedNode)
+TEST(RoutePathSearch, Plan_SnapsToReachableNode_IncludesConnectorPath)
 {
+    // Node P (2.5,2.5) is enclosed by obstacles — geometrically closer but
+    // unreachable.  Both robot and goal snap to node Q (6.5,0.5).
+    // The output must include the connector path from robot to Q,
+    // which proves the obstacle-aware search worked.
     TempFile graph(kSnapGraph);
     auto planner = makePlanner(graph.path());
 
-    // Open N8-connected grid except node P's cell (2,2), which is walled in
-    // on all sides — geometrically closer to the robot/goal than Q, but
-    // unreachable without crossing obstacles.
+    // Open N8-connected grid except node P's cell (2,2), which is walled in.
     astar::GridMap grid(12, 12);
     enclose(grid, 2, 2);
     TestMapView view(grid, 1.0);
 
-    // Both start and goal sit near the enclosed node P (2.5,2.5) — the only
-    // reachable node is Q (6.5,0.5), so the obstacle-aware BFS must snap
-    // both endpoints to Q, collapsing the route to a single point there.
     auto result = planner.plan(makeCtx(0.6, 0.6, 0.7, 0.7), view);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->poses.size(), 1u);
-    EXPECT_NEAR(result->poses.front().position.x, 6.5, 1e-6);
-    EXPECT_NEAR(result->poses.front().position.y, 0.5, 1e-6);
+
+    // Output now includes connectors — at least 2 points (start connector + goal connector).
+    ASSERT_GE(result->poses.size(), 2u);
+
+    // First point is robot pose
+    EXPECT_NEAR(result->poses.front().position.x, 0.6, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 0.6, 1e-6);
+
+    // Last point is goal pose
+    EXPECT_NEAR(result->poses.back().position.x, 0.7, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.7, 1e-6);
+
+    // Node Q (6.5, 0.5) appears somewhere (the reachable node)
+    bool has_q = false;
+    for (const auto& p : result->poses) {
+        if (std::hypot(p.position.x - 6.5, p.position.y - 0.5) < 1e-4)
+            has_q = true;
+    }
+    EXPECT_TRUE(has_q);
+
+    // Node P (2.5, 2.5) must NOT appear (it's unreachable)
+    bool has_p = false;
+    for (const auto& p : result->poses) {
+        if (std::hypot(p.position.x - 2.5, p.position.y - 2.5) < 1e-4)
+            has_p = true;
+    }
+    EXPECT_FALSE(has_p);
 }
 
 TEST(RoutePathSearch, PlanFails_WhenNoNodeIsReachableFromRobot)

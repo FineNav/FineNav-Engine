@@ -82,11 +82,20 @@ public:
      */
     void updateGraph(const std::string& geojson_str);
 
+    // Result of snapping a world pose to the nearest reachable route node.
+    // Carries both the node index and the obstacle-aware grid path (in world
+    // frame) that connects the pose to that node.
+    struct SnapResult {
+        size_t                    node_index{SIZE_MAX};
+        std::vector<Position3D>   connector_path;   // world-frame, pose → node
+    };
+
 private:
     // Obstacle-aware BFS (Dijkstra h=0 on the occupancy map) to snap a
     // world pose to the nearest reachable route graph node.
-    // Returns the node's index in graph.nodes, or SIZE_MAX on failure.
-    size_t findNearestNodeIndex(
+    // Returns a SnapResult with both the node index and the world-frame
+    // connector path from `pose` to that node.
+    SnapResult findNearestNodeIndex(
         const route::Graph&             graph,
         const geometry_msgs::msg::Pose& pose,
         const IMapView&                 map_view) const;
