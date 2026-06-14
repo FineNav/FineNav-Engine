@@ -297,6 +297,10 @@ finenav_mppi_controller:
       type: double
       default_value: 1.0
       description: "Maximum allowed yaw error to furthest path point (rad)"
+    forward_preference:
+      type: bool
+      default_value: true
+      description: "If true, only forward-facing angles are considered; if false, both forward and reverse directions are evaluated (requires vx_min < 0 for reverse to be physically meaningful)"
 
   ObstaclesCritic:
     enabled:

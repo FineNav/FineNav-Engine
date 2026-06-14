@@ -146,6 +146,7 @@
         offset_from_furthest: 15
         threshold_to_consider: 0.5
         max_angle_to_furthest: 1.0
+        forward_preference: true    # true=只考虑前向角度; false=同时评估前向与倒车方向（需要 vx_min < 0）
 
       # VelocityDeadbandCritic：惩罚死区内的速度（防止低速抖动）
       VelocityDeadbandCritic:

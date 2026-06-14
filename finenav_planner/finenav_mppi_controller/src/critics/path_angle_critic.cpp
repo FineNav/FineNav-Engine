@@ -30,11 +30,11 @@ void PathAngleCritic::initialize(const finenav_mppi_controller::Params & p)
   offset_from_furthest_  = static_cast<size_t>(c.offset_from_furthest);
   threshold_to_consider_ = static_cast<float>(c.threshold_to_consider);
   max_angle_to_furthest_ = static_cast<float>(c.max_angle_to_furthest);
+  forward_preference_    = c.forward_preference;
 
-  // Determine reversing capability from top-level vx_min
-  const float vx_min = static_cast<float>(p.vx_min);
-  reversing_allowed_  = (vx_min < 0.0f);
-  forward_preference_ = !reversing_allowed_;
+  // Determine reversing capability from top-level vx_min (physical capability)
+  const float vx_min   = static_cast<float>(p.vx_min);
+  reversing_allowed_    = (vx_min < 0.0f);
 }
 
 void PathAngleCritic::score(CriticData & data, const IMapView& map_view)
