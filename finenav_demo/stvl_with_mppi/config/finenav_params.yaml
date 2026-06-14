@@ -103,4 +103,4 @@ hello_finenav/route_layer:
   ros__parameters:
     route_planner:
       path_density: 0.05
-      min_approach_angle_deg: 120
+      min_approach_angle_deg: 120.0
