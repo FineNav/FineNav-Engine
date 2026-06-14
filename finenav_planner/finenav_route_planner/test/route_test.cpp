@@ -210,6 +210,53 @@ const char* kIsolatedNodeGraph = R"json(
 }
 )json";
 
+// Two nodes A(0,0) and B(10,0) connected by a dense polyline edge
+// with intermediate points at every 2 m.  This enables path-point snapping.
+const char* kDensePathGraph = R"json(
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"id":0,"frame":"A"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[10,0]},"properties":{"id":1,"frame":"B"}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[0,0],[2,0],[4,0],[6,0],[8,0],[10,0]]},"properties":{"id":100,"startid":0,"endid":1}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[10,0],[8,0],[6,0],[4,0],[2,0],[0,0]]},"properties":{"id":101,"startid":1,"endid":0}}
+  ]
+}
+)json";
+
+// Three-node chain A(0,0) — B(10,0) — C(20,0) with dense polylines.
+// Used to test U-turn prevention: robot near mid-path should enter the
+// graph at the nearest path point and go forward toward the goal instead
+// of backtracking to a node.
+const char* kThreeNodeChainGraph = R"json(
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"id":0,"frame":"A"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[10,0]},"properties":{"id":1,"frame":"B"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[20,0]},"properties":{"id":2,"frame":"C"}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[0,0],[2,0],[4,0],[6,0],[8,0],[10,0]]},"properties":{"id":100,"startid":0,"endid":1}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[10,0],[8,0],[6,0],[4,0],[2,0],[0,0]]},"properties":{"id":101,"startid":1,"endid":0}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[10,0],[12,0],[14,0],[16,0],[18,0],[20,0]]},"properties":{"id":102,"startid":1,"endid":2}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[20,0],[18,0],[16,0],[14,0],[12,0],[10,0]]},"properties":{"id":103,"startid":2,"endid":1}}
+  ]
+}
+)json";
+
+// A single edge with a dense polyline: A(0,0) → B(10,10) via intermediate points.
+// Tests path snapping on a diagonal edge.
+const char* kDiagonalDenseGraph = R"json(
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"id":0}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[10,10]},"properties":{"id":1}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[0,0],[2,2],[4,4],[6,6],[8,8],[10,10]]},"properties":{"id":100,"startid":0,"endid":1}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[10,10],[8,8],[6,6],[4,4],[2,2],[0,0]]},"properties":{"id":101,"startid":1,"endid":0}}
+  ]
+}
+)json";
+
 }  // namespace
 
 // =========================================================================
@@ -542,4 +589,211 @@ TEST(RoutePathSearch, PlanFails_WhenStartCellItselfIsBlocked)
     TestMapView view(grid, 1.0);
 
     EXPECT_FALSE(planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view).has_value());
+}
+
+// =========================================================================
+// Path-point snapping (new: snap to intermediate polyline points)
+// =========================================================================
+
+TEST(RoutePathSearch, Plan_SnapsToPathPoint_WhenRobotNearPathMidpoint)
+{
+    // Robot at (5, 1) — near the midpoint of the A(0,0)→B(10,0) dense edge.
+    // With path-snapping, BFS should find the point (4,0) or (6,0) on the
+    // edge's polyline and snap there, rather than going all the way to node A or B.
+    TempFile graph(kDensePathGraph);
+    auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
+    astar::GridMap grid(12, 12);
+    TestMapView view(grid, 1.0);
+
+    // Robot at (5, 1), goal at (5.5, 0.5) — both near the path midpoint
+    auto result = planner.plan(makeCtx(5.0, 1.0, 5.5, 0.5), view);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 2u);
+
+    // First point should be near robot pose
+    EXPECT_NEAR(result->poses.front().position.x, 5.0, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 1.0, 1e-6);
+
+    // Last point near goal
+    EXPECT_NEAR(result->poses.back().position.x, 5.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
+
+    // The total path length should be short — the robot enters the graph
+    // at a nearby path point and exits nearby, avoiding long detours to nodes.
+    const double len = pathLength(result->poses);
+    // Direct distance robot→goal ≈ 0.7 m.  Connectors should be short
+    // because both snap near the path midpoint.
+    EXPECT_LT(len, 5.0);   // well under what node-only snapping would give (~10 m)
+
+    // Intermediate poses should include a point on the path (y ≈ 0)
+    bool has_path_point = false;
+    for (const auto& p : result->poses) {
+        if (std::abs(p.position.y) < 1e-4 && p.position.x > 0.0 && p.position.x < 10.0)
+            has_path_point = true;
+    }
+    EXPECT_TRUE(has_path_point);
+}
+
+TEST(RoutePathSearch, Plan_ShortConnector_WhenRobotNearDensePathFarFromNodes)
+{
+    // Robot at (5, 0.5) — geometrically near the path midpoint, far from nodes.
+    // Goal at (9.5, 0.5) — near node B.
+    // Without path-snapping, robot would walk to node A (0,0) or B (10,0) first.
+    // With path-snapping, it should enter at the nearest path point (~5,0).
+    TempFile graph(kDensePathGraph);
+    auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
+    astar::GridMap grid(12, 12);
+    TestMapView view(grid, 1.0);
+
+    auto result = planner.plan(makeCtx(5.0, 0.5, 9.5, 0.5), view);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 3u);
+
+    // First point near robot
+    EXPECT_NEAR(result->poses.front().position.x, 5.0, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 0.5, 1e-6);
+
+    // The connector should be short: robot goes to a path point near (5, 0),
+    // not all the way to node A at (0, 0) or node B at (10, 0).
+    // Verify that a point near (5, 0) appears early in the path.
+    bool has_midpoint_entry = false;
+    for (size_t i = 0; i < std::min(size_t(5), result->poses.size()); ++i) {
+        const auto& p = result->poses[i];
+        if (std::hypot(p.position.x - 5.0, p.position.y) < 1.0)
+            has_midpoint_entry = true;
+    }
+    EXPECT_TRUE(has_midpoint_entry);
+
+    // Total path should be significantly shorter than node-only snapping
+    // (which would be ~0.7m robot→A + 10m A→B + 0.7m B→goal ≈ 11.4m)
+    const double len = pathLength(result->poses);
+    EXPECT_LT(len, 8.0);
+}
+
+TEST(RoutePathSearch, Plan_ThreeNodeChain_RobotEntersAtMidPath_GoesForward)
+{
+    // Graph: A(0,0) — B(10,0) — C(20,0).
+    // Robot at (8, 2), goal near C at (18, 0.5).
+    // With path-snapping: robot enters the A-B edge at ~8,0, goes forward
+    // through B to C, then to goal.  No backtracking toward A.
+    // Without path-snapping: BFS might find node A or B first, potentially
+    // causing a detour.
+    TempFile graph(kThreeNodeChainGraph);
+    auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
+    astar::GridMap grid(22, 12);
+    TestMapView view(grid, 1.0);
+
+    auto result = planner.plan(makeCtx(8.0, 2.0, 18.0, 0.5), view);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 3u);
+
+    // First point near robot
+    EXPECT_NEAR(result->poses.front().position.x, 8.0, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 2.0, 1e-6);
+
+    // Last point near goal
+    EXPECT_NEAR(result->poses.back().position.x, 18.0, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
+
+    // The path should visit node B (10, 0) somewhere in the middle
+    bool has_node_b = false;
+    for (const auto& p : result->poses) {
+        if (std::hypot(p.position.x - 10.0, p.position.y) < 1e-4)
+            has_node_b = true;
+    }
+    EXPECT_TRUE(has_node_b);
+
+    // The non-connector portion of the path should go forward (x increasing).
+    // Check that after the point with y ≈ 0 (entry onto the graph), x-coordinates
+    // are monotonically non-decreasing (no backtracking toward A at x=0).
+    bool on_graph = false;
+    double prev_x = -std::numeric_limits<double>::infinity();
+    for (const auto& p : result->poses) {
+        if (std::abs(p.position.y) < 1e-4) on_graph = true;  // entered the graph
+        if (on_graph) {
+            EXPECT_GE(p.position.x, prev_x - 1e-6)
+                << "Backtracking detected after entering graph at x=" << p.position.x;
+            prev_x = p.position.x;
+        }
+    }
+
+    // Crucially, the path must NOT backtrack to node A (x=0).
+    for (const auto& p : result->poses) {
+        EXPECT_GT(p.position.x, 1.0) << "Path should not go back to node A at x=0";
+    }
+
+    // Total length should be reasonable: ~2.8m robot→path + ~10m path + 0.5m goal
+    const double len = pathLength(result->poses);
+    EXPECT_GT(len, 8.0);
+    EXPECT_LT(len, 16.0);
+}
+
+TEST(RoutePathSearch, Plan_SnapsToNode_WhenNodeIsCloserThanAnyPathPoint)
+{
+    // Robot at (0.5, 0.5) — geometrically closer to node A(0,0) than to any
+    // intermediate path point.  Should still snap to the node (existing behavior).
+    TempFile graph(kDensePathGraph);
+    auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
+    astar::GridMap grid(12, 12);
+    TestMapView view(grid, 1.0);
+
+    auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
+    ASSERT_TRUE(result.has_value());
+
+    // Node A (0, 0) should appear — robot snaps to it
+    bool has_node_a = false;
+    for (const auto& p : result->poses) {
+        if (std::hypot(p.position.x - 0.0, p.position.y - 0.0) < 1e-4)
+            has_node_a = true;
+    }
+    EXPECT_TRUE(has_node_a);
+}
+
+TEST(RoutePathSearch, Plan_DiagonalDenseEdge_SnapsToPathPoint)
+{
+    // Robot at (5.5, 4.5) — near the diagonal path between (0,0) and (10,10).
+    // Goal at (9.5, 9.5) — near the end node.
+    // Path-snapping should enter the graph at the nearest diagonal path point.
+    TempFile graph(kDiagonalDenseGraph);
+    auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
+    astar::GridMap grid(12, 12);
+    TestMapView view(grid, 1.0);
+
+    auto result = planner.plan(makeCtx(5.5, 4.5, 9.5, 9.5), view);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 2u);
+
+    // First point near robot
+    EXPECT_NEAR(result->poses.front().position.x, 5.5, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 4.5, 1e-6);
+
+    // Last point near goal
+    EXPECT_NEAR(result->poses.back().position.x, 9.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 9.5, 1e-6);
+
+    // Should include points on the diagonal (y ≈ x)
+    bool has_diag_point = false;
+    for (const auto& p : result->poses) {
+        if (std::abs(p.position.x - p.position.y) < 0.2 &&
+            p.position.x > 0.0 && p.position.x < 10.0)
+            has_diag_point = true;
+    }
+    EXPECT_TRUE(has_diag_point);
+}
+
+TEST(RoutePathSearch, PlanFails_WhenNoGraphPointIsReachable)
+{
+    // Same as PlanFails_WhenNoNodeIsReachableFromRobot — but with a graph that
+    // also has path points.  All are walled off, so the search must still fail.
+    TempFile graph(kDensePathGraph);
+    auto planner = makePlanner(graph.path());
+
+    // Wall off the entire graph area
+    astar::GridMap grid(12, 12);
+    for (int x = 0; x < 11; ++x)
+        for (int y = 0; y < 2; ++y)
+            grid.setObstacle(x, y, true);
+    TestMapView view(grid, 1.0);
+
+    EXPECT_FALSE(planner.plan(makeCtx(5.0, 5.0, 10.0, 5.0), view).has_value());
 }
