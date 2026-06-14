@@ -39,8 +39,8 @@
                     <IsGoalReached  robot_pose="{robot_pose}"
                                     robot_twist="{robot_twist}"
                                     goal="{goal}"
-                                    tolerance="0.50"
-                                    speed_tolerance="1.0"/>
+                                    tolerance="0.25"
+                                    speed_tolerance="0.5"/>
                     <Sequence name="RouteThenMppi">
                         <ComputePlan action_name="/hello_finenav/route_layer"
                                      goal="{goal}"
