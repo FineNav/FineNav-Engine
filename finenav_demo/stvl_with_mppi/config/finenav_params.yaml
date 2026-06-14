@@ -69,7 +69,7 @@ hello_finenav:
       # 设为 true 则用简单的 Z 高度阈值判断障碍物（忽略坡度等复杂分析）。
       # 每个栅格柱上的最高 voxel z 超过 robot_pose_z + z_obstacle_threshold 即为障碍。
       use_simple_z_threshold: true
-      z_obstacle_threshold: 0.3    # [m] 高于机器人当前 Z 多少即视为障碍
+      z_obstacle_threshold: 0.03    # [m] 高于机器人当前 Z 多少即视为障碍
     stvl_manager:
       decay_time_sec: 2.0
       decay_time_fov_sec: 2.0
@@ -82,7 +82,7 @@ hello_finenav:
       # 机器人本体坐标系：X=前, Y=左, Z=上。所有值均为正数，表示从机器人中心
       # 到对应方向边缘的距离。当 front 参数存在时优先使用非对称模式，
       # 否则回退到对称的 length/width/height。
-      front:  0.8   # [m] 机器人中心 → 前方边缘 (+X)
+      front:  1.1   # [m] 机器人中心 → 前方边缘 (+X)
       back:   0.3   # [m] 机器人中心 → 后方边缘 (-X，取正)
       left:   0.4   # [m] 机器人中心 → 左侧边缘 (+Y)
       right:  0.4   # [m] 机器人中心 → 右侧边缘 (-Y，取正)
