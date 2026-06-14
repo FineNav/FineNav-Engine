@@ -141,6 +141,7 @@ private:
 
     // ── Parameters ────────────────────────────────────────────
     double path_density_ = 0.05;
+    double min_approach_angle_deg_ = 0.0;
 };
 
 } // namespace finenav

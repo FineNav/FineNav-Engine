@@ -60,6 +60,11 @@ public:
     using GetCostFn    = std::function<double(const Vec3&)>;
     using IsGoalFn     = std::function<bool(const Vec3&)>;
 
+    /// Optional filter for findPathToAny — when a goal cell is found,
+    /// return true to accept (stop) or false to reject (continue searching).
+    /// nullptr means accept all goals (default behaviour).
+    using GoalFilterFn = std::function<bool(const Vec3&)>;
+
     AStarAlgorithm(IsWalkableFn is_walkable, GetCostFn get_cost);
 
     // ── setters ───────────────────────────────────────────────
@@ -79,7 +84,14 @@ public:
     /// Dijkstra (h=0) search to *any* cell accepted by is_goal.
     /// Useful for nearest-neighbour queries where the goal set is dynamic.
     /// The configured heuristic_ is ignored; h is forced to 0.
-    std::optional<std::vector<Vec3>> findPathToAny(const Vec3& start, IsGoalFn is_goal);
+    ///
+    /// When accept_goal is provided: a goal cell that passes is_goal but
+    /// fails accept_goal causes the search to continue (recorded as fallback).
+    /// If no goal passes accept_goal, the best fallback is returned.
+    std::optional<std::vector<Vec3>> findPathToAny(
+        const Vec3& start,
+        IsGoalFn    is_goal,
+        GoalFilterFn accept_goal = nullptr);
 
 private:
     std::vector<Vec3> reconstructPath(const Vec3& goal) const;

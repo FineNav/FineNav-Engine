@@ -117,10 +117,16 @@ std::vector<Vec3> AStarAlgorithm::reconstructPath(const Vec3& goal) const
 // we cannot compute a valid admissible heuristic, so we fall back to
 // uniform-cost expansion.  This is correct (optimal) and consistent with
 // BFS on weighted grids.
+//
+// When accept_goal is provided: a goal cell that passes is_goal but fails
+// accept_goal causes the search to continue (it is recorded as a fallback).
+// If no goal passes accept_goal, the best (lowest-g) fallback is returned
+// so the caller always gets a result when any goal cell is reachable.
 
 std::optional<std::vector<Vec3>> AStarAlgorithm::findPathToAny(
     const Vec3& start,
-    IsGoalFn    is_goal)
+    IsGoalFn    is_goal,
+    GoalFilterFn accept_goal)
 {
     if (!is_walkable_(start))
         return std::nullopt;
@@ -141,6 +147,8 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPathToAny(
     open_set_.push(start_node);
     came_from_[start] = start_node;
 
+    std::optional<Vec3> best_fallback;   // best rejected goal (lowest g)
+
     while (!open_set_.empty())
     {
         if (max_iterations_ >= 0 && iterations++ > max_iterations_)
@@ -158,7 +166,14 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPathToAny(
         visited_.insert(current.pos);
 
         if (is_goal(current.pos))
-            return reconstructPath(current.pos);
+        {
+            if (!accept_goal || accept_goal(current.pos))
+                return reconstructPath(current.pos);
+
+            // Goal found but rejected — record as fallback, continue search
+            if (!best_fallback.has_value())
+                best_fallback = current.pos;
+        }
 
         for (const Vec3& nb_pos : getNeighbors(current.pos, connectivity_))
         {
@@ -183,6 +198,10 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPathToAny(
             }
         }
     }
+
+    // No accepted goal found — fall back to the best rejected goal
+    if (best_fallback.has_value())
+        return reconstructPath(*best_fallback);
 
     return std::nullopt;
 }

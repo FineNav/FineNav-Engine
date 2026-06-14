@@ -20,7 +20,8 @@ namespace finenav {
 
 void RoutePathSearch::configure(const ConfigType& params)
 {
-    path_density_ = params.path_density;
+    path_density_             = params.path_density;
+    min_approach_angle_deg_   = params.min_approach_angle_deg;
 }
 
 // ── updateGraph ────────────────────────────────────────────────────────────
@@ -242,13 +243,47 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
         return cell_nodes.contains(c) || cell_path_pts.contains(c);
     };
 
+    // ── Angle filter for path-point snapping ─────────────────────────────
+    // Rejects goal cells whose path-point candidates all have approach angles
+    // below min_approach_angle_deg_, causing the Dijkstra to continue past them.
+    // Nodes are always accepted (no angle check for nodes).
+    astar::AStarAlgorithm::GoalFilterFn accept_goal = nullptr;
+    if (min_approach_angle_deg_ > 0.0) {
+        accept_goal = [&](const astar::Vec3& c) -> bool {
+            // Nodes are always acceptable
+            if (cell_nodes.contains(c)) return true;
+            // For path-point cells, check whether any candidate passes
+            if (cell_path_pts.contains(c)) {
+                for (const auto& ppi : cell_path_pts.at(c)) {
+                    // approach direction: robot pose → candidate point
+                    const double adx = ppi.world_pos.x() - pose.position.x;
+                    const double ady = ppi.world_pos.y() - pose.position.y;
+                    const double ad_norm = std::hypot(adx, ady);
+                    if (ad_norm < 1e-9) continue;
+                    // path tangent: polyline[pt+1] − polyline[pt−1]
+                    const auto& pl = graph.adj[ppi.from_node][ppi.edge_idx].polyline;
+                    const double tdx = pl[ppi.pt_idx + 1].first  - pl[ppi.pt_idx - 1].first;
+                    const double tdy = pl[ppi.pt_idx + 1].second - pl[ppi.pt_idx - 1].second;
+                    const double td_norm = std::hypot(tdx, tdy);
+                    if (td_norm < 1e-9) continue;
+                    const double cos_angle = (adx * tdx + ady * tdy) / (ad_norm * td_norm);
+                    const double angle_deg =
+                        std::acos(std::clamp(cos_angle, -1.0, 1.0)) * 180.0 / M_PI;
+                    if (angle_deg >= min_approach_angle_deg_) return true;
+                }
+                return false;   // no path point in this cell passes
+            }
+            return false;   // neither node nor path point (should not happen)
+        };
+    }
+
     astar::AStarAlgorithm algo(is_walkable, get_cost);
     algo.setConnectivity(astar::Connectivity::N8);
     algo.setHeuristic(astar::Heuristic::Zero);
     algo.setMaxIterations(-1);
     algo.setMaxPlanningTime(5.0); // TODO: 后面这些应该也成为动态参数
 
-    const auto path = algo.findPathToAny(origin, is_goal);
+    const auto path = algo.findPathToAny(origin, is_goal, accept_goal);
     if (!path || path->empty()) return {};
 
     const astar::Vec3& goal_cell = path->back();
@@ -278,6 +313,25 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
     // Check path points in the goal cell
     if (cell_path_pts.contains(goal_cell)) {
         for (const auto& ppi : cell_path_pts.at(goal_cell)) {
+            // ── Angle filter: skip path points whose approach angle is too small ──
+            if (min_approach_angle_deg_ > 0.0) {
+                const double adx = ppi.world_pos.x() - pose.position.x;
+                const double ady = ppi.world_pos.y() - pose.position.y;
+                const double ad_norm = std::hypot(adx, ady);
+                if (ad_norm > 1e-9) {
+                    const auto& pl = graph.adj[ppi.from_node][ppi.edge_idx].polyline;
+                    const double tdx = pl[ppi.pt_idx + 1].first  - pl[ppi.pt_idx - 1].first;
+                    const double tdy = pl[ppi.pt_idx + 1].second - pl[ppi.pt_idx - 1].second;
+                    const double td_norm = std::hypot(tdx, tdy);
+                    if (td_norm > 1e-9) {
+                        const double cos_angle = (adx * tdx + ady * tdy) / (ad_norm * td_norm);
+                        const double angle_deg =
+                            std::acos(std::clamp(cos_angle, -1.0, 1.0)) * 180.0 / M_PI;
+                        if (angle_deg < min_approach_angle_deg_) continue;  // skip this candidate
+                    }
+                }
+            }
+
             const double d = std::hypot(ppi.world_pos.x() - pose.position.x,
                                         ppi.world_pos.y() - pose.position.y);
             if (d < best_dist) {
