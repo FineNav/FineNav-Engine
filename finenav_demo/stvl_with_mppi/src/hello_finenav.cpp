@@ -114,6 +114,15 @@ int main(int argc, char** argv) {
     node->declare_parameter("obs_cov.odom_twist_cov_ang_y",  0.01);    // 信任 pitch rate
     node->declare_parameter("obs_cov.odom_twist_cov_ang_z",  0.01);    // 信任 yaw rate
 
+    // ── MPPI Pre-Plan 运动装饰器参数 ─────────────────────────────────────────
+    // TrimByDistance: 仅保留前方 N 米参考轨迹点供 MPPI 优化窗口使用
+    node->declare_parameter("mppi_pre_plan.trim_distance_m", 3.0);
+    // SmoothPath: 对拓扑规划输出的折线做拉普拉斯平滑
+    node->declare_parameter("mppi_pre_plan.smooth_path.data_weight",    0.2);
+    node->declare_parameter("mppi_pre_plan.smooth_path.smooth_weight",  0.3);
+    node->declare_parameter("mppi_pre_plan.smooth_path.tolerance",      1.0e-4);
+    node->declare_parameter("mppi_pre_plan.smooth_path.max_iterations", 1000);
+
     // /localization_pose → PoseWithCovarianceStamped (global pose, no velocity)
     // 策略: 信任 x/y/z/yaw，不信任 roll/pitch（全局位姿无重力对齐参考）
     static std::atomic<bool> localizer_initialized{false};
@@ -414,7 +423,12 @@ int main(int argc, char** argv) {
         // ctx.ref_traj | finenav::TrimByDistance(max_dist);
 
         // 3. 平滑参考轨迹（拓扑规划输出的折线做拉普拉斯平滑）
-        ctx.ref_traj | finenav::SmoothPath();
+        //    参数通过 YAML 配置，支持运行时 ros2 param set 动态调整
+        const double smooth_data_w   = node->get_parameter("mppi_pre_plan.smooth_path.data_weight").as_double();
+        const double smooth_smooth_w = node->get_parameter("mppi_pre_plan.smooth_path.smooth_weight").as_double();
+        const double smooth_tol      = node->get_parameter("mppi_pre_plan.smooth_path.tolerance").as_double();
+        const int    smooth_max_iter = node->get_parameter("mppi_pre_plan.smooth_path.max_iterations").as_int();
+        ctx.ref_traj | finenav::SmoothPath(smooth_data_w, smooth_smooth_w, smooth_tol, smooth_max_iter);
 
         // 发布平滑后、裁剪前的完整路径
         {
@@ -430,8 +444,10 @@ int main(int argc, char** argv) {
             smooth_path_pub->publish(smooth_msg);
         }
 
-        // 4. 只保留前方 3m 的轨迹点，MPPI 窗口够用即可
-        ctx.ref_traj | finenav::TrimByDistance(3.0);
+        // 4. 只保留前方 N 米的轨迹点，MPPI 窗口够用即可
+        //    N 通过 mppi_pre_plan.trim_distance_m 参数配置
+        const double trim_dist = node->get_parameter("mppi_pre_plan.trim_distance_m").as_double();
+        ctx.ref_traj | finenav::TrimByDistance(trim_dist);
 
         // [DEBUG] 发布裁减后的参考轨迹供 RViz 可视化验证
         {

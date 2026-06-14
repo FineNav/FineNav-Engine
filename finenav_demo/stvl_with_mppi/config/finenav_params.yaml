@@ -71,7 +71,7 @@ hello_finenav:
       # 设为 true 则用简单的 Z 高度阈值判断障碍物（忽略坡度等复杂分析）。
       # 每个栅格柱上的最高 voxel z 超过 robot_pose_z + z_obstacle_threshold 即为障碍。
       use_simple_z_threshold: true
-      z_obstacle_threshold: 0.03    # [m] 高于机器人当前 Z 多少即视为障碍
+      z_obstacle_threshold: 0.05    # [m] 高于机器人当前 Z 多少即视为障碍
     stvl_manager:
       decay_time_sec: 2.0
       decay_time_fov_sec: 2.0
@@ -94,6 +94,17 @@ hello_finenav:
       length: 1.4  # OBB 长轴 [m]，对应机器人前后方向
       width:  1.0  # OBB 短轴 [m]，对应机器人左右方向
       height: 0.0  # OBB 高度 [m]，0 表示 2D 模型
+
+    # ── MPPI Pre-Plan 运动装饰器参数 ─────────────────────────────────
+    # TrimByDistance: 仅保留前方 N 米的参考轨迹点供 MPPI 优化
+    # SmoothPath: 对拓扑规划输出的折线做拉普拉斯平滑
+    mppi_pre_plan:
+      trim_distance_m: 5.0           # TrimByDistance 最大保留弧长 [m]
+      smooth_path:
+        data_weight: 0.2             # 数据项权重，越大越贴近原始路径
+        smooth_weight: 0.3           # 平滑项权重，越大曲线越光滑
+        tolerance: 1.0e-4            # 收敛容差
+        max_iterations: 1000         # 最大迭代次数
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RoutePathSearch（拓扑路网规划）

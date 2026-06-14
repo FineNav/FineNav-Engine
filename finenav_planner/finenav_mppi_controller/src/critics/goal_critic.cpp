@@ -32,8 +32,12 @@ void GoalCritic::initialize(const finenav_mppi_controller::Params & p)
 
 void GoalCritic::score(CriticData & data, const IMapView& map_view)
 {
-  if (!this->enabled_ )
-  {
+  if (!this->enabled_) {
+    return;
+  }
+
+  // Only activate when robot is near the goal pose
+  if (!utils::withinPositionGoalTolerance(threshold_to_consider_, data.state.pose.pose, data.path)) {
     return;
   }
 

@@ -52,13 +52,20 @@ void NoiseGenerator::shutdown()
 
 void NoiseGenerator::generateNextNoises()
 {
-  // Trigger the thread to run in parallel to this iteration
-  // to generate the next iteration's noises (if applicable).
-  {
-    std::unique_lock<std::mutex> guard(noise_lock_);
-    ready_ = true;
+  if (regenerate_noises_) {
+    // Trigger the thread to run in parallel to this iteration
+    // to generate the next iteration's noises (if applicable).
+    {
+      std::unique_lock<std::mutex> guard(noise_lock_);
+      ready_ = true;
+    }
+    noise_cond_.notify_all();
+  } else {
+    // No async thread — generate fresh noises directly every cycle.
+    // Without this, MPPI reuses the same noise matrix every iteration,
+    // losing stochastic exploration and causing deterministic oscillations.
+    generateNoisedControls();
   }
-  noise_cond_.notify_all();
 }
 
 void NoiseGenerator::setNoisedControls(
