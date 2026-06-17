@@ -13,7 +13,6 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     finenav_demo_pkg_dir = get_package_share_directory('finenav_demo')
-    finenav_route_pkg_dir = get_package_share_directory('finenav_route')
     mppi_params_file = os.path.join(
         finenav_demo_pkg_dir,
         'config',
@@ -36,7 +35,7 @@ def generate_launch_description():
         description='If true, bridge finds nearest route node to current pose as start.')
 
 
-#finenav_simulator_pkg_dir = get_package_share_directory('finenav_simulator')
+    #finenav_simulator_pkg_dir = get_package_share_directory('finenav_simulator')
     #finenav_simulator_launch_file = os.path.join(
     #    finenav_simulator_pkg_dir,
     #    'launch',
@@ -75,27 +74,9 @@ def generate_launch_description():
         ]
     )
 
-    start_compute_path_bridge = Node(
-        package='finenav_route',
-        executable='compute_path_bridge_node',
-        output='screen',
-        parameters=[{
-            'use_sim_time': False,
-            'action_name': '/compute_path',
-            'navigator_action_name': '/hello_finenav/navigate_to_pose',
-            'navigator_behavior_tree': 'RouteNavigateToPose',
-            'path_topic': '/hello_finenav/line_path',
-            'nav_state_topic': '/nav_state',
-            'use_current_pose_as_start': LaunchConfiguration('use_current_pose_as_start'),
-            'connector_density': 0.05,
-        }],
-    )
-
     ld = LaunchDescription()
-    #ld.add_action(start_finenav_simulator)
     ld.add_action(start_hello_finenav)
     ld.add_action(start_goal_pose_bridge)
     ld.add_action(declare_use_current_pose_as_start)
-    ld.add_action(start_compute_path_bridge)
 
     return ld

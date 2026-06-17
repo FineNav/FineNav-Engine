@@ -11,7 +11,6 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     finenav_demo_pkg_dir = get_package_share_directory('finenav_demo')
-    finenav_route_pkg_dir = get_package_share_directory('finenav_route')
 
     mppi_params_file = os.path.join(
         finenav_demo_pkg_dir, 'config', 'mppi_params.yaml')
@@ -37,25 +36,7 @@ def generate_launch_description():
         ],
     )
 
-    start_compute_path_bridge = Node(
-        package='finenav_route',
-        executable='compute_path_bridge_node',
-        output='screen',
-        parameters=[{
-            'use_sim_time': False,
-            'action_name': '/compute_path',
-            'navigator_action_name': '/route_finenav/navigate_to_pose',
-            'navigator_behavior_tree': 'RouteNavigateToPose',
-            'path_topic': '/route_finenav/line_path',
-            'nav_state_topic': '/nav_state',
-            'use_current_pose_as_start': LaunchConfiguration('use_current_pose_as_start'),
-            'connector_density': 0.05,
-        }],
-    )
-
     ld = LaunchDescription()
     ld.add_action(declare_use_current_pose_as_start)
-    ld.add_action(start_route_finenav)
-    ld.add_action(start_compute_path_bridge)
 
     return ld
