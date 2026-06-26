@@ -23,16 +23,6 @@
 namespace nav2_mppi_controller
 {
 
-//template <typename MapView>
-//void MPPIController<MapView>::visualize(
-//  nav_msgs::msg::Path transformed_plan,
-//  const builtin_interfaces::msg::Time & cmd_stamp,
-//  double z_height)
-//{
-//  trajectory_visualizer_.add(optimizer_.getGeneratedTrajectories(), "Candidate Trajectories", z_height);
-//  trajectory_visualizer_.add(optimizer_.getOptimizedTrajectory(), "Optimal Trajectory", cmd_stamp, z_height);
-//  trajectory_visualizer_.visualize(std::move(transformed_plan));
-//}
 
 void MPPIController::setPlan(const nav_msgs::msg::Path & path)
 {
@@ -44,11 +34,5 @@ void MPPIController::setSpeedLimit(const double & speed_limit, const bool & perc
   optimizer_.setSpeedLimit(speed_limit, percentage);
 }
 
-//FINENAV_REGISTER_ALGO_CONFIG(nav2_mppi_controller::MPPIController, finenav_mppi_controller)
-//FINENAV_REGISTER_PLANNER_TRAITS(nav2_mppi_controller::MPPIController,
-//    finenav::TraitMask::NONE,
-//    finenav::TraitMask::POSE)
 }  // namespace nav2_mppi_controller
 
-//#include "pluginlib/class_list_macros.hpp"
-//PLUGINLIB_EXPORT_CLASS(nav2_mppi_controller::MPPIController, nav2_core::Controller)

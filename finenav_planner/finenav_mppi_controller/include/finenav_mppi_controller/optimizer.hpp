@@ -38,7 +38,6 @@
 #include "finenav_mppi_controller/models/trajectories.hpp"
 #include "finenav_mppi_controller/models/path.hpp"
 #include "finenav_mppi_controller/tools/noise_generator.hpp"
-//#include "finenav_mppi_controller/tools/parameters_handler.hpp"
 #include "finenav_mppi_controller/tools/utils.hpp"
 #include "finenav_mppi_controller/map_view_def.hpp"
 #include "finenav_mppi_controller/finenav_mppi_controller_params.hpp"
@@ -618,7 +617,6 @@ protected:
 
   std::shared_ptr<MotionModel> motion_model_;
 
-//  ParametersHandler * parameters_handler_;
   CriticManager critic_manager_;
   NoiseGenerator noise_generator_;
   std::vector<std::unique_ptr<critics::CriticFunction>> critics_;

@@ -25,7 +25,6 @@
 #include <xtensor/xview.hpp>
 #include <xtensor/xnoalias.hpp>
 
-//#include "finenav_mppi_controller/tools/parameters_handler.hpp"
 
 namespace mppi
 {

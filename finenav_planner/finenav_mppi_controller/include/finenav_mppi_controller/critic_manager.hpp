@@ -25,7 +25,6 @@
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-//#include "finenav_mppi_controller/tools/parameters_handler.hpp"
 #include "finenav_mppi_controller/tools/utils.hpp"
 #include "finenav_mppi_controller/critic_data.hpp"
 #include "finenav_mppi_controller/critic_function.hpp"
@@ -34,9 +33,7 @@
 #include "finenav_mppi_controller/critics/cost_critic.hpp"
 #include "finenav_mppi_controller/critics/goal_angle_critic.hpp"
 #include "finenav_mppi_controller/critics/goal_critic.hpp"
-#include "finenav_mppi_controller/critics/obstacles_critic.hpp"
 #include "finenav_mppi_controller/critics/path_align_critic.hpp"
-#include "finenav_mppi_controller/critics/path_align_legacy_critic.hpp"
 #include "finenav_mppi_controller/critics/path_angle_critic.hpp"
 #include "finenav_mppi_controller/critics/path_follow_critic.hpp"
 #include "finenav_mppi_controller/critics/prefer_forward_critic.hpp"

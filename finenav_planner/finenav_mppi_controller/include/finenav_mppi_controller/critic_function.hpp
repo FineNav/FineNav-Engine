@@ -20,7 +20,6 @@
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-//#include "finenav_mppi_controller/tools/parameters_handler.hpp"
 #include "finenav_mppi_controller/critic_data.hpp"
 #include "finenav_mppi_controller/map_view_def.hpp"
 #include "finenav_mppi_controller/finenav_mppi_controller_params.hpp"

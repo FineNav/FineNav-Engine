@@ -86,12 +86,12 @@ void CostCritic::score(CriticData & data,const IMapView& map_view)
     if (!trajectory_collide) {
       all_trajectories_collide = false;
     } else {
-      repulsive_cost[i] = std::numeric_limits<float>::max();
+      repulsive_cost[i] = collision_cost_;
     }
   }
 
   data.costs += xt::pow((weight_ * repulsive_cost / traj_len), power_);
-  data.fail_flag = all_trajectories_collide;
+  data.fail_flag |= all_trajectories_collide;
   RCLCPP_DEBUG(logger_, "Scored");
 }
 

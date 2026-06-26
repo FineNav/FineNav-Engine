@@ -9,10 +9,10 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # 1. critics 列表【无法动态配置】
 #    finenav_mppi_controller 中所有 Critic（ConstraintCritic / CostCritic /
-#    GoalCritic / GoalAngleCritic / ObstaclesCritic / PathAlignCritic /
-#    PathAlignLegacyCritic / PathAngleCritic / PathFollowCritic /
+#    GoalCritic / GoalAngleCritic / PathAlignCritic /
+#    PathAngleCritic / PathFollowCritic /
 #    PreferForwardCritic / TwirlingCritic / VelocityDeadbandCritic）均被
-#    硬编码注册（controller.hpp 75-86 行）。
+#    硬编码注册（controller.hpp 75-85 行）。
 #    若要新增或移除 Critic，需修改源码重新编译。
 #    在本配置文件中通过各 Critic 的 enabled 字段来启用/禁用。
 #
@@ -41,15 +41,15 @@
       motion_model: "DiffDrive"  # 运动模型: DiffDrive | Omni | Ackermann
 
       # ── 速度约束 ──────────────────────────────────────────────────────────
-      vx_max: 0.5             # 最大前向速度 (m/s)
-      vx_min: -0.35           # 最小前向速度（负值允许倒退）
+      vx_max: 1.0             # 最大前向速度 (m/s)
+      vx_min: 0.0           # 最小前向速度（负值允许倒退）
       vy_max: 0.0             # 最大横向速度（差速底盘设为 0）
       wz_max: 2.0            # 最大角速度 (rad/s)
 
       # ── 噪声采样标准差 ────────────────────────────────────────────────────
       vx_std: 0.5             # vx 采样标准差
       vy_std: 0.2             # vy 采样标准差
-      wz_std: 0.4             # wz 采样标准差
+      wz_std: 0.8             # wz 采样标准差
 
       # ══════════════════════════════════════════════════════════════════════
       # Critic 参数
@@ -89,23 +89,8 @@
         cost_power: 1
         cost_weight: 3.81
         critical_cost: 100.0      # costmap 代价 ≥ 253 时施加此惩罚
-        consider_footprint: true  # 使用完整 footprint 检查
         collision_cost: 1000000.0 # 碰撞轨迹惩罚
         near_goal_distance: 1.0   # 距目标 ≤ 此距离时关闭 CostCritic (m)
-        trajectory_point_step: 2  # 评估时跳过的轨迹点数（性能优化）
-
-      # ObstaclesCritic：基于膨胀层的斥力场惩罚（与 CostCritic 二选一）
-      ObstaclesCritic:
-        enabled: false
-        cost_power: 1
-        consider_footprint: true
-        collision_cost: 10.0
-        collision_margin_distance: 0.05
-        critical_weight: 20.0
-        near_goal_distance: 0.5
-        repulsion_weight: 2.5
-        inflation_radius: 0.5     # 膨胀半径 (m)，需与 costmap 膨胀层匹配
-        cost_scaling_factor: 4.0  # 膨胀代价缩放系数，需与 costmap 膨胀层匹配
 
       # PathAlignCritic：鼓励局部轨迹方向与全局路径对齐
       PathAlignCritic:
@@ -117,17 +102,6 @@
         threshold_to_consider: 0.5
         offset_from_furthest: 20        # 只有轨迹规划足够远时才考虑此 Critic
         use_path_orientations: false    # 是否跟随全局规划的朝向（Hybrid A* 时开启）
-
-      # PathAlignLegacyCritic：旧版路径对齐，通常用 PathAlignCritic 代替
-      PathAlignLegacyCritic:
-        enabled: false
-        cost_power: 1
-        cost_weight: 10.0
-        max_path_occupancy_ratio: 0.07
-        trajectory_point_step: 4
-        threshold_to_consider: 0.5
-        offset_from_furthest: 20
-        use_path_orientations: false
 
       # PathFollowCritic：鼓励贴近全局路径（距离最近化）
       PathFollowCritic:
