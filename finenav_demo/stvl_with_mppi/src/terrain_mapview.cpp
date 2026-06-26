@@ -48,7 +48,7 @@ int SimpleGridMapView::getCost(const finenav::Position3D& pos) const {
 }
 
 float SimpleGridMapView::getRadius() const {
-    return collision_model_->getOuterDiameter();
+    return collision_model_->getOuterDiameter() / 2.0f;
 }
 
 float SimpleGridMapView::costAtPose(float x, float y, float theta) const {
