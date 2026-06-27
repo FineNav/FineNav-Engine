@@ -30,6 +30,7 @@ void CostCritic::initialize(const finenav_mppi_controller::Params & p)
   critical_cost_     = static_cast<float>(c.critical_cost);
   collision_cost_    = static_cast<float>(c.collision_cost);
   near_goal_distance_= static_cast<float>(c.near_goal_distance);
+  trajectory_point_step_ = c.trajectory_point_step;
 
   // Normalized by cost value to put in same regime as other weights
   weight_ /= 254.0f;
@@ -39,6 +40,7 @@ void CostCritic::initialize(const finenav_mppi_controller::Params & p)
 
 void CostCritic::score(CriticData & data,const IMapView& map_view)
 {
+  using namespace xt::placeholders;  // NOLINT
   using xt::evaluation_strategy::immediate;
   if (!this->enabled_) {
     return;
@@ -54,31 +56,33 @@ void CostCritic::score(CriticData & data,const IMapView& map_view)
   auto && repulsive_cost = xt::xtensor<float, 1>::from_shape({data.costs.shape(0)});
   repulsive_cost.fill(0.0);
 
-  const size_t traj_len = data.trajectories.x.shape(1);
+  // Strided views — skip trajectory_point_step_ points to reduce evaluation cost
+  const size_t traj_len = static_cast<size_t>(
+      std::floor(static_cast<float>(data.trajectories.x.shape(1)) / trajectory_point_step_));
+  const auto T_x = xt::view(
+      data.trajectories.x, xt::all(), xt::range(0, _, trajectory_point_step_));
+  const auto T_y = xt::view(
+      data.trajectories.y, xt::all(), xt::range(0, _, trajectory_point_step_));
+  const auto T_yaw = xt::view(
+      data.trajectories.yaws, xt::all(), xt::range(0, _, trajectory_point_step_));
+
   bool all_trajectories_collide = true;
   for (size_t i = 0; i < data.trajectories.x.shape(0); ++i) {
     bool trajectory_collide = false;
-    const auto & traj = data.trajectories;
     float pose_cost;
 
     for (size_t j = 0; j < traj_len; j++) {
-      // The costAtPose doesn't use orientation
-      // The footprintCostAtPose will always return "INSCRIBED" if footprint is over it
-      // So the center point has more information than the footprint
-      pose_cost = costAtPose(traj.x(i, j), traj.y(i, j), map_view);
-      if (pose_cost < 1.0f) {continue;}  // In free space
+      pose_cost = costAtPose(T_x(i, j), T_y(i, j), map_view);
+      if (pose_cost < 1.0f) {continue;}
 
-      if (inCollision(traj.x(i, j), traj.y(i, j), traj.yaws(i, j), map_view)) {
+      if (inCollision(T_x(i, j), T_y(i, j), T_yaw(i, j), map_view)) {
         trajectory_collide = true;
         break;
       }
 
-      // Let near-collision trajectory points be punished severely
-      // Note that we collision check based on the footprint actual,
-      // but score based on the center-point cost regardless
       if (pose_cost >= 253) {
         repulsive_cost[i] += critical_cost_;
-      } else if (!near_goal) {  // Generally prefer trajectories further from obstacles
+      } else if (!near_goal) {
         repulsive_cost[i] += pose_cost;
       }
     }
@@ -90,7 +94,7 @@ void CostCritic::score(CriticData & data,const IMapView& map_view)
     }
   }
 
-  data.costs += xt::pow((weight_ * repulsive_cost / traj_len), power_);
+  data.costs += xt::pow((weight_ * repulsive_cost / static_cast<float>(traj_len)), power_);
   data.fail_flag |= all_trajectories_collide;
   RCLCPP_DEBUG(logger_, "Scored");
 }

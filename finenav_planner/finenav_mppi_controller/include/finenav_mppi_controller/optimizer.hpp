@@ -153,12 +153,10 @@ public:
     do {
       optimize(map_view);
     } while (fallback(critics_data_.fail_flag));
-    // utils::savitskyGolayFilter(control_sequence_, control_history_, settings_);
-    auto control = getControlFromSequenceAsTwist(plan.header.stamp, map_view);
+
     if (settings_.shift_control_sequence) {
       shiftControlSequence();
     }
-    // return control;
 }
 
 
@@ -257,10 +255,6 @@ public:
     {
         state_.reset(settings_.batch_size, settings_.time_steps);
         control_sequence_.reset(settings_.time_steps);
-        control_history_[0] = {0.0, 0.0, 0.0};
-        control_history_[1] = {0.0, 0.0, 0.0};
-        control_history_[2] = {0.0, 0.0, 0.0};
-        control_history_[3] = {0.0, 0.0, 0.0};
 
         settings_.constraints = settings_.base_constraints;
 
@@ -280,9 +274,19 @@ protected:
 	void optimize(const nav2_mppi_controller::IMapView& map_view)
 	{
   	for (size_t i = 0; i < settings_.iteration_count; ++i) {
-    	generateNoisedTrajectories();
-    	critic_manager_.evalTrajectoriesScores(critics_data_,map_view);
-    	updateControlSequence();
+        using Clock = std::chrono::steady_clock;
+        auto t0 = Clock::now();
+        generateNoisedTrajectories();
+        auto t1 = Clock::now();
+        critic_manager_.evalTrajectoriesScores(critics_data_, map_view);
+        auto t2 = Clock::now();
+        updateControlSequence();
+        auto t3 = Clock::now();
+        using Ms = std::chrono::duration<double, std::milli>;
+        static rclcpp::Clock clk(RCL_STEADY_TIME);
+        RCLCPP_INFO_THROTTLE(logger_, clk, 1000,
+            "[MPPI-TIMING] generate=%5.2fms  critics=%5.2fms  update=%5.2fms  total=%5.2fms",
+            Ms(t1 - t0).count(), Ms(t2 - t1).count(), Ms(t3 - t2).count(), Ms(t3 - t0).count());
  		}
 	}
   /**
@@ -441,17 +445,12 @@ protected:
         auto traj_y = xt::view(trajectory, xt::all(), 1);
         auto traj_yaws = xt::view(trajectory, xt::all(), 2);
 
-        xt::noalias(traj_yaws) = xt::cumsum(wz * settings_.model_dt, 0) + initial_yaw;
+        xt::noalias(traj_yaws) = xt::cumsum(wz * settings_.model_dt, {0}) + initial_yaw;
 
-        auto && yaw_cos = xt::xtensor<float, 1>::from_shape(traj_yaws.shape());
-        auto && yaw_sin = xt::xtensor<float, 1>::from_shape(traj_yaws.shape());
-
-        const auto yaw_offseted = xt::view(traj_yaws, xt::range(1, _));
-
-        xt::noalias(xt::view(yaw_cos, 0)) = cosf(initial_yaw);
-        xt::noalias(xt::view(yaw_sin, 0)) = sinf(initial_yaw);
-        xt::noalias(xt::view(yaw_cos, xt::range(1, _))) = xt::cos(yaw_offseted);
-        xt::noalias(xt::view(yaw_sin, xt::range(1, _))) = xt::sin(yaw_offseted);
+        auto yaw_cos = xt::roll(xt::eval(xt::cos(traj_yaws)), 1);
+        auto yaw_sin = xt::roll(xt::eval(xt::sin(traj_yaws)), 1);
+        xt::view(yaw_cos, 0) = cosf(initial_yaw);
+        xt::view(yaw_sin, 0) = sinf(initial_yaw);
 
         auto && dx = xt::eval(vx * yaw_cos);
         auto && dy = xt::eval(vx * yaw_sin);
@@ -461,8 +460,8 @@ protected:
             dy = dy + vy * yaw_cos;
         }
 
-        xt::noalias(traj_x) = state_.pose.pose.position.x + xt::cumsum(dx * settings_.model_dt, 0);
-        xt::noalias(traj_y) = state_.pose.pose.position.y + xt::cumsum(dy * settings_.model_dt, 0);
+        xt::noalias(traj_x) = state_.pose.pose.position.x + xt::cumsum(dx * settings_.model_dt, {0});
+        xt::noalias(traj_y) = state_.pose.pose.position.y + xt::cumsum(dy * settings_.model_dt, {0});
     }
 
 	void integrateStateVelocities(
@@ -472,16 +471,12 @@ protected:
 		const float initial_yaw = tf2::getYaw(state.pose.pose.orientation);
 
 		xt::noalias(trajectories.yaws) =
-            xt::cumsum(state.wz * settings_.model_dt, 1) + initial_yaw;
+            xt::cumsum(state.wz * settings_.model_dt, {1}) + initial_yaw;
 
-		const auto yaws_cutted = xt::view(trajectories.yaws, xt::all(), xt::range(0, -1));
-
-		auto && yaw_cos = xt::xtensor<float, 2>::from_shape(trajectories.yaws.shape());
-		auto && yaw_sin = xt::xtensor<float, 2>::from_shape(trajectories.yaws.shape());
-		xt::noalias(xt::view(yaw_cos, xt::all(), 0)) = cosf(initial_yaw);
-		xt::noalias(xt::view(yaw_sin, xt::all(), 0)) = sinf(initial_yaw);
-		xt::noalias(xt::view(yaw_cos, xt::all(), xt::range(1, _))) = xt::cos(yaws_cutted);
-		xt::noalias(xt::view(yaw_sin, xt::all(), xt::range(1, _))) = xt::sin(yaws_cutted);
+		auto yaw_cos = xt::roll(xt::eval(xt::cos(trajectories.yaws)), 1, 1);
+		auto yaw_sin = xt::roll(xt::eval(xt::sin(trajectories.yaws)), 1, 1);
+		xt::view(yaw_cos, xt::all(), 0) = cosf(initial_yaw);
+		xt::view(yaw_sin, xt::all(), 0) = sinf(initial_yaw);
 
 		auto && dx = xt::eval(state.vx * yaw_cos);
 		auto && dy = xt::eval(state.vx * yaw_sin);
@@ -492,9 +487,9 @@ protected:
 		}
 
 		xt::noalias(trajectories.x) = state.pose.pose.position.x +
-            xt::cumsum(dx * settings_.model_dt, 1);
+            xt::cumsum(dx * settings_.model_dt, {1});
 		xt::noalias(trajectories.y) = state.pose.pose.position.y +
-            xt::cumsum(dy * settings_.model_dt, 1);
+            xt::cumsum(dy * settings_.model_dt, {1});
 	}
 
 
@@ -536,26 +531,6 @@ protected:
         applyControlSequenceConstraints();
     }
 
-  /**
-   * @brief Convert control sequence to a twist commant
-   * @param stamp Timestamp to use
-   * @return TwistStamped of command to send to robot base
-   */
-    geometry_msgs::msg::TwistStamped getControlFromSequenceAsTwist(
-        const builtin_interfaces::msg::Time & stamp, const nav2_mppi_controller::IMapView& map_view)
-    {
-        unsigned int offset = settings_.shift_control_sequence ? 1 : 0;
-
-        auto vx = control_sequence_.vx(offset);
-        auto wz = control_sequence_.wz(offset);
-
-        if (isHolonomic()) {
-            auto vy = control_sequence_.vy(offset);
-            return utils::toTwistStamped(vx, vy, wz, stamp, map_view.getBaseFrameID());
-        }
-
-        return utils::toTwistStamped(vx, wz, stamp, map_view.getBaseFrameID());
-    }
   /**
    * @brief Whether the motion model is holonomic
    * @return Bool if holonomic to populate `y` axis of state
@@ -625,7 +600,6 @@ protected:
 
   models::State state_;
   models::ControlSequence control_sequence_;
-  std::array<mppi::models::Control, 4> control_history_;
   models::Trajectories generated_trajectories_;
   models::Path path_;
   xt::xtensor<float, 1> costs_;

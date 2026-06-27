@@ -173,6 +173,12 @@ finenav_mppi_controller:
       type: double
       default_value: 1.0
       description: "Distance from goal where repulsion is disabled (m)"
+    trajectory_point_step:
+      type: int
+      default_value: 2
+      description: "Step between trajectory points (1=every point, 2=skip half)"
+      validation:
+        gt<>: [0]
 
   PathAlignCritic:
     enabled:

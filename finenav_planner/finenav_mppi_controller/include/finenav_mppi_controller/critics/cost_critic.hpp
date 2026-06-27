@@ -83,6 +83,7 @@ protected:
   float weight_{0};
   float near_goal_distance_;
   unsigned int power_{0};
+  int trajectory_point_step_{1};
 };
 
 }  // namespace mppi::critics

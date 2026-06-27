@@ -39,12 +39,16 @@ std::string CriticManager::getFullName(const std::string & name)
 void CriticManager::evalTrajectoriesScores(
   CriticData & data, const IMapView& map_view) const
 {
-    RCLCPP_DEBUG(rclcpp::get_logger("Critic Manager"), "Scoring...");
+    using Clock = std::chrono::steady_clock;
+    using Ms    = std::chrono::duration<double, std::milli>;
+    static rclcpp::Clock clk(RCL_STEADY_TIME);
     for (size_t q = 0; q < critics_.size(); q++) {
-        if (data.fail_flag) {
-            break;
-        }
-        critics_[q]->score(data,map_view);
+        if (data.fail_flag) break;
+        auto t0 = Clock::now();
+        critics_[q]->score(data, map_view);
+        RCLCPP_INFO(rclcpp::get_logger("Critic Manager"),
+            "[MPPI-TIMING]   critic[%zu/%zu]: %.3f ms", q, critics_.size(),
+            std::chrono::duration<double,std::milli>(Clock::now() - t0).count());
     }
 }
 

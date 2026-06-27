@@ -113,22 +113,20 @@ public:
         const auto t_optimize_start= Clock::now();
         computeVelocityCommands(
             start_pose_stamped,
-            robot_state.twist,  // 直接使用当前实际速度
+            robot_state.twist,
             map_view
             );
         const double ms_optimize = Ms(Clock::now() - t_optimize_start).count();
 
-        // 装填输出轨迹
-
     // 获取最优轨迹
     auto optimized_trajectory = optimizer_.getOptimizedTrajectory();
     auto control_seq = optimizer_.getControlSequence();
+    auto t_extract = Clock::now();
     // 填充轨迹点 (pose + twist)
     const size_t n = optimized_trajectory.shape(0);
     traj.poses.reserve(n);
     traj.twists.reserve(n);
     for (size_t i = 0; i < n; ++i) {
-        // pose: x, y, yaw -> quaternion
         geometry_msgs::msg::Pose pose;
         pose.position.x = optimized_trajectory(i, 0);
         pose.position.y = optimized_trajectory(i, 1);
@@ -138,7 +136,6 @@ public:
         pose.orientation.w = std::cos(yaw * 0.5f);
         traj.poses.push_back(pose);
 
-        // twist: vx, vy, wz from control sequence
         geometry_msgs::msg::Twist twist;
         twist.linear.x  = control_seq(i, 0);
         twist.angular.z = control_seq(i, 1);
@@ -153,8 +150,11 @@ public:
             rclcpp::get_logger("MPPIController"), throttle_clk, 2000,
             "\n[MPPIController] plan() timing\n"
             "  evalControl (optimize) : %7.2f ms\n"
+            "  extract+fill           : %7.2f ms\n"
             "  total plan()           : %7.2f ms",
-            ms_optimize, ms_total);
+            ms_optimize,
+            Ms(Clock::now() - t_extract).count(),
+            ms_total);
     }
 
     return traj;
