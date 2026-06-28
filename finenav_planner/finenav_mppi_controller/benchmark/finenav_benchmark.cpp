@@ -36,6 +36,7 @@ static finenav_mppi_controller::Params makeParams(int batch = 3000, int steps = 
     p.vx_max = 1.0f;  p.vx_min = 0.0f;  p.vy_max = 0.0f;  p.wz_max = 2.0f;
     p.vx_std = 0.5f;  p.vy_std = 0.2f;  p.wz_std = 0.8f;
     p.motion_model = "DiffDrive";
+    p.num_threads = 8;
 
     p.ConstraintCritic.enabled = true;       p.ConstraintCritic.cost_power = 1;  p.ConstraintCritic.cost_weight = 4.0;
     p.CostCritic.enabled = true;             p.CostCritic.cost_power = 1;        p.CostCritic.cost_weight = 3.81;
@@ -231,5 +232,27 @@ static void BM_ObbStress10k50Stride2(benchmark::State& st) {
     runBench(st, bench::Scenario::kObbStress, true, 10000, 50, 0,0, 0, 10, /*stride=*/2);
 }
 BENCHMARK(BM_ObbStress10k50Stride2)->Unit(benchmark::kMillisecond)->Name("mppi/D5_obb_stress_b10k_s50");
+
+// ── Corridor + obstacle: every point triggers OBB, most trajectories don't collide ──
+static void BM_CorridorStride1(benchmark::State& st) {
+    runBench(st, bench::Scenario::kCorridorObstacle, true, 3000, 30, 0,0, 0, 10, /*stride=*/1);
+}
+BENCHMARK(BM_CorridorStride1)->Unit(benchmark::kMillisecond)->Name("mppi/E1_corridor_obstacle_stride1");
+
+static void BM_CorridorStride2(benchmark::State& st) {
+    runBench(st, bench::Scenario::kCorridorObstacle, true, 3000, 30, 0,0, 0, 10, /*stride=*/2);
+}
+BENCHMARK(BM_CorridorStride2)->Unit(benchmark::kMillisecond)->Name("mppi/E2_corridor_obstacle_stride2");
+
+// ── Corridor high-load: batch=10000, steps=50 ──
+static void BM_Corridor10k50Stride1(benchmark::State& st) {
+    runBench(st, bench::Scenario::kCorridorObstacle, true, 10000, 50, 0,0, 0, 10, /*stride=*/1);
+}
+BENCHMARK(BM_Corridor10k50Stride1)->Unit(benchmark::kMillisecond)->Name("mppi/E3_corridor_b10k_s50_stride1");
+
+static void BM_Corridor10k50Stride2(benchmark::State& st) {
+    runBench(st, bench::Scenario::kCorridorObstacle, true, 10000, 50, 0,0, 0, 10, /*stride=*/2);
+}
+BENCHMARK(BM_Corridor10k50Stride2)->Unit(benchmark::kMillisecond)->Name("mppi/E4_corridor_b10k_s50_stride2");
 
 BENCHMARK_MAIN();

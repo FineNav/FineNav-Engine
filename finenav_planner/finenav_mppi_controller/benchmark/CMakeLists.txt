@@ -16,6 +16,8 @@ set(MPPI_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/critics/twirling_critic.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/critics/constraint_critic.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/critics/velocity_deadband_critic.cpp
+  # OBB collision model (same as production)
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../../finenav_collision_model/src/obb_collision_model.cpp
 )
 
 add_executable(finenav_benchmark
@@ -30,6 +32,7 @@ target_include_directories(finenav_benchmark PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../include
   ${CMAKE_BINARY_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../../finenav_collision_model/include
 )
 
 # ── Debug / timing flags isolated to benchmark only ──
