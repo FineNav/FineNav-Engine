@@ -38,12 +38,7 @@ struct AlgoConfigurator<ALGO_TYPE> { \
         /* 2. 初始配置 (立即生效) */ \
         algo.configure(listener->get_params()); \
         \
-        /* 3. 注册参数更新回调 */ \
-        listener->setUserCallback([&algo](const auto& params) { \
-            algo.configure(params); \
-        }); \
-        \
-        /* 4. 返回指针以维持生命周期 */ \
+        /* 3. 返回指针以维持生命周期 */ \
         return listener; \
     } \
 }; \
@@ -60,12 +55,7 @@ struct AlgoConfigurator<TEMPLATE_ALGO<Args...>> { \
         /* 2. 初始配置 (立即生效) */ \
         algo.configure(listener->get_params()); \
         \
-        /* 3. 注册参数更新回调 */ \
-        listener->setUserCallback([&algo](const auto& params) { \
-        algo.configure(params); \
-        }); \
-        \
-        /* 4. 返回指针以维持生命周期 */ \
+        /* 3. 返回指针以维持生命周期 */ \
         return listener; \
     } \
 };\
