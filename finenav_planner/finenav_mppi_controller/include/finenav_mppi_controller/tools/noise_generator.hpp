@@ -15,6 +15,7 @@
 #ifndef NAV2_MPPI_CONTROLLER__TOOLS__NOISE_GENERATOR_HPP_
 #define NAV2_MPPI_CONTROLLER__TOOLS__NOISE_GENERATOR_HPP_
 
+#include <atomic>
 #include <string>
 #include <memory>
 #include <thread>
@@ -33,77 +34,70 @@ namespace mppi
 
 /**
  * @class mppi::NoiseGenerator
- * @brief Generates noise trajectories from optimal trajectory
+ * @brief Generates noise trajectories from optimal trajectory.
+ *
+ * Double-buffered async mode (regenerate_noises_=true):
+ *   - Background thread writes into inactive buffer (lock-free).
+ *   - Main thread reads from active buffer (lock-free).
+ *   - Swap is a single atomic store — ~1 ns on x86, no contention.
  */
 class NoiseGenerator
 {
 public:
-  /**
-    * @brief Constructor for mppi::NoiseGenerator
-    */
   NoiseGenerator() = default;
 
-  /**
-   * @brief Initialize noise generator with settings and model types
-   * @param settings Settings of controller
-   * @param is_holonomic If base is holonomic
-   * @param name Namespace for configs
-   * @param param_handler Get parameters util
-   */
   void initialize(
     mppi::models::OptimizerSettings & settings,
     bool is_holonomic);
 
-  /**
-   * @brief Shutdown noise generator thread
-   */
   void shutdown();
 
-  /**
-   * @brief Signal to the noise thread the controller is ready to generate a new
-   * noised control for the next iteration
-   */
+  /// Signal background thread to generate next batch into the inactive buffer.
   void generateNextNoises();
 
-  /**
-   * @brief set noised control_sequence to state controls
-   * @return noises vx, vy, wz
-   */
+  /// Main thread: reads active buffer (no lock) into state controls.
   void setNoisedControls(models::State & state, const models::ControlSequence & control_sequence);
 
-  /**
-   * @brief Reset noise generator with settings and model types
-   * @param settings Settings of controller
-   * @param is_holonomic If base is holonomic
-   */
   void reset(mppi::models::OptimizerSettings & settings, bool is_holonomic);
 
 protected:
-  /**
-   * @brief Thread to execute noise generation process
-   */
   void noiseThread();
 
-  /**
-   * @brief Generate random controls by gaussian noise with mean in
-   * control_sequence_
-   *
-   * @return tensor of shape [ batch_size_, time_steps_, 2]
-   * where 2 stands for v, w
-   */
-  void generateNoisedControls();
+  /// Generate random controls into the provided buffers (called by background thread).
+  void generateNoisedControls(
+      xt::xtensor<float, 2> & vx,
+      xt::xtensor<float, 2> & vy,
+      xt::xtensor<float, 2> & wz);
 
-  xt::xtensor<float, 2> noises_vx_;
-  xt::xtensor<float, 2> noises_vy_;
-  xt::xtensor<float, 2> noises_wz_;
+  /// Returns the active buffer set.
+  xt::xtensor<float, 2> & activeVx()  { return active_idx_ ? noises_vx_b_  : noises_vx_a_; }
+  xt::xtensor<float, 2> & activeVy()  { return active_idx_ ? noises_vy_b_  : noises_vy_a_; }
+  xt::xtensor<float, 2> & activeWz()  { return active_idx_ ? noises_wz_b_  : noises_wz_a_; }
+
+  /// Returns the inactive buffer set (for background thread to fill).
+  xt::xtensor<float, 2> & inactiveVx() { return active_idx_ ? noises_vx_a_  : noises_vx_b_; }
+  xt::xtensor<float, 2> & inactiveVy() { return active_idx_ ? noises_vy_a_  : noises_vy_b_; }
+  xt::xtensor<float, 2> & inactiveWz() { return active_idx_ ? noises_wz_a_  : noises_wz_b_; }
+
+  /// Swap active ↔ inactive (atomic, called by background thread after generation).
+  void swapBuffers() { active_idx_ ^= 1; }
+
+  // Double-buffer: A and B
+  xt::xtensor<float, 2> noises_vx_a_, noises_vx_b_;
+  xt::xtensor<float, 2> noises_vy_a_, noises_vy_b_;
+  xt::xtensor<float, 2> noises_wz_a_, noises_wz_b_;
+
+  std::atomic<int> active_idx_{0};  // 0 → A is active, 1 → B is active
+  std::atomic<bool> noise_ready_{false};  // background thread sets when done
 
   mppi::models::OptimizerSettings settings_;
   bool is_holonomic_;
 
   std::thread noise_thread_;
-  std::condition_variable noise_cond_;
+  std::condition_variable noise_cond_;    // signals background thread
+  std::condition_variable ready_cond_;    // signals main thread noise is ready
   std::mutex noise_lock_;
-  bool active_{false}, ready_{false}, regenerate_noises_{false};
+  bool active_{false}, ready_{false}, regenerate_noises_{true};
 };
 
 }  // namespace mppi

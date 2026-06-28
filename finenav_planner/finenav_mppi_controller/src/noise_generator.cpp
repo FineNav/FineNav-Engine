@@ -30,10 +30,22 @@ void NoiseGenerator::initialize(
   is_holonomic_ = is_holonomic;
   active_ = true;
 
+  // Allocate both buffers
+  auto sz = std::vector<std::size_t>{settings_.batch_size, settings_.time_steps};
+  noises_vx_a_.resize(sz);  noises_vx_b_.resize(sz);
+  noises_wz_a_.resize(sz);  noises_wz_b_.resize(sz);
+  if (is_holonomic_) {
+    noises_vy_a_.resize(sz);  noises_vy_b_.resize(sz);
+  }
+
   if (regenerate_noises_) {
+    // Generate first batch into active buffer synchronously,
+    // then start background thread for subsequent batches.
+    generateNoisedControls(activeVx(), activeVy(), activeWz());
+    noise_ready_.store(true, std::memory_order_release);
     noise_thread_ = std::thread(std::bind(&NoiseGenerator::noiseThread, this));
   } else {
-    generateNoisedControls();
+    generateNoisedControls(activeVx(), activeVy(), activeWz());
   }
 }
 
@@ -49,8 +61,7 @@ void NoiseGenerator::shutdown()
 
 void NoiseGenerator::generateNextNoises()
 {
-  // Trigger the thread to run in parallel to this iteration
-  // to generate the next iteration's noises (if applicable).
+  noise_ready_.store(false, std::memory_order_release);
   {
     std::unique_lock<std::mutex> guard(noise_lock_);
     ready_ = true;
@@ -62,11 +73,21 @@ void NoiseGenerator::setNoisedControls(
   models::State & state,
   const models::ControlSequence & control_sequence)
 {
-  std::unique_lock<std::mutex> guard(noise_lock_);
+  if (regenerate_noises_) {
+    // Wait for background thread — common case: already ready, worst case: ~noise_gen_time.
+    while (!noise_ready_.load(std::memory_order_acquire)) {
+      std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+    noise_ready_.store(false, std::memory_order_release);
+  }
 
-  xt::noalias(state.cvx) = control_sequence.vx + noises_vx_;
-  xt::noalias(state.cvy) = control_sequence.vy + noises_vy_;
-  xt::noalias(state.cwz) = control_sequence.wz + noises_wz_;
+  auto & vx = activeVx();
+  auto & vy = activeVy();
+  auto & wz = activeWz();
+
+  xt::noalias(state.cvx) = control_sequence.vx + vx;
+  xt::noalias(state.cvy) = control_sequence.vy + vy;
+  xt::noalias(state.cwz) = control_sequence.wz + wz;
 }
 
 void NoiseGenerator::reset(mppi::models::OptimizerSettings & settings, bool is_holonomic)
@@ -74,44 +95,57 @@ void NoiseGenerator::reset(mppi::models::OptimizerSettings & settings, bool is_h
   settings_ = settings;
   is_holonomic_ = is_holonomic;
 
-  // Recompute the noises on reset, initialization, and fallback
+  // Zero both buffers, signal thread to regenerate
   {
     std::unique_lock<std::mutex> guard(noise_lock_);
-    xt::noalias(noises_vx_) = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
-    xt::noalias(noises_vy_) = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
-    xt::noalias(noises_wz_) = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
+    xt::noalias(activeVx())   = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
+    xt::noalias(activeVy())   = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
+    xt::noalias(activeWz())   = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
+    xt::noalias(inactiveVx()) = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
+    xt::noalias(inactiveVy()) = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
+    xt::noalias(inactiveWz()) = xt::zeros<float>({settings_.batch_size, settings_.time_steps});
     ready_ = true;
   }
 
   if (regenerate_noises_) {
     noise_cond_.notify_all();
   } else {
-    generateNoisedControls();
+    generateNoisedControls(activeVx(), activeVy(), activeWz());
   }
 }
 
 void NoiseGenerator::noiseThread()
 {
   do {
-    std::unique_lock<std::mutex> guard(noise_lock_);
-    noise_cond_.wait(guard, [this]() {return ready_;});
-    ready_ = false;
-    generateNoisedControls();
+    {
+      std::unique_lock<std::mutex> guard(noise_lock_);
+      noise_cond_.wait(guard, [this]() { return ready_; });
+      ready_ = false;
+    }
+    // Generate into inactive buffer — no lock held during ~6 ms randn
+    generateNoisedControls(inactiveVx(), inactiveVy(), inactiveWz());
+    // Atomic swap: active ↔ inactive (no lock needed)
+    swapBuffers();
+    // Signal main thread: fresh noise is ready
+    noise_ready_.store(true, std::memory_order_release);
   } while (active_);
 }
 
-void NoiseGenerator::generateNoisedControls()
+void NoiseGenerator::generateNoisedControls(
+    xt::xtensor<float, 2> & vx,
+    xt::xtensor<float, 2> & vy,
+    xt::xtensor<float, 2> & wz)
 {
   auto & s = settings_;
 
-  xt::noalias(noises_vx_) = xt::random::randn<float>(
+  xt::noalias(vx) = xt::random::randn<float>(
     {s.batch_size, s.time_steps}, 0.0f,
     s.sampling_std.vx);
-  xt::noalias(noises_wz_) = xt::random::randn<float>(
+  xt::noalias(wz) = xt::random::randn<float>(
     {s.batch_size, s.time_steps}, 0.0f,
     s.sampling_std.wz);
   if (is_holonomic_) {
-    xt::noalias(noises_vy_) = xt::random::randn<float>(
+    xt::noalias(vy) = xt::random::randn<float>(
       {s.batch_size, s.time_steps}, 0.0f,
       s.sampling_std.vy);
   }
