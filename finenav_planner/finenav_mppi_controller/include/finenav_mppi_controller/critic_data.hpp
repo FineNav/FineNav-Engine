@@ -45,6 +45,7 @@ struct CriticData
 
   bool fail_flag;
   std::shared_ptr<MotionModel> motion_model;
+  class ThreadPool* thread_pool{nullptr};
   std::optional<std::vector<bool>> path_pts_valid;
   std::optional<size_t> furthest_reached_path_point;
 };

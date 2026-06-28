@@ -2,15 +2,17 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 //
-// Lightweight stub IMapView for MPPI benchmarking.
-// Dense grid sampling for costAtPose / isCollision — matches OBB load (~100 pts).
+// Realistic IMapView for MPPI benchmarking.
+// Uses OBBCollisionModel (same as production) over a 2D inflated grid.
 
 #pragma once
 
 #include "finenav_mppi_controller/map_view_def.hpp"
+#include "finenav_collision_model/obb_collision_model.hpp"
 
 #include <array>
 #include <cmath>
+#include <Eigen/Geometry>
 #include <random>
 
 namespace bench {
@@ -22,6 +24,7 @@ enum class Scenario {
     kMinefield,         // ultra-dense pillars, narrow carved corridor
     kInflationGrid,     // sparse pillars @ 3m, wide inflation → heavy footprint cost
     kObbStress,         // ultra-dense pillars @ 0.6m + full-map inflation → OBB every frame
+    kCorridorObstacle,  // 2m corridor + obstacle @ 1m →绕行，每点触发OBB, 无提前退出
 };
 
 /// Lightweight grid-based IMapView with OBBCollisionModel for realistic overhead.
@@ -34,10 +37,12 @@ public:
     static constexpr int   kFree     = 0;
 
     BenchMapView(Scenario scenario, double resolution = 0.05)
-        : resolution_(resolution), map_size_(kMapSize), radius_(0.5f)
+        : resolution_(resolution), map_size_(kMapSize)
     {
         grid_.fill(kFree);
         buildScenario(scenario);
+        // Outer diameter from production OBB (0.8×0.7×0.3): sqrt(0.8²+0.7²+0.3²)/2 ≈ 0.55
+        radius_ = 0.55f;
     }
 
     bool isTrackingUnknown() const override { return false; }
@@ -45,7 +50,19 @@ public:
     void setFootprint(bool v)  { footprint_ = v; }
 
     bool isCollision(float x, float y, float theta) const override {
-        return sampleFootprint(x, y, theta, /*early_exit=*/true) == kLethal;
+        // Mirror SimpleGridMapView::isCollision: center-cost threshold gates OBB check
+        int pose_cost = getCost(finenav::Position3D{x, y, 0.0});
+        if (pose_cost == kLethal) return true;
+        auto& obb = getThreadObb();
+        int possible_collision_cost = computeCost(
+            static_cast<int>(obb.getOuterDiameter() / 2.0 / resolution_));
+        if (pose_cost >= possible_collision_cost) {
+            finenav::Pose pose = createPose2D(x, y, theta);
+            return obb.checkCollisionEdge(pose, [this](const finenav::Position3D& pos) -> bool {
+                return cellCost(static_cast<float>(pos.x()), static_cast<float>(pos.y())) == kLethal;
+            });
+        }
+        return false;
     }
 
     int getCost(const finenav::Position3D& pos) const override {
@@ -55,7 +72,12 @@ public:
     float getRadius() const override { return radius_; }
 
     float costAtPose(float x, float y, float theta) const override {
-        return static_cast<float>(sampleFootprint(x, y, theta, /*early_exit=*/false));
+        // Mirror SimpleGridMapView::costAtPose: full OBB edge cost
+        finenav::Pose pose = createPose2D(x, y, theta);
+        auto& obb = getThreadObb();
+        return static_cast<float>(obb.checkCostEdge(pose, [this](const finenav::Position3D& pos) -> int {
+            return cellCost(static_cast<float>(pos.x()), static_cast<float>(pos.y()));
+        }));
     }
 
     std::string getBaseFrameID() const override { return "map"; }
@@ -81,29 +103,21 @@ private:
             grid_[cy * map_size_ + cx] = static_cast<uint8_t>(cost);
     }
 
-    // ── Dense grid footprint sampling — equivalent load to OBB edge check (~100 pts) ──
-    int sampleFootprint(float x, float y, float theta, bool early_exit) const {
-        float c = std::cos(theta), s = std::sin(theta);
-        int max_cost = 0;
-        // 0.8m × 0.7m footprint, 0.05m step → ~17×15 = 255 cells
-        // Match OBB's ~96 edge points + inflation lookup overhead
-        for (float dx = -0.4f; dx <= 0.4f; dx += 0.08f) {
-            for (float dy = -0.35f; dy <= 0.35f; dy += 0.07f) {
-                float wx = x + c * dx - s * dy;
-                float wy = y + s * dx + c * dy;
-                int cost = cellCost(wx, wy);
-                if (early_exit && cost == kLethal) return kLethal;
-                if (cost > max_cost) max_cost = cost;
-            }
-        }
-        return max_cost;
+    finenav::Pose createPose2D(double x, double y, double theta) const {
+        finenav::Pose pose = finenav::Pose::Identity();
+        pose.linear() = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+        pose.translation() = Eigen::Vector3d(x, y, 0.0);
+        return pose;
     }
 
-    // Simplified inflation decay for scenario building
+    // Inflation decay matching terrain_analysis::ComputeCost:
+    //   cost = 253 * exp(-cost_scaling_factor * distance_meters)
+    // with cost_scaling_factor = 0.5 (same as finenav_params.yaml default).
     int computeCost(int distance_cells) const {
         if (distance_cells <= 0) return kLethal;
-        if (distance_cells >= 10) return 0;
-        return static_cast<int>(253.0 * (1.0 - static_cast<double>(distance_cells) / 10.0));
+        const double dist_m = static_cast<double>(distance_cells) * resolution_;
+        int c = static_cast<int>(253.0 * std::exp(-0.5 * dist_m));
+        return c > 0 ? c : 0;
     }
 
     // ── drawing primitives ──
@@ -218,6 +232,13 @@ private:
                 for (float cy = -6.f; cy <= 6.f; cy += 0.6f)
                     fillCircle(cx, cy, 0.15f, kLethal);
 
+            // Carve a clear starting zone around (0,0) extending east,
+            // so trajectories must travel through inflation before hitting pillars.
+            // Robot at (0,0) heading east: first ~0.5 m is free, then enters dense cost field.
+            for (float x = -0.3f; x <= 0.8f; x += resolution_)
+                for (float y = -0.5f; y <= 0.5f; y += resolution_)
+                    setCost(x, y, kFree);
+
             // Full-map inflation: cost = 253 * exp(-scaling * dist)
             // scaling=4.0 → exp(-4*1.0)≈0.018, cost at 1 m edge ≈ 5
             constexpr float infl_radius = 1.0f;
@@ -245,6 +266,39 @@ private:
             }
             break;
         }
+
+        case Scenario::kCorridorObstacle: {
+            // 2 m wide corridor (walls at y=±1.0), round obstacle at (1.0, 0) r=0.25.
+            // Robot at (0,0) heading east, 1.5 m prediction reach → must steer around.
+            // Inflation via terrain formula 253*exp(-0.5*d) fills the corridor → every
+            // trajectory point triggers isCollision, non-colliding trajectories run full length.
+            fillRect(-15.f,  1.0f, 15.f, 15.f,  kLethal);   // top wall
+            fillRect(-15.f, -1.0f, 15.f, -15.f, kLethal);   // bottom wall
+            fillCircle(1.0f, 0.0f, 0.25f, kLethal);          // obstacle @ 1m ahead
+
+            // Inflation from walls and obstacle into corridor, terrain formula
+            constexpr float infl_radius = 2.0f;
+            int half = map_size_ / 2;
+            for (int ix = 0; ix < map_size_; ++ix) {
+                for (int iy = 0; iy < map_size_; ++iy) {
+                    if (grid_[iy * map_size_ + ix] == kLethal) continue;
+                    float wx = (ix - half) * resolution_;
+                    float wy = (iy - half) * resolution_;
+                    // Distance to top wall, bottom wall, obstacle
+                    float d_top  = wy - 1.0f;
+                    float d_bot  = -1.0f - wy;
+                    float d_obs  = std::hypot(wx - 1.0f, wy) - 0.25f;
+                    float min_dist = std::min({d_top, d_bot, d_obs, infl_radius});
+                    if (min_dist <= 0.f) continue;
+                    if (min_dist < infl_radius) {
+                        int dc = static_cast<int>(min_dist / resolution_);
+                        int c  = computeCost(dc);
+                        if (c > 0) grid_[iy * map_size_ + ix] = static_cast<uint8_t>(c);
+                    }
+                }
+            }
+            break;
+        }
         }
     }
 
@@ -252,6 +306,15 @@ private:
     int     map_size_;
     float   radius_;
     bool    footprint_{true};
+
+    /// Thread-local OBB: each thread gets its own instance → zero contention.
+    static finenav::OBBCollisionModel& getThreadObb() {
+        thread_local auto obb = std::make_unique<finenav::OBBCollisionModel>(
+            finenav::Vector3D(0.8, 0.7, 0.3),
+            finenav::Pose::Identity(),
+            finenav::OBBCollisionPolicy{0.1});
+        return *obb;
+    }
 
     std::array<uint8_t, kMapSize * kMapSize> grid_{};
 };

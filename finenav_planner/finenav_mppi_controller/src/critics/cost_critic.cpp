@@ -14,7 +14,9 @@
 // limitations under the License.
 
 #include <cmath>
+#include <vector>
 #include "finenav_mppi_controller/critics/cost_critic.hpp"
+#include "finenav_mppi_controller/tools/thread_pool.hpp"
 
 
 namespace mppi::critics
@@ -66,8 +68,13 @@ void CostCritic::score(CriticData & data,const IMapView& map_view)
   const auto T_yaw = xt::view(
       data.trajectories.yaws, xt::all(), xt::range(0, _, trajectory_point_step_));
 
-  bool all_trajectories_collide = true;
-  for (size_t i = 0; i < data.trajectories.x.shape(0); ++i) {
+  const size_t batch_size = data.trajectories.x.shape(0);
+
+  // Per-thread collision flags for reduction
+  const size_t num_threads = data.thread_pool ? (data.thread_pool->num_threads() + 1) : 1;
+  std::vector<bool> thread_collide_flags(num_threads, true);
+
+  auto score_one_trajectory = [&](size_t i, size_t tid) {
     bool trajectory_collide = false;
     float pose_cost;
 
@@ -88,10 +95,24 @@ void CostCritic::score(CriticData & data,const IMapView& map_view)
     }
 
     if (!trajectory_collide) {
-      all_trajectories_collide = false;
+      thread_collide_flags[tid] = false;
     } else {
       repulsive_cost[i] = collision_cost_;
     }
+  };
+
+  if (data.thread_pool) {
+    data.thread_pool->parallel_for(0, batch_size, score_one_trajectory);
+  } else {
+    for (size_t i = 0; i < batch_size; ++i) {
+      score_one_trajectory(i, 0);
+    }
+  }
+
+  // Reduction: any thread saw a non-colliding trajectory → not all collide
+  bool all_trajectories_collide = true;
+  for (bool v : thread_collide_flags) {
+    if (!v) { all_trajectories_collide = false; break; }
   }
 
   data.costs += xt::pow((weight_ * repulsive_cost / static_cast<float>(traj_len)), power_);

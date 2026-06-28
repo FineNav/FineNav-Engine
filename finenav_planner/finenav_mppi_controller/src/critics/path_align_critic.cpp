@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "finenav_mppi_controller/critics/path_align_critic.hpp"
+#include "finenav_mppi_controller/tools/thread_pool.hpp"
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xmath.hpp>
@@ -89,16 +90,13 @@ void PathAlignCritic::score(CriticData & data, const IMapView& map_view)
     path_integrated_distances[i] = path_integrated_distances[i - 1] + curr_dist;
   }
 
-  float traj_integrated_distance = 0.0f;
-  float summed_path_dist = 0.0f, dyaw = 0.0f;
-  float num_samples = 0.0f;
-  float Tx = 0.0f, Ty = 0.0f;
-  size_t path_pt = 0;
-  for (size_t t = 0; t < batch_size; ++t) {
-    traj_integrated_distance = 0.0f;
-    summed_path_dist = 0.0f;
-    num_samples = 0.0f;
-    path_pt = 0u;
+  auto score_one_trajectory = [&](size_t t, size_t /*tid*/) {
+    float traj_integrated_distance = 0.0f;
+    float summed_path_dist = 0.0f;
+    float num_samples = 0.0f;
+    float Tx = 0.0f, Ty = 0.0f, dx = 0.0f, dy = 0.0f;
+    size_t path_pt = 0u;
+
     const auto T_x = xt::view(data.trajectories.x, t, xt::all());
     const auto T_y = xt::view(data.trajectories.y, t, xt::all());
     for (size_t p = trajectory_point_step_; p < time_steps; p += trajectory_point_step_) {
@@ -118,7 +116,7 @@ void PathAlignCritic::score(CriticData & data, const IMapView& map_view)
         num_samples += 1.0f;
         if (use_path_orientations_) {
           const auto T_yaw = xt::view(data.trajectories.yaws, t, xt::all());
-          dyaw = angles::shortest_angular_distance(P_yaw(path_pt), T_yaw(p));
+          float dyaw = angles::shortest_angular_distance(P_yaw(path_pt), T_yaw(p));
           summed_path_dist += sqrtf(dx * dx + dy * dy + dyaw * dyaw);
         } else {
           summed_path_dist += sqrtf(dx * dx + dy * dy);
@@ -129,6 +127,14 @@ void PathAlignCritic::score(CriticData & data, const IMapView& map_view)
       cost[t] = summed_path_dist / num_samples;
     } else {
       cost[t] = 0.0f;
+    }
+  };
+
+  if (data.thread_pool) {
+    data.thread_pool->parallel_for(0, batch_size, score_one_trajectory);
+  } else {
+    for (size_t t = 0; t < batch_size; ++t) {
+      score_one_trajectory(t, 0);
     }
   }
 

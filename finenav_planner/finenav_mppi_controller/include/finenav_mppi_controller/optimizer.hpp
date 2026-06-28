@@ -41,6 +41,7 @@
 #include "finenav_mppi_controller/tools/utils.hpp"
 #include "finenav_mppi_controller/map_view_def.hpp"
 #include "finenav_mppi_controller/finenav_mppi_controller_params.hpp"
+#include "finenav_mppi_controller/tools/thread_pool.hpp"
 
 
 
@@ -91,7 +92,9 @@ public:
 
   	    reset();
 
-  		std::cout<<"[nav2_mppi_controller] Optimizing initialized"<<std::endl;
+    pool_ = std::make_unique<ThreadPool>(static_cast<size_t>(params.num_threads));
+  		std::cout<<"[nav2_mppi_controller] Optimizing initialized"
+		         <<" (thread pool: "<<pool_->num_threads()<<" threads)"<<std::endl;
   	}
 
   /**
@@ -308,6 +311,7 @@ protected:
 
 	    critics_data_.fail_flag = false;
 	    critics_data_.motion_model = motion_model_;
+	    critics_data_.thread_pool = pool_.get();
 	    critics_data_.furthest_reached_path_point.reset();
 	    critics_data_.path_pts_valid.reset();
 	}
@@ -594,6 +598,7 @@ protected:
 
   CriticManager critic_manager_;
   NoiseGenerator noise_generator_;
+  std::unique_ptr<ThreadPool> pool_;  // initialized in initialize(), mutex → not copyable
   std::vector<std::unique_ptr<critics::CriticFunction>> critics_;
 
   models::OptimizerSettings settings_;
@@ -606,7 +611,7 @@ protected:
 
   CriticData critics_data_ =
   {state_, generated_trajectories_, path_, costs_, settings_.model_dt, false, nullptr,
-    std::nullopt, std::nullopt};  /// Caution, keep references
+    nullptr, std::nullopt, std::nullopt};  /// Caution, keep references
 
   rclcpp::Logger logger_{rclcpp::get_logger("MPPIController")};
 };
