@@ -14,6 +14,15 @@
 using namespace mppi;
 using std::chrono_literals::operator"" ms;
 
+/// 不可变 OBB 配置，构造后只读 → 多线程安全
+struct ObbConfig {
+    finenav::Vector3D min{-0.4, -0.35, -0.15};
+    finenav::Vector3D max{ 0.4,  0.35,  0.15};
+    finenav::Pose     local_pose = finenav::Pose::Identity();
+    finenav::OBBCollisionPolicy policy{0.1};
+    double outer_radius = 0.0;                    // 预计算外径/2
+};
+
 class SimpleGridMapView : public nav2_mppi_controller::IMapView {
 public:
     /**
@@ -24,6 +33,7 @@ public:
         const finenav::GridMap<Voxel>& map,
         rclcpp::Node::SharedPtr node,
         std::shared_ptr<TerrainAnalyzer> terrain_analyzer,
+        ObbConfig obb_config,
         std::shared_ptr<finenav_utils::CloudPublishHelper> local_map_helper = nullptr);
 
     bool isTrackingUnknown() const override;
@@ -36,8 +46,21 @@ public:
 
     void publishLocalMap();
 
+    /// 每线程独立 OBB，首次调用懒创建。零竞争。
+    static finenav::OBBCollisionModel& getThreadObb(const ObbConfig& cfg) {
+        thread_local const ObbConfig* bound_cfg = nullptr;
+        thread_local std::unique_ptr<finenav::OBBCollisionModel> obb;
+
+        // 检测配置变化（重建 SimpleGridMapView 时地址不同）
+        if (!obb || bound_cfg != &cfg) {
+            obb = std::make_unique<finenav::OBBCollisionModel>(
+                cfg.min, cfg.max, cfg.local_pose, cfg.policy);
+            bound_cfg = &cfg;
+        }
+        return *obb;
+    }
+
 private:
-    std::function<bool(const finenav::Position3D&)> CollisionRule() const;
     int ComputeCost(int distance) const;
     finenav::Pose createPose2D(double x, double y, double theta) const;
 
@@ -51,5 +74,5 @@ private:
     rclcpp::Node::SharedPtr node_;
     std::shared_ptr<finenav_utils::CloudPublishHelper> local_map_helper_;
 
-    std::unique_ptr<finenav::OBBCollisionModel> collision_model_;
+    ObbConfig obb_config_;  // 构造时填充，之后只读
 };

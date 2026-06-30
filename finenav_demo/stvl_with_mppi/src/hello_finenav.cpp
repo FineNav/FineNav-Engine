@@ -234,12 +234,37 @@ int main(int argc, char** argv) {
             return ctx.is_success;
         });
 
-    // local_map_helper 捕获到 builder lambda，每次构造 SimpleGridMapView 时传入
+    // ── 碰撞模型参数（非对称 OBB，在 hello_finenav 节点上仅声明一次）──
+    // 机器人本体坐标系：X=前(+), Y=左(+), Z=上(+)。
+    // 所有值为正数，表示从机器人中心到对应方向边缘的距离。
+    node->declare_parameter("collision_model.front",  0.4);
+    node->declare_parameter("collision_model.back",   0.4);
+    node->declare_parameter("collision_model.left",   0.35);
+    node->declare_parameter("collision_model.right",  0.35);
+    node->declare_parameter("collision_model.top",    0.15);
+    node->declare_parameter("collision_model.bottom", 0.15);
+    node->declare_parameter("collision_model.step",   0.1);
+
+    // ── 从参数构建 ObbConfig ──
+    ObbConfig obb_config;
+    double front, back, left, right, top, bottom, step;
+    node->get_parameter("collision_model.front",  front);
+    node->get_parameter("collision_model.back",   back);
+    node->get_parameter("collision_model.left",   left);
+    node->get_parameter("collision_model.right",  right);
+    node->get_parameter("collision_model.top",    top);
+    node->get_parameter("collision_model.bottom", bottom);
+    node->get_parameter("collision_model.step",   step);
+    obb_config.min = finenav::Vector3D(-back, -right, -bottom);
+    obb_config.max = finenav::Vector3D( front,  left,   top);
+    obb_config.policy.step = step;
+    obb_config.outer_radius = (obb_config.max - obb_config.min).norm() / 2.0;
+
     // robot_state_provider 和 should_stop_predicate 已由 FineNavEngine::createControlLayer() 自动注入。
     my_control_layer->bind_map_view(
         map_server,
-        [node, terrain_analyzer, local_map_helper](const GridMap<Voxel>& map) {
-            return std::make_shared<SimpleGridMapView>(map, node, terrain_analyzer, local_map_helper);
+        [node, terrain_analyzer, local_map_helper, obb_config](const GridMap<Voxel>& map) {
+            return std::make_shared<SimpleGridMapView>(map, node, terrain_analyzer, obb_config, local_map_helper);
         });
 
 

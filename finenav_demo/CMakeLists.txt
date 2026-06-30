@@ -36,4 +36,27 @@ endforeach()
 
 add_subdirectory(stvl_with_mppi)
 
+# ── Tests ──────────────────────────────────────────────────────────────
+if(BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    ament_find_gtest()
+
+    ament_add_gtest(${PROJECT_NAME}_terrain_mapview_test
+        stvl_with_mppi/test/terrain_mapview_test.cpp
+    )
+    target_include_directories(${PROJECT_NAME}_terrain_mapview_test PRIVATE
+        stvl_with_mppi/include
+        ${OpenCV_INCLUDE_DIRS}
+        ${PCL_INCLUDE_DIRS}
+    )
+    target_link_libraries(${PROJECT_NAME}_terrain_mapview_test
+        terrain_lib
+        ${OpenCV_LIBRARIES}
+        ${PCL_LIBRARIES}
+    )
+    ament_target_dependencies(${PROJECT_NAME}_terrain_mapview_test
+        ${dependencies}
+    )
+endif()
+
 ament_package()

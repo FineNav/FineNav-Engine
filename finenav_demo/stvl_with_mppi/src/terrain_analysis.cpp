@@ -17,8 +17,8 @@ TerrainAnalyzer::TerrainAnalyzer(
     , costmap_helper_(std::move(costmap_helper))
 {
     const auto map_ro = map_server->getLockedReadView();
-    passability_image_ = cv::Mat::zeros(map_ro->getSize().x(), map_ro->getSize().y(), CV_8UC1);
-    costmap_image_     = cv::Mat::zeros(map_ro->getSize().x(), map_ro->getSize().y(), CV_8UC1);
+    passability_image_ = cv::Mat::zeros(map_ro->getSize().y(), map_ro->getSize().x(), CV_8UC1);
+    costmap_image_     = cv::Mat::zeros(map_ro->getSize().y(), map_ro->getSize().x(), CV_8UC1);
     cached_resolution_ = map_ro->getResolution();
 
     node_->declare_parameter<double>("terrain_analysis.cost_scaling_factor", 0.5);

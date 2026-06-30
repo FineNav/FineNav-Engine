@@ -13,14 +13,14 @@ SimpleGridMapView::SimpleGridMapView(
     const finenav::GridMap<Voxel>& map,
     rclcpp::Node::SharedPtr node,
     std::shared_ptr<TerrainAnalyzer> terrain_analyzer,
+    ObbConfig obb_config,
     std::shared_ptr<finenav_utils::CloudPublishHelper> local_map_helper)
     : map_(map)
     , node_(node)
     , terrain_analyzer_(terrain_analyzer)
+    , obb_config_(std::move(obb_config))
     , local_map_helper_(std::move(local_map_helper))
-{
-    collision_model_ = std::make_unique<finenav::OBBCollisionModel>(finenav::Vector3D(0.8, 0.7, 0.3));
-}
+{}
 
 bool SimpleGridMapView::isTrackingUnknown() const {
     return is_tracking_unknown_;
@@ -32,13 +32,20 @@ bool SimpleGridMapView::considerFootprint() const {
 
 bool SimpleGridMapView::isCollision(float x, float y, float theta) const {
     int pose_cost = getCost(finenav::Position3D{x, y, 0.0});
-    finenav::Pose pose = createPose2D(x, y, theta);
-    int possible_collision_cost = ComputeCost(collision_model_->getOuterDiameter() / 2 / map_.getResolution());
-    if (pose_cost == 254) {
-        return true;
-    }
+    if (pose_cost == 254) return true;
+
+    int possible_collision_cost = ComputeCost(
+        static_cast<int>(obb_config_.outer_radius / map_.getResolution()));
     if (pose_cost >= possible_collision_cost) {
-        return collision_model_->checkCollisionEdge(pose, CollisionRule());
+        finenav::Pose pose = createPose2D(x, y, theta);
+        auto& obb = getThreadObb(obb_config_);    // ← 每线程独立
+        return obb.checkCollisionEdge(pose, [this](const finenav::Position3D& pos) -> bool {
+            switch (static_cast<unsigned char>(this->getCost(pos))) {
+                case 254: return true;
+                case 255: return is_tracking_unknown_ ? false : true;
+            }
+            return false;
+        });
     }
     return false;
 }
@@ -48,14 +55,15 @@ int SimpleGridMapView::getCost(const finenav::Position3D& pos) const {
 }
 
 float SimpleGridMapView::getRadius() const {
-    return collision_model_->getOuterDiameter() / 2.0f;
+    return static_cast<float>(obb_config_.outer_radius);
 }
 
 float SimpleGridMapView::costAtPose(float x, float y, float theta) const {
     finenav::Pose pose = createPose2D(x, y, theta);
-    return collision_model_->checkCostEdge(pose,[this](const finenav::Position3D& pos) {
+    auto& obb = getThreadObb(obb_config_);        // ← 每线程独立
+    return static_cast<float>(obb.checkCostEdge(pose, [this](const finenav::Position3D& pos) -> int {
         return this->getCost(pos);
-    });
+    }));
 }
 
 std::string SimpleGridMapView::getBaseFrameID() const {
@@ -88,19 +96,6 @@ void SimpleGridMapView::publishLocalMap() {
         }
     }
     local_map_helper_->publish(node_->now());
-}
-
-std::function<bool(const finenav::Position3D&)> SimpleGridMapView::CollisionRule() const {
-    return [this](const finenav::Position3D& pos) {
-        int pose_cost = this->getCost(pos);
-        switch (static_cast<unsigned char>(pose_cost)) {
-            case 254:
-                return true;
-            case 255:
-                return is_tracking_unknown_ ? false : true;
-        }
-        return false;
-    };
 }
 
 int SimpleGridMapView::ComputeCost(int distance) const {
