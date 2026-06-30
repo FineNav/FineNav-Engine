@@ -75,6 +75,7 @@ private:
   double forward_sampling_distance_ = 0.5;
   double angular_speed_             = 0.8;
   double angular_dist_threshold_    = 0.1;
+  double close_to_goal_threshold_   = 0.5;  ///< 在此距离内直接对齐 goal_pose 朝向
 };
 
 }  // namespace finenav

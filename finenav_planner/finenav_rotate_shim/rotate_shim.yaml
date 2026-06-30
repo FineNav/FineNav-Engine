@@ -12,3 +12,7 @@ finenav_rotate_shim:
     type: double
     default_value: 0.1
     description: "Heading error below which rotation is considered complete [rad]"
+  close_to_goal_threshold:
+    type: double
+    default_value: 0.5
+    description: "Distance to goal within which the planner aligns to goal_pose orientation instead of path sampling [m]"

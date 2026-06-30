@@ -17,6 +17,7 @@ void RotateShim::configure(const ConfigType& params)
   forward_sampling_distance_ = params.forward_sampling_distance;
   angular_speed_             = params.angular_speed;
   angular_dist_threshold_    = params.angular_dist_threshold;
+  close_to_goal_threshold_   = params.close_to_goal_threshold;
 }
 
 // ==============================================================================
@@ -34,37 +35,42 @@ std::optional<DataPacket<RotateShim::OutputProfile>> RotateShim::plan(
     const Context& ctx,
     const IMapView& /*map_view*/)
 {
-  const auto& ref_traj = ctx.ref_traj;
+  const auto& ref_traj  = ctx.ref_traj;
+  const auto& robot_pos = ctx.robot_state.pose.position;
+  const auto& goal_pos  = ctx.goal_pose.position;
 
-  // 参考轨迹为空则无法旋转，直接退出
-  if (ref_traj.poses.empty()) {
-    return std::nullopt;
+  // 计算到 goal 的距离
+  const double dist_to_goal = std::hypot(goal_pos.x - robot_pos.x,
+                                         goal_pos.y - robot_pos.y);
+
+  const double current_yaw = yawFromQuat(ctx.robot_state.pose.orientation);
+  double target_yaw;
+
+  // ── 分支 1: 足够靠近 goal → 直接对齐 goal_pose 的朝向 ──
+  if (dist_to_goal <= close_to_goal_threshold_) {
+    target_yaw = yawFromQuat(ctx.goal_pose.orientation);
+  }
+  // ── 分支 2: 离 goal 还远 → 对齐路径前瞻点（原有逻辑） ──
+  else {
+    if (ref_traj.poses.empty()) {
+      return std::nullopt;
+    }
+    const auto sampled_pt = getSampledPathPt(ref_traj.poses, forward_sampling_distance_);
+    const double dx = sampled_pt.x - robot_pos.x;
+    const double dy = sampled_pt.y - robot_pos.y;
+    target_yaw = std::atan2(dy, dx);
   }
 
-  // 1. 在参考路径上采样前方 sampling_distance 处的点
-  const auto sampled_pt = getSampledPathPt(ref_traj.poses, forward_sampling_distance_);
-
-  // 2. 计算采样点在机器人坐标系下的方向
-  const double dx = sampled_pt.x - ctx.robot_state.pose.position.x;
-  const double dy = sampled_pt.y - ctx.robot_state.pose.position.y;
-
-  // 3. 计算当前朝向
-  const double current_yaw = yawFromQuat(ctx.robot_state.pose.orientation);
-
-  // 4. 计算 angular distance：采样点在机器人前方方向角 — 当前朝向
-  const double target_yaw = std::atan2(dy, dx);
+  // 计算 angular distance 并判断是否已对齐
   const double angular_distance = normalizeAngle(target_yaw - current_yaw);
-
-  // 5. 已对齐 → 返回 nullopt，触发 TrackingPolicy 终止
   if (std::abs(angular_distance) < angular_dist_threshold_) {
     return std::nullopt;
   }
 
-  // 6. 未对齐 — 生成纯旋转轨迹
+  // 未对齐 — 生成纯旋转轨迹
   DataPacket<RotateShim::OutputProfile> output;
   const double sign = (angular_distance > 0.0) ? 1.0 : -1.0;
 
-  // 仅输出一个点（当前位姿 + 旋转 twist）
   output.poses.push_back(ctx.robot_state.pose);
 
   geometry_msgs::msg::Twist twist;

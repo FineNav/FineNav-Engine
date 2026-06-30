@@ -5,10 +5,12 @@
 #pragma once
 
 #include <any>
+#include <cmath>
 #include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+#include <tf2/utils.h>
 
 #include "finenav_msgs/action/compute_plan.hpp"
 #include "finenav_msgs/msg/robot_state.hpp"

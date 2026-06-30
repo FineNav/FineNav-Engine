@@ -278,14 +278,37 @@ void ControlLayer<PlannersT, ExecutionPolicy>::executeImpl(TrackingPolicy& polic
         }
 
         // 检测 BT 侧通过 shouldResendGoal() 发来的新 goal（进入 pending slot）。
-        // 原地切换 goal_pose，不调用 resetActivePlanner()，保留 MPPI 热启动状态。
+        // 去重：若 pending goal 与当前 goal 位姿相同，丢弃而非抢占，避免
+        //   abort → BT FAILURE → RetryUntilSuccessful 重发 → 再次 pending 的乒乓死循环。
         if (action_server_->is_preempt_requested()) {
-            auto new_goal = action_server_->accept_pending_goal();
-            if (new_goal) {
-                goal_pose = new_goal->goal;
-                RCLCPP_INFO(pnode_->get_logger(),
-                    "Tracking: goal preempted in-loop (%.2f, %.2f) — MPPI warm-start preserved.",
-                    goal_pose.position.x, goal_pose.position.y);
+            auto pending_goal = action_server_->get_pending_goal();
+            if (pending_goal) {
+                constexpr double kPosEps = 0.01;   // 1 cm
+                constexpr double kYawEps = 0.01;   // ~0.6°
+                const auto& pg = pending_goal->goal;
+                const auto& cg = goal_pose;
+                double dx = pg.position.x - cg.position.x;
+                double dy = pg.position.y - cg.position.y;
+                double dyaw = std::abs(tf2::getYaw(pg.orientation) - tf2::getYaw(cg.orientation));
+                // wrap dyaw to [-π, π] for comparison
+                if (dyaw > M_PI) dyaw = 2.0 * M_PI - dyaw;
+
+                if (dx * dx + dy * dy < kPosEps * kPosEps && dyaw < kYawEps) {
+                    // 重复 goal，直接丢弃，保持当前追踪状态不变
+                    RCLCPP_DEBUG(pnode_->get_logger(),
+                        "Tracking: duplicate pending goal discarded (%.2f, %.2f).",
+                        pg.position.x, pg.position.y);
+                    action_server_->discard_pending_goal();
+                } else {
+                    // 真正的新 goal，执行抢占
+                    auto new_goal = action_server_->accept_pending_goal();
+                    if (new_goal) {
+                        goal_pose = new_goal->goal;
+                        RCLCPP_INFO(pnode_->get_logger(),
+                            "Tracking: goal preempted in-loop (%.2f, %.2f) — MPPI warm-start preserved.",
+                            goal_pose.position.x, goal_pose.position.y);
+                    }
+                }
             }
         }
 

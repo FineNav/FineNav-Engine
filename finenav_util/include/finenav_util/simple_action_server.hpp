@@ -110,6 +110,33 @@ class SimpleActionServer
     }
 
     /**
+     * @brief 获取挂起目标的只读副本（不改变状态）
+     * @return 挂起目标的 Goal 数据指针，若无挂起目标则返回 nullptr
+     */
+    std::shared_ptr<const typename ActionT::Goal> get_pending_goal() const
+    {
+        std::lock_guard<std::recursive_mutex> lock(update_mutex_);
+        if (!pending_handle_ || !pending_handle_->is_active()) {
+            return nullptr;
+        }
+        return pending_handle_->get_goal();
+    }
+
+    /**
+     * @brief 丢弃挂起目标（终止挂起 goal 并清空 pending slot）
+     * 用于检测到重复 goal 时在循环内原地消除，避免触发 BT 的 FAILURE → RetryUntilSuccessful 乒乓。
+     */
+    void discard_pending_goal()
+    {
+        std::lock_guard<std::recursive_mutex> lock(update_mutex_);
+        if (pending_handle_ && pending_handle_->is_active()) {
+            auto result = std::make_shared<typename ActionT::Result>();
+            pending_handle_->abort(result);
+        }
+        pending_handle_.reset();
+    }
+
+    /**
      * @brief 接受挂起的目标 (执行抢占切换)
      * 逻辑：
      * 1. 终止当前目标 (Canceled/Aborted)

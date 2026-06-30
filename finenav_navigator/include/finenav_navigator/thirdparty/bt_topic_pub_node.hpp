@@ -158,7 +158,7 @@ inline bool RosTopicPubNode<T>::createPublisher(const std::string& topic_name)
     throw RuntimeError("topic_name is empty");
   }
 
-  publisher_ = node_->create_publisher<T>(topic_name, 1);
+  publisher_ = node_->create_publisher<T>(topic_name, rclcpp::QoS(1).transient_local());
   prev_topic_name_ = topic_name;
   return true;
 }
