@@ -15,6 +15,7 @@
 #ifndef NAV2_MPPI_CONTROLLER__CONTROLLER_HPP_
 #define NAV2_MPPI_CONTROLLER__CONTROLLER_HPP_
 
+#include <atomic>
 #include <string>
 #include <memory>
 
@@ -68,31 +69,39 @@ public:
     using IMapView = nav2_mppi_controller::IMapView;
     using Context = finenav::PlanningContext<MPPIController>;
     using ConfigType = finenav_mppi_controller::Params;
-    void configure(const ConfigType& params) {              //应该传入参数 因测试先去除
+    // 首次调用（AlgoConfigurator::load 触发）：完整初始化。
+    // 后续调用（动态参数回调触发）：存参数 + 标记 pending，由 plan() 线程安全执行。
+    void configure(const ConfigType& params) {
+        if (configured_) {
+            pending_params_ = params;
+            pending_.store(true, std::memory_order_release);
+        } else {
+            registerCritic(std::make_unique<critics::ConstraintCritic>());
+            registerCritic(std::make_unique<critics::CostCritic>());
+            registerCritic(std::make_unique<critics::GoalAngleCritic>());
+            registerCritic(std::make_unique<critics::GoalCritic>());
+            registerCritic(std::make_unique<critics::PathAlignCritic>());
+            registerCritic(std::make_unique<critics::PathAngleCritic>());
+            registerCritic(std::make_unique<critics::PathFollowCritic>());
+            registerCritic(std::make_unique<critics::PreferForwardCritic>());
+            registerCritic(std::make_unique<critics::TwirlingCritic>());
+            registerCritic(std::make_unique<critics::VelocityDeadbandCritic>());
 
-        registerCritic(std::make_unique<critics::ConstraintCritic>());
-        registerCritic(std::make_unique<critics::CostCritic>());
-        registerCritic(std::make_unique<critics::GoalAngleCritic>());
-        registerCritic(std::make_unique<critics::GoalCritic>());
-        registerCritic(std::make_unique<critics::PathAlignCritic>());
-        registerCritic(std::make_unique<critics::PathAngleCritic>());
-        registerCritic(std::make_unique<critics::PathFollowCritic>());
-        registerCritic(std::make_unique<critics::PreferForwardCritic>());
-        registerCritic(std::make_unique<critics::TwirlingCritic>());
-        registerCritic(std::make_unique<critics::VelocityDeadbandCritic>());
+            std::cout<<"[nav2_mppi_controller] Critics registered. Initializing optimizer..."<<std::endl;
+            std::cout<<"[nav2_mppi_controller] Number of critics: "<<critics_.size()<<std::endl;
 
-        std::cout<<"[nav2_mppi_controller] Critics registered. Initializing optimizer..."<<std::endl;
-        std::cout<<"[nav2_mppi_controller] Number of critics: "<<critics_.size()<<std::endl;
-
-        optimizer_.initialize(
-            "MPPIController",
-            critics_,
-            params
-            );
-       //TODO:初始化过程需要完善
+            optimizer_.initialize("MPPIController", critics_, params);
+            configured_ = true;
+        }
     }
 
      std::optional<finenav::DataPacket<OutputProfile>>plan(const finenav::PlanningContext<MPPIController>& ctx, const IMapView& map_view) {
+        // 应用延迟的动态参数更新（由 ROS 参数回调线程触发）
+        if (pending_.load(std::memory_order_acquire)) {
+            optimizer_.reconfigure(pending_params_);
+            pending_.store(false, std::memory_order_release);
+        }
+
         using Clock = std::chrono::steady_clock;
         using Ms    = std::chrono::duration<double, std::milli>;
         const auto t_plan_start = Clock::now();
@@ -248,6 +257,11 @@ protected:
 
   Optimizer optimizer_;
   std::vector<std::unique_ptr<critics::CriticFunction>> critics_;
+
+  // 动态参数延迟更新：ROS 回调存参 + 置 flag，plan() 线程执行重建
+  std::atomic<bool> pending_{false};
+  ConfigType pending_params_{};
+  bool configured_{false};
 
   bool visualize_;
 

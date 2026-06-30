@@ -41,8 +41,6 @@ public:
     {
         grid_.fill(kFree);
         buildScenario(scenario);
-        // Outer diameter from production OBB (0.8×0.7×0.3): sqrt(0.8²+0.7²+0.3²)/2 ≈ 0.55
-        radius_ = 0.55f;
     }
 
     bool isTrackingUnknown() const override { return false; }
@@ -69,7 +67,9 @@ public:
         return cellCost(static_cast<float>(pos.x()), static_cast<float>(pos.y()));
     }
 
-    float getRadius() const override { return radius_; }
+    float getRadius() const override {
+        return static_cast<float>(getThreadObb().getOuterDiameter() / 2.0);
+    }
 
     float costAtPose(float x, float y, float theta) const override {
         // Mirror SimpleGridMapView::costAtPose: full OBB edge cost
@@ -304,7 +304,6 @@ private:
 
     double  resolution_;
     int     map_size_;
-    float   radius_;
     bool    footprint_{true};
 
     /// Thread-local OBB: each thread gets its own instance → zero contention.

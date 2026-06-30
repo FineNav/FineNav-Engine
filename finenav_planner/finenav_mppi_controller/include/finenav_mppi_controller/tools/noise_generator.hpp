@@ -36,7 +36,7 @@ namespace mppi
  * @class mppi::NoiseGenerator
  * @brief Generates noise trajectories from optimal trajectory.
  *
- * Double-buffered async mode (regenerate_noises_=true):
+ * Double-buffered async mode (settings_.regenerate_noises=true):
  *   - Background thread writes into inactive buffer (lock-free).
  *   - Main thread reads from active buffer (lock-free).
  *   - Swap is a single atomic store — ~1 ns on x86, no contention.
@@ -95,9 +95,8 @@ protected:
 
   std::thread noise_thread_;
   std::condition_variable noise_cond_;    // signals background thread
-  std::condition_variable ready_cond_;    // signals main thread noise is ready
   std::mutex noise_lock_;
-  bool active_{false}, ready_{false}, regenerate_noises_{true};
+  bool active_{false}, ready_{false};
 };
 
 }  // namespace mppi

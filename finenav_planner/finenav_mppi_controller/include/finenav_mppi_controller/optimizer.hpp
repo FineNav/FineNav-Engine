@@ -69,6 +69,13 @@ public:
    */
   	~Optimizer() {shutdown();}
 
+	/// Lightweight parameter update — no thread/allocator/buffer rebuild.
+	/// Safe to call from plan() thread at the start of a control cycle.
+	void reconfigure(const finenav_mppi_controller::Params & params) {
+		getParams(params);
+		critic_manager_.reconfigure(params);
+	}
+
 
   /**
    * @brief Initializes optimizer on startup
@@ -115,6 +122,7 @@ public:
   	    s.iteration_count = static_cast<unsigned int>(p.iteration_count);
   	    s.temperature     = static_cast<float>(p.temperature);
   	    s.gamma           = static_cast<float>(p.gamma);
+	    s.regenerate_noises = p.regenerate_noises;
 
   	    s.base_constraints.vx_max = p.vx_max;
   	    s.base_constraints.vx_min = p.vx_min;

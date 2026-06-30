@@ -34,6 +34,10 @@ finenav_mppi_controller:
     type: double
     default_value: 0.015
     description: "Control cost regularization coefficient"
+  regenerate_noises:
+    type: bool
+    default_value: true
+    description: "Enable background thread to precompute noise into double-buffer. Set false for synchronous noise generation."
   num_threads:
     type: int
     default_value: 0

@@ -72,6 +72,9 @@ public:
      std::vector<std::unique_ptr<critics::CriticFunction>> & critics,
      const finenav_mppi_controller::Params & params);
 
+  /// Lightweight parameter update on already-loaded critics (no rebuild).
+  void reconfigure(const finenav_mppi_controller::Params & params);
+
   /**
     * @brief Score trajectories by the set of loaded critic functions
     * @param CriticData Struct of necessary information to pass to the critic functions

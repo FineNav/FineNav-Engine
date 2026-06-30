@@ -38,7 +38,7 @@ void NoiseGenerator::initialize(
     noises_vy_a_.resize(sz);  noises_vy_b_.resize(sz);
   }
 
-  if (regenerate_noises_) {
+  if (settings_.regenerate_noises) {
     // Generate first batch into active buffer synchronously,
     // then start background thread for subsequent batches.
     generateNoisedControls(activeVx(), activeVy(), activeWz());
@@ -73,9 +73,16 @@ void NoiseGenerator::setNoisedControls(
   models::State & state,
   const models::ControlSequence & control_sequence)
 {
-  if (regenerate_noises_) {
-    // Wait for background thread — common case: already ready, worst case: ~noise_gen_time.
+  if (settings_.regenerate_noises) {
+    // Wait for background thread with deadline fallback.
+    // Normal case: noise already ready (~0 wait). Worst case: ~noise_gen_time.
+    // If thread hangs/crashes, fall back to inline generation to avoid deadlock.
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(30);
     while (!noise_ready_.load(std::memory_order_acquire)) {
+      if (std::chrono::steady_clock::now() > deadline) {
+        generateNoisedControls(activeVx(), activeVy(), activeWz());
+        break;
+      }
       std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
     noise_ready_.store(false, std::memory_order_release);
@@ -107,7 +114,7 @@ void NoiseGenerator::reset(mppi::models::OptimizerSettings & settings, bool is_h
     ready_ = true;
   }
 
-  if (regenerate_noises_) {
+  if (settings_.regenerate_noises) {
     noise_cond_.notify_all();
   } else {
     generateNoisedControls(activeVx(), activeVy(), activeWz());

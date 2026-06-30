@@ -26,7 +26,7 @@ public:
 static RosGuard g_ros;
 
 // ────────────────────────────────────────────────────────────
-static finenav_mppi_controller::Params makeParams(int batch = 3000, int steps = 30) {
+static finenav_mppi_controller::Params makeParams(int batch = 3000, int steps = 30, int threads = 8) {
     finenav_mppi_controller::Params p{};
     p.time_steps  = static_cast<unsigned int>(steps);
     p.model_dt    = 0.05;
@@ -36,7 +36,7 @@ static finenav_mppi_controller::Params makeParams(int batch = 3000, int steps = 
     p.vx_max = 1.0f;  p.vx_min = 0.0f;  p.vy_max = 0.0f;  p.wz_max = 2.0f;
     p.vx_std = 0.5f;  p.vy_std = 0.2f;  p.wz_std = 0.8f;
     p.motion_model = "DiffDrive";
-    p.num_threads = 8;
+    p.num_threads = threads;
 
     p.ConstraintCritic.enabled = true;       p.ConstraintCritic.cost_power = 1;  p.ConstraintCritic.cost_weight = 4.0;
     p.CostCritic.enabled = true;             p.CostCritic.cost_power = 1;        p.CostCritic.cost_weight = 3.81;
@@ -70,12 +70,16 @@ static void runBench(benchmark::State& st,
                      bench::Scenario sc, bool fp,
                      int batch, int steps,
                      double rx, double ry, double heading, double path_len,
-                     int cost_stride = 2) {
+                     int cost_stride = 2,
+                     int num_threads = 8,
+                     bool precompute_noise = true) {
     auto map_view = std::make_unique<bench::BenchMapView>(sc);
     map_view->setFootprint(fp);
 
-    auto params = makeParams(batch, steps);
+    auto params = makeParams(batch, steps, num_threads);
     params.CostCritic.trajectory_point_step = cost_stride;
+    params.regenerate_noises = precompute_noise;
+
     auto controller = std::make_unique<nav2_mppi_controller::MPPIController>();
     controller->configure(params);
 
@@ -254,5 +258,67 @@ static void BM_Corridor10k50Stride2(benchmark::State& st) {
     runBench(st, bench::Scenario::kCorridorObstacle, true, 10000, 50, 0,0, 0, 10, /*stride=*/2);
 }
 BENCHMARK(BM_Corridor10k50Stride2)->Unit(benchmark::kMillisecond)->Name("mppi/E4_corridor_b10k_s50_stride2");
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Thread × Precompute noise 对比（12 种配置）
+//   线程数: 1, 2, 4, 8, 16, 32
+//   预计算: yes (P) / no (N)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// 注册 helper — 为 (scenario, batch, steps, threads, precompute) 生成独立 benchmark
+#define BENCH_CONFIG(label_prefix, sc, fp, batch, steps, rx, ry, h, plen, stride, T, P) \
+  static void BM_##label_prefix##_T##T##_##P(benchmark::State& st) { \
+    runBench(st, bench::Scenario::sc, fp, batch, steps, rx, ry, h, plen, stride, T, P == 1); \
+  } \
+  BENCHMARK(BM_##label_prefix##_T##T##_##P)->Unit(benchmark::kMillisecond) \
+    ->Name("thread_precompute/" #label_prefix "/threads_" #T "/precompute_" #P);
+
+// ── 场景: InflationField (batch=3000, steps=30) ──
+#define BENCH_IF_ALL_THREADS(T) \
+  BENCH_CONFIG(inf, kInflationField, true, 3000, 30, 0,0, 0, 10, 2, T, 1) \
+  BENCH_CONFIG(inf, kInflationField, true, 3000, 30, 0,0, 0, 10, 2, T, 0)
+
+BENCH_IF_ALL_THREADS(1)
+BENCH_IF_ALL_THREADS(2)
+BENCH_IF_ALL_THREADS(4)
+BENCH_IF_ALL_THREADS(8)
+BENCH_IF_ALL_THREADS(16)
+BENCH_IF_ALL_THREADS(32)
+
+// ── 场景: ObbStress (batch=3000, steps=30) ──
+#define BENCH_OS_ALL_THREADS(T) \
+  BENCH_CONFIG(obb, kObbStress, true, 3000, 30, 0,0, 0, 10, 2, T, 1) \
+  BENCH_CONFIG(obb, kObbStress, true, 3000, 30, 0,0, 0, 10, 2, T, 0)
+
+BENCH_OS_ALL_THREADS(1)
+BENCH_OS_ALL_THREADS(2)
+BENCH_OS_ALL_THREADS(4)
+BENCH_OS_ALL_THREADS(8)
+BENCH_OS_ALL_THREADS(16)
+BENCH_OS_ALL_THREADS(32)
+
+// ── 场景: InflationField 高负载 (batch=10000, steps=50) ──
+#define BENCH_IF10k_ALL_THREADS(T) \
+  BENCH_CONFIG(inf10k, kInflationField, true, 10000, 50, 0,0, 0, 10, 2, T, 1) \
+  BENCH_CONFIG(inf10k, kInflationField, true, 10000, 50, 0,0, 0, 10, 2, T, 0)
+
+BENCH_IF10k_ALL_THREADS(1)
+BENCH_IF10k_ALL_THREADS(2)
+BENCH_IF10k_ALL_THREADS(4)
+BENCH_IF10k_ALL_THREADS(8)
+BENCH_IF10k_ALL_THREADS(16)
+BENCH_IF10k_ALL_THREADS(32)
+
+// ── 场景: ObbStress 高负载 (batch=10000, steps=50) ──
+#define BENCH_OS10k_ALL_THREADS(T) \
+  BENCH_CONFIG(obb10k, kObbStress, true, 10000, 50, 0,0, 0, 10, 2, T, 1) \
+  BENCH_CONFIG(obb10k, kObbStress, true, 10000, 50, 0,0, 0, 10, 2, T, 0)
+
+BENCH_OS10k_ALL_THREADS(1)
+BENCH_OS10k_ALL_THREADS(2)
+BENCH_OS10k_ALL_THREADS(4)
+BENCH_OS10k_ALL_THREADS(8)
+BENCH_OS10k_ALL_THREADS(16)
+BENCH_OS10k_ALL_THREADS(32)
 
 BENCHMARK_MAIN();

@@ -3,7 +3,7 @@
 // All rights reserved.
 //
 // Lightweight static thread pool for MPPI batch-level parallelism.
-// Zero external dependencies — uses only C++20 std::thread / std::jthread.
+// Zero external dependencies — uses only C++20 std::thread.
 
 #pragma once
 
@@ -24,7 +24,7 @@ public:
                                        : std::max(1u, std::thread::hardware_concurrency()))
     {
         for (size_t t = 0; t < num_threads_; ++t) {
-            workers_.emplace_back([this, t] { worker_loop(t); });
+            workers_.emplace_back(&ThreadPool::worker_loop, this, t);
         }
     }
 
@@ -35,7 +35,9 @@ public:
             ++generation_;  // wake all
         }
         cv_.notify_all();
-        // jthread destructor auto-joins
+        for (auto& w : workers_) {
+            if (w.joinable()) w.join();
+        }
     }
 
     size_t num_threads() const { return num_threads_; }
@@ -108,7 +110,7 @@ private:
     }
 
     size_t                          num_threads_;
-    std::vector<std::jthread>       workers_;
+    std::vector<std::thread>        workers_;
 
     std::mutex                      mutex_;
     std::condition_variable         cv_;        // 唤醒 worker

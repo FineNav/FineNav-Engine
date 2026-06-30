@@ -31,6 +31,13 @@ void CriticManager::on_configure(
 }
 
 
+void CriticManager::reconfigure(const finenav_mppi_controller::Params & params)
+{
+    for (auto & critic : critics_) {
+        critic->initialize(params);
+    }
+}
+
 std::string CriticManager::getFullName(const std::string & name)
 {
   return "mppi::critics::" + name;
