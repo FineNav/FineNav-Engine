@@ -72,7 +72,7 @@ void CostCritic::score(CriticData & data,const IMapView& map_view)
 
   // Per-thread collision flags for reduction
   const size_t num_threads = data.thread_pool ? (data.thread_pool->num_threads() + 1) : 1;
-  std::vector<bool> thread_collide_flags(num_threads, true);
+  std::vector<char> thread_collide_flags(num_threads, 1);
 
   auto score_one_trajectory = [&](size_t i, size_t tid) {
     bool trajectory_collide = false;

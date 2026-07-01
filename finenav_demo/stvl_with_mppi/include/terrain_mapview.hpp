@@ -48,14 +48,10 @@ public:
 
     /// 每线程独立 OBB，首次调用懒创建。零竞争。
     static finenav::OBBCollisionModel& getThreadObb(const ObbConfig& cfg) {
-        thread_local const ObbConfig* bound_cfg = nullptr;
         thread_local std::unique_ptr<finenav::OBBCollisionModel> obb;
-
-        // 检测配置变化（重建 SimpleGridMapView 时地址不同）
-        if (!obb || bound_cfg != &cfg) {
+        if (!obb) {
             obb = std::make_unique<finenav::OBBCollisionModel>(
                 cfg.min, cfg.max, cfg.local_pose, cfg.policy);
-            bound_cfg = &cfg;
         }
         return *obb;
     }

@@ -112,7 +112,9 @@ TEST_F(SimpleGridMapViewTest, GetThreadObbCreatesInstanceLazily) {
     EXPECT_EQ(&obb1, &obb2);
 }
 
-TEST_F(SimpleGridMapViewTest, GetThreadObbDetectsConfigChange) {
+TEST_F(SimpleGridMapViewTest, GetThreadObbLazyInitOnlyOnce) {
+    // getThreadObb 在线程内只创建一次 OBB，后续调用无论传入什么 cfg 都复用同一个实例。
+    // ObbConfig 在运行时不变，所以复用是正确的且避免了悬垂指针。
     ObbConfig cfg1;
     cfg1.outer_radius = (cfg1.max - cfg1.min).norm() / 2.0;
 
@@ -124,8 +126,8 @@ TEST_F(SimpleGridMapViewTest, GetThreadObbDetectsConfigChange) {
     auto& obb1 = SimpleGridMapView::getThreadObb(cfg1);
     auto& obb2 = SimpleGridMapView::getThreadObb(cfg2);
 
-    // Different config → different instance (address of cfg differs)
-    EXPECT_NE(&obb1, &obb2);
+    // 同一线程永远返回同一个 OBB 实例 — thread_local 只初始化一次
+    EXPECT_EQ(&obb1, &obb2);
 }
 
 TEST_F(SimpleGridMapViewTest, GetThreadObbReusesInstanceOnSecondCallSameConfig) {

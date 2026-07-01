@@ -15,7 +15,7 @@
 #ifndef NAV2_MPPI_CONTROLLER__CONTROLLER_HPP_
 #define NAV2_MPPI_CONTROLLER__CONTROLLER_HPP_
 
-#include <atomic>
+#include <mutex>
 #include <string>
 #include <memory>
 
@@ -73,8 +73,9 @@ public:
     // 后续调用（动态参数回调触发）：存参数 + 标记 pending，由 plan() 线程安全执行。
     void configure(const ConfigType& params) {
         if (configured_) {
+            std::lock_guard lock(pending_mutex_);
             pending_params_ = params;
-            pending_.store(true, std::memory_order_release);
+            pending_ = true;
         } else {
             registerCritic(std::make_unique<critics::ConstraintCritic>());
             registerCritic(std::make_unique<critics::CostCritic>());
@@ -97,9 +98,12 @@ public:
 
      std::optional<finenav::DataPacket<OutputProfile>>plan(const finenav::PlanningContext<MPPIController>& ctx, const IMapView& map_view) {
         // 应用延迟的动态参数更新（由 ROS 参数回调线程触发）
-        if (pending_.load(std::memory_order_acquire)) {
-            optimizer_.reconfigure(pending_params_);
-            pending_.store(false, std::memory_order_release);
+        {
+            std::lock_guard lock(pending_mutex_);
+            if (pending_) {
+                optimizer_.reconfigure(pending_params_);
+                pending_ = false;
+            }
         }
 
         using Clock = std::chrono::steady_clock;
@@ -259,7 +263,8 @@ protected:
   std::vector<std::unique_ptr<critics::CriticFunction>> critics_;
 
   // 动态参数延迟更新：ROS 回调存参 + 置 flag，plan() 线程执行重建
-  std::atomic<bool> pending_{false};
+  std::mutex pending_mutex_;
+  bool pending_{false};
   ConfigType pending_params_{};
   bool configured_{false};
 
