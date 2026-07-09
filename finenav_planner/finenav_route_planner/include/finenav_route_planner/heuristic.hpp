@@ -18,7 +18,11 @@ enum class Heuristic {
     Zero,
     Euclidean,
     Manhattan,
-    Chebyshev
+    Chebyshev,
+    // 3-D octile distance.  Admissible for 8-connected grids when
+    // diagonal cost = √2 (and corner cost = √3 in 3-D).
+    // Recommended default for D* Lite.
+    Diagonal
 };
 
 // Heuristic operates on Vec3 cells.
@@ -42,6 +46,19 @@ inline double calculateHeuristic(
         return std::max({std::abs(from.x - to.x),
                          std::abs(from.y - to.y),
                          std::abs(from.z - to.z)});
+    case Heuristic::Diagonal: {
+        // Octile / Diagonal distance with √2 for 2-axis steps.
+        // Shared by D* Lite (recommended default for 8-connected grids).
+        const double dx = std::abs(from.x - to.x);
+        const double dy = std::abs(from.y - to.y);
+        const double dz = std::abs(from.z - to.z);
+        const double dmin = std::min({dx, dy, dz});
+        const double dmax = std::max({dx, dy, dz});
+        const double dmid = dx + dy + dz - dmin - dmax;
+        return dmin * std::sqrt(3.0)
+             + (dmid - dmin) * std::sqrt(2.0)
+             + (dmax - dmid);
+    }
     default:
         return 0.0;
     }

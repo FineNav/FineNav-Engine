@@ -24,6 +24,7 @@ void AstarPathSearch::configure(const ConfigType& params)
 
     if      (params.heuristic == "Manhattan") heuristic_ = astar::Heuristic::Manhattan;
     else if (params.heuristic == "Chebyshev") heuristic_ = astar::Heuristic::Chebyshev;
+    else if (params.heuristic == "Diagonal")  heuristic_ = astar::Heuristic::Diagonal;
     else                                       heuristic_ = astar::Heuristic::Euclidean;
 
     goal_tolerance_m_  = params.goal_tolerance;

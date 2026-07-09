@@ -14,7 +14,7 @@ astar_planner:
     default_value: "Euclidean"
     description: "Heuristic function: Euclidean | Manhattan | Chebyshev"
     validation:
-      one_of<>: [[ "Euclidean", "Manhattan", "Chebyshev" ]]
+      one_of<>: [[ "Euclidean", "Manhattan", "Chebyshev", "Diagonal" ]]
   goal_tolerance:
     type: double
     default_value: 0.5
