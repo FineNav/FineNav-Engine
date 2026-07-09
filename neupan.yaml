@@ -1,0 +1,21 @@
+neupan_planner:
+  python_path:
+    type: string
+    default_value: "/home/affirm/NeuPAN"
+    description: "Python path to NeuPAN"
+  module_name:
+    type: string
+    default_value: "neupan.neupan"
+    description: "Python module for NeuPAN"
+  class_name:
+    type: string
+    default_value: "NeuPAN"
+    description: "NeuPAN class name"
+  config_yaml:
+    type: string
+    default_value: ""
+    description: "NeuPAN YAML config path"
+  max_points:
+    type: int
+    default_value: 2000
+    description: "Max number of obstacle points"
