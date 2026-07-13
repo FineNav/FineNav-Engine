@@ -15,9 +15,9 @@
 #include <random>
 #include <vector>
 
-#include "grid_map.hpp"
-#include "finenav_route_planner/astar_algorithm.hpp"
-#include "finenav_route_planner/dstarlite_algorithm.hpp"
+#include "common/grid_map.hpp"
+#include "finenav_route_planner/astar/astar_algorithm.hpp"
+#include "finenav_route_planner/dstarlite/dstarlite_algorithm.hpp"
 
 // =========================================================================
 // Helpers

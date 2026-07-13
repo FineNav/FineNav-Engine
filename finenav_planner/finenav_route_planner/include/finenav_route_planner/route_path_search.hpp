@@ -13,8 +13,8 @@
 #include "finenav_core/algo_configurator.hpp"
 #include "finenav_route_planner/route_params.hpp"
 
-#include "finenav_route_planner/astar_algorithm.hpp"
-#include "finenav_route_planner/imap_view.hpp"
+#include "finenav_route_planner/astar/astar_algorithm.hpp"
+#include "finenav_route_planner/common/imap_view.hpp"
 #include "finenav_route_planner/route/route_graph.hpp"
 #include "finenav_route_planner/route/route_search.hpp"
 

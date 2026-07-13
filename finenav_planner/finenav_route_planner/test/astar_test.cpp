@@ -15,9 +15,9 @@
 #include <cmath>
 #include <unordered_set>
 
-#include "finenav_route_planner/astar_algorithm.hpp"
+#include "finenav_route_planner/astar/astar_algorithm.hpp"
 #include "finenav_route_planner/astar_path_search.hpp"
-#include "grid_map.hpp"    // test-only utility (in this directory)
+#include "common/grid_map.hpp"    // test-only utility (in this directory)
 
 // ── helpers ──────────────────────────────────────────────────────────────
 

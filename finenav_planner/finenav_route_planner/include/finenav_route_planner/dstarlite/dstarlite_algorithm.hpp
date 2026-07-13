@@ -11,10 +11,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "finenav_route_planner/vec3.hpp"
-#include "finenav_route_planner/grid_search_utils.hpp"   // Connectivity, getNeighbors, calculateStepCost
-#include "finenav_route_planner/heuristic.hpp"            // Heuristic, calculateHeuristic
-#include "finenav_route_planner/dstarlite_priority_key.hpp"   // Key, kInf
+#include "finenav_route_planner/common/vec3.hpp"
+#include "finenav_route_planner/common/grid_search_utils.hpp"   // Connectivity, getNeighbors, calculateStepCost
+#include "finenav_route_planner/common/heuristic.hpp"            // Heuristic, calculateHeuristic
+#include "finenav_route_planner/common/priority_key.hpp"   // Key, kInf
 
 namespace astar {
 

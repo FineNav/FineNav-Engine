@@ -3,8 +3,8 @@ find_package(benchmark REQUIRED)
 add_executable(route_planner_benchmark
     route_planner_benchmark.cpp
     # Core search engines
-    ${PROJECT_SOURCE_DIR}/src/astar_algorithm.cpp
-    ${PROJECT_SOURCE_DIR}/src/dstarlite_algorithm.cpp
+    ${PROJECT_SOURCE_DIR}/src/astar/astar_algorithm.cpp
+    ${PROJECT_SOURCE_DIR}/src/dstarlite/dstarlite_algorithm.cpp
 )
 
 target_include_directories(route_planner_benchmark PRIVATE

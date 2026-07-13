@@ -14,9 +14,9 @@
 #include <cmath>
 #include <memory>
 
-#include "finenav_route_planner/dstarlite_algorithm.hpp"
+#include "finenav_route_planner/dstarlite/dstarlite_algorithm.hpp"
 #include "finenav_route_planner/dstarlite_path_search.hpp"
-#include "grid_map.hpp"
+#include "common/grid_map.hpp"
 
 // ═══════════════════════════════════════════════════════════════════
 // Shared helpers

@@ -13,9 +13,9 @@
 #include "finenav_core/algo_configurator.hpp"
 #include "finenav_route_planner/dstarlite_params.hpp"
 
-#include "finenav_route_planner/dstarlite_algorithm.hpp"
-#include "finenav_route_planner/imap_view.hpp"
-#include "finenav_route_planner/vec3.hpp"
+#include "finenav_route_planner/dstarlite/dstarlite_algorithm.hpp"
+#include "finenav_route_planner/common/imap_view.hpp"
+#include "finenav_route_planner/common/vec3.hpp"
 
 namespace finenav {
 using finenav::core::Position3D;

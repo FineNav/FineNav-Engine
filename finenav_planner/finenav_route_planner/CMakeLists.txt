@@ -21,15 +21,14 @@ generate_parameter_library(dstarlite_params dstarlite.yaml)
 
 # ── planner library ─────────────────────────────────────────────────────────
 ament_auto_add_library(finenav_route_planner_lib SHARED
-    # Grid search engine (A* / Dijkstra / BFS all handled by AStarAlgorithm)
-    src/astar_algorithm.cpp
-    # D* Lite incremental search engine
-    src/dstarlite_algorithm.cpp
-    # Grid planner wrappers (FineNav PlannerConcept)
+    # A* engine
+    src/astar/astar_algorithm.cpp
+    # D* Lite engine
+    src/dstarlite/dstarlite_algorithm.cpp
+    # Planner wrappers (FineNav PlannerConcept)
     src/astar_path_search.cpp
     src/bfs_path_search.cpp          # BFS = AStarAlgorithm(Heuristic::Zero)
-    src/dstarlite_path_search.cpp        # D* Lite incremental planner
-    # Topological route planner (FineNav PlannerConcept)
+    src/dstarlite_path_search.cpp
     src/route_path_search.cpp
     # Route internals — graph loading (GeoJSON) + Dijkstra search
     src/route/route_graph.cpp
@@ -50,7 +49,7 @@ if (BUILD_TESTING)
 
     ament_add_gtest(astar_test
         test/astar_test.cpp
-        src/astar_algorithm.cpp
+        src/astar/astar_algorithm.cpp
         src/astar_path_search.cpp
     )
     ament_target_dependencies(astar_test finenav_core finenav_util finenav_interfaces rclcpp)
@@ -59,7 +58,7 @@ if (BUILD_TESTING)
 
     ament_add_gtest(bfs_test
         test/bfs_test.cpp
-        src/astar_algorithm.cpp      # BFS reuses AStarAlgorithm
+        src/astar/astar_algorithm.cpp      # BFS reuses AStarAlgorithm
         src/bfs_path_search.cpp
     )
     ament_target_dependencies(bfs_test finenav_core finenav_util finenav_interfaces)
@@ -68,7 +67,7 @@ if (BUILD_TESTING)
 
     ament_add_gtest(route_test
         test/route_test.cpp
-        src/astar_algorithm.cpp        # used internally for obstacle-aware node snapping
+        src/astar/astar_algorithm.cpp        # used internally for obstacle-aware node snapping
         src/route_path_search.cpp
         src/route/route_graph.cpp
         src/route/route_search.cpp
@@ -79,7 +78,7 @@ if (BUILD_TESTING)
 
     ament_add_gtest(dstarlite_test
         test/dstarlite_test.cpp
-        src/dstarlite_algorithm.cpp
+        src/dstarlite/dstarlite_algorithm.cpp
         src/dstarlite_path_search.cpp
     )
     ament_target_dependencies(dstarlite_test finenav_core finenav_util finenav_interfaces rclcpp)

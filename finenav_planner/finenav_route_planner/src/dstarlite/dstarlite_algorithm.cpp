@@ -2,7 +2,7 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-#include "finenav_route_planner/dstarlite_algorithm.hpp"
+#include "finenav_route_planner/dstarlite/dstarlite_algorithm.hpp"
 
 #include <algorithm>
 #include <cmath>
