@@ -114,6 +114,7 @@ private:
     double max_planning_time_ = 5.0;
     double movement_weight_   = 1.0;
     double greedy_weight_     = 1.0;
+    double terrain_weight_    = 1.0;
 
     // ── persistent state ──────────────────────────────────────
 

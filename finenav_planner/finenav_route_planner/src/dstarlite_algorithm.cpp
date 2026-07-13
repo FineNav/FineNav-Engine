@@ -512,8 +512,8 @@ std::vector<Vec3> DStarLiteAlgorithm::getAllNeighbors(const Vec3& u) const {
 }
 
 double DStarLiteAlgorithm::moveCost(const Vec3& a, const Vec3& b) const {
-    const double base = calculateStepCost(a, b);          // 1.0, √2, or √3
-    return base * (movement_weight_ + get_cost_(b));      // terrain-weighted edge cost
+    const double base = calculateStepCost(a, b);                    // 1.0, √2, or √3
+    return base * (movement_weight_ + terrain_weight_ * get_cost_(b));  // terrain-weighted edge cost
 }
 
 // ===================================================================

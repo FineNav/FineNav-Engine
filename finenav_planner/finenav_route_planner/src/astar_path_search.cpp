@@ -32,6 +32,7 @@ void AstarPathSearch::configure(const ConfigType& params)
     max_planning_time_ = params.max_planning_time;
     movement_weight_   = params.movement_weight;
     greedy_weight_     = params.greedy_weight;
+    terrain_weight_    = params.terrain_weight;
 }
 
 AstarPathSearch::Result AstarPathSearch::plan(
@@ -75,6 +76,7 @@ AstarPathSearch::Result AstarPathSearch::plan(
     algo.setMaxPlanningTime(max_planning_time_);
     algo.setMovementWeight(movement_weight_);
     algo.setGreedyWeight(greedy_weight_);
+    algo.setTerrainWeight(terrain_weight_);
 
     auto cell_path = algo.findPath(start, goal);
     if (!cell_path)

@@ -40,3 +40,7 @@ dstarlite_planner:
     type: double
     default_value: 1.0
     description: "Weight for the heuristic in the D* Lite key. 1.0 = optimal; >1.0 = faster but may produce suboptimal paths (bounded by this factor)."
+  terrain_weight:
+    type: double
+    default_value: 1.0
+    description: "Multiplier for map terrain cost. Increase to penalize high-cost areas more. Set according to your map's cost range."

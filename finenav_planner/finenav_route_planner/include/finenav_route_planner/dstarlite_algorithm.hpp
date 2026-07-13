@@ -142,6 +142,7 @@ public:
     void setGoalTolerance(int n)   noexcept { goal_tolerance_    = n; }
     void setMovementWeight(double w) noexcept { movement_weight_  = w; }
     void setGreedyWeight(double w)   noexcept { greedy_weight_    = w; }
+    void setTerrainWeight(double w)  noexcept { terrain_weight_   = w; }
 
     int    maxExpansions()    const noexcept { return max_expansions_; }
     int    maxPathSteps()     const noexcept { return max_path_steps_; }
@@ -149,6 +150,7 @@ public:
     int    goalTolerance()    const noexcept { return goal_tolerance_; }
     double movementWeight()   const noexcept { return movement_weight_; }
     double greedyWeight()     const noexcept { return greedy_weight_; }
+    double terrainWeight()    const noexcept { return terrain_weight_; }
 
     // ── debug ─────────────────────────────────────────────────
 
@@ -206,6 +208,7 @@ private:
     int    goal_tolerance_    = 0;           // 0 = exact goal
     double movement_weight_   = 1.0;         // weight for movement cost (vs map cost)
     double greedy_weight_     = 1.0;         // weight for heuristic (1.0 = optimal, >1 = faster)
+    double terrain_weight_    = 1.0;         // multiplier for map terrain cost
 
     // ── priority queue ────────────────────────────────────────
 

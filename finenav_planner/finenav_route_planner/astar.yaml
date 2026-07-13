@@ -35,4 +35,8 @@ astar_planner:
     type: double
     default_value: 1.001
     description: "Weight for the greedy heuristic in the path planning"
+  terrain_weight:
+    type: double
+    default_value: 1.0
+    description: "Multiplier for map terrain cost. Increase to penalize high-cost areas more. Set according to your map's cost range."
 

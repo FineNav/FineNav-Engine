@@ -41,6 +41,7 @@ void DStarLitePathSearch::configure(const ConfigType& params)
     max_planning_time_ = params.max_planning_time;
     movement_weight_   = params.movement_weight;
     greedy_weight_     = params.greedy_weight;
+    terrain_weight_    = params.terrain_weight;
 
     // ── structural change detection ────────────────────────
     bool structural_change = false;
@@ -63,6 +64,7 @@ void DStarLitePathSearch::configure(const ConfigType& params)
             static_cast<int>(std::ceil(goal_tolerance_m_ / step_size_)));
         engine_->setMovementWeight(movement_weight_);
         engine_->setGreedyWeight(greedy_weight_);
+        engine_->setTerrainWeight(terrain_weight_);
     }
 
     (void)structural_change;
@@ -161,6 +163,7 @@ DStarLitePathSearch::Result DStarLitePathSearch::plan(
             static_cast<int>(std::ceil(goal_tolerance_m_ / step_size_)));
         engine_->setMovementWeight(movement_weight_);
         engine_->setGreedyWeight(greedy_weight_);
+        engine_->setTerrainWeight(terrain_weight_);
 
         engine_->initialize(start_cell, goal_cell);
         engine_->computeShortestPath();
