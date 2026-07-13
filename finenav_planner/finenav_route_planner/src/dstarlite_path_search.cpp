@@ -39,6 +39,8 @@ void DStarLitePathSearch::configure(const ConfigType& params)
     max_expansions_    = params.max_expansions;
     max_path_steps_    = params.max_path_steps;
     max_planning_time_ = params.max_planning_time;
+    movement_weight_   = params.movement_weight;
+    greedy_weight_     = params.greedy_weight;
 
     // ── structural change detection ────────────────────────
     bool structural_change = false;
@@ -52,13 +54,15 @@ void DStarLitePathSearch::configure(const ConfigType& params)
     connectivity_ = new_conn;
     heuristic_    = new_heur;
 
-    // ── push numeric limits to existing engine ─────────────
+    // ── push numeric limits & weights to existing engine ────
     if (engine_) {
         engine_->setMaxExpansions(max_expansions_);
         engine_->setMaxPathSteps(max_path_steps_);
         engine_->setMaxPlanningTime(max_planning_time_);
         engine_->setGoalTolerance(
             static_cast<int>(std::ceil(goal_tolerance_m_ / step_size_)));
+        engine_->setMovementWeight(movement_weight_);
+        engine_->setGreedyWeight(greedy_weight_);
     }
 
     (void)structural_change;
@@ -155,6 +159,8 @@ DStarLitePathSearch::Result DStarLitePathSearch::plan(
         engine_->setMaxPlanningTime(max_planning_time_);
         engine_->setGoalTolerance(
             static_cast<int>(std::ceil(goal_tolerance_m_ / step_size_)));
+        engine_->setMovementWeight(movement_weight_);
+        engine_->setGreedyWeight(greedy_weight_);
 
         engine_->initialize(start_cell, goal_cell);
         engine_->computeShortestPath();

@@ -140,11 +140,15 @@ public:
     void setMaxPathSteps(int n)     noexcept { max_path_steps_    = n; }
     void setMaxPlanningTime(double s) noexcept { max_planning_time_ = s; }
     void setGoalTolerance(int n)   noexcept { goal_tolerance_    = n; }
+    void setMovementWeight(double w) noexcept { movement_weight_  = w; }
+    void setGreedyWeight(double w)   noexcept { greedy_weight_    = w; }
 
     int    maxExpansions()    const noexcept { return max_expansions_; }
     int    maxPathSteps()     const noexcept { return max_path_steps_; }
     double maxPlanningTime()  const noexcept { return max_planning_time_; }
     int    goalTolerance()    const noexcept { return goal_tolerance_; }
+    double movementWeight()   const noexcept { return movement_weight_; }
+    double greedyWeight()     const noexcept { return greedy_weight_; }
 
     // ── debug ─────────────────────────────────────────────────
 
@@ -200,6 +204,8 @@ private:
     int    max_path_steps_    = 10'000;      // -1 = unlimited
     double max_planning_time_ = 5.0;         // 0.0 = unlimited
     int    goal_tolerance_    = 0;           // 0 = exact goal
+    double movement_weight_   = 1.0;         // weight for movement cost (vs map cost)
+    double greedy_weight_     = 1.0;         // weight for heuristic (1.0 = optimal, >1 = faster)
 
     // ── priority queue ────────────────────────────────────────
 

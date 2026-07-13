@@ -32,3 +32,11 @@ dstarlite_planner:
     type: double
     default_value: 5.0
     description: "Maximum planning wall-clock time in seconds (0.0 = unlimited)"
+  movement_weight:
+    type: double
+    default_value: 1.0
+    description: "Weight for the movement cost vs map terrain cost. Higher values make the planner prefer lower-cost terrain."
+  greedy_weight:
+    type: double
+    default_value: 1.0
+    description: "Weight for the heuristic in the D* Lite key. 1.0 = optimal; >1.0 = faster but may produce suboptimal paths (bounded by this factor)."

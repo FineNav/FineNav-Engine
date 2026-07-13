@@ -436,7 +436,7 @@ void DStarLiteAlgorithm::printGrid(const std::vector<Vec3>& path) const {
 
 Key DStarLiteAlgorithm::calculateKey(const Vec3& s) const {
     const double ming  = std::min(g_[idx(s)], rhs_[idx(s)]);
-    const double h_val = calculateHeuristic(heuristic_type_, start_, s);
+    const double h_val = calculateHeuristic(heuristic_type_, start_, s) * greedy_weight_;
     return {ming + h_val + km_, ming};
 }
 
@@ -512,8 +512,8 @@ std::vector<Vec3> DStarLiteAlgorithm::getAllNeighbors(const Vec3& u) const {
 }
 
 double DStarLiteAlgorithm::moveCost(const Vec3& a, const Vec3& b) const {
-    const double base = calculateStepCost(a, b);  // 1.0, √2, or √3
-    return base * (1.0 + get_cost_(b));           // terrain-weighted edge cost
+    const double base = calculateStepCost(a, b);          // 1.0, √2, or √3
+    return base * (movement_weight_ + get_cost_(b));      // terrain-weighted edge cost
 }
 
 // ===================================================================

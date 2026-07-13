@@ -112,6 +112,8 @@ private:
     int    max_expansions_    = 1'000'000;
     int    max_path_steps_    = 10'000;
     double max_planning_time_ = 5.0;
+    double movement_weight_   = 1.0;
+    double greedy_weight_     = 1.0;
 
     // ── persistent state ──────────────────────────────────────
 
