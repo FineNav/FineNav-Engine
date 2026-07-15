@@ -75,6 +75,7 @@ public:
     void setMaxPlanningTime(double t)     { max_planning_time_ = t; }
     void setMovementWeight(double w)      { movement_weight_   = w; }
     void setGreedyWeight(double w)        { greedy_weight_     = w; }
+    void setObstacleCostWeight(double w)  { obstacle_cost_weight_ = w; }
 
     // ── main searches ─────────────────────────────────────────
 
@@ -108,6 +109,7 @@ private:
     double       max_planning_time_ = 5.0;
     double       movement_weight_   = 1.0;
     double       greedy_weight_     = 1.001;
+    double       obstacle_cost_weight_ = 1.0;
 
     // ── search state (reset each findPath call) ───────────────
     std::priority_queue<AstarNode, std::vector<AstarNode>, AstarNodeCompare> open_set_;

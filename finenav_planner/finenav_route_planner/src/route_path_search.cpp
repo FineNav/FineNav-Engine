@@ -22,6 +22,7 @@ void RoutePathSearch::configure(const ConfigType& params)
 {
     path_density_             = params.path_density;
     min_approach_angle_deg_   = params.min_approach_angle_deg;
+    obstacle_cost_weight_     = params.obstacle_cost_weight;
 }
 
 // ── updateGraph ────────────────────────────────────────────────────────────
@@ -282,6 +283,7 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
     algo.setHeuristic(astar::Heuristic::Zero);
     algo.setMaxIterations(-1);
     algo.setMaxPlanningTime(5.0); // TODO: 后面这些应该也成为动态参数
+    algo.setObstacleCostWeight(obstacle_cost_weight_);
 
     const auto path = algo.findPathToAny(origin, is_goal, accept_goal);
     if (!path || path->empty()) return {};

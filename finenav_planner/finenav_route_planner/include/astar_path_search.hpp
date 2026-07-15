@@ -61,6 +61,7 @@ private:
     double max_planning_time_ = 5.0;
     double movement_weight_   = 1.0;
     double greedy_weight_     = 1.001;
+    double obstacle_cost_weight_ = 1.0;
 };
 
 } // namespace finenav
