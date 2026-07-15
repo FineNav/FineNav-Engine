@@ -20,6 +20,8 @@
 #include "finenav_engine/finenav_engine.hpp"
 #include "grid_map.hpp" // TODO: resolve anti-pattern export
 #include "route_path_search.hpp"
+#include "detour_planner.hpp"
+#include "detour_mapview.hpp"
 
 #include "occ_grid_map_view.hpp"
 #include "occ_grid_2d_map.hpp"
@@ -392,6 +394,21 @@ int main(int argc, char** argv) {
             return std::make_shared<astar::OccGridMapView>(map);
         });
 
+    // ── Detour Layer ──────────────────────────────────────────────────────
+    // Sits between route_layer and mppi_layer.  Monitors the global route
+    // for segments blocked by dynamic obstacles (from TerrainAnalyzer) and
+    // generates A*-based detour paths around them.  When the path is clear
+    // the reference trajectory passes through unchanged.
+    using DetourPlanners = PlannerSet<finenav::DetourPlanner>;
+    auto detour_layer = finenav_engine->createControlLayer<DetourPlanners>(
+        "detour_layer", finenav::TrackingPolicy{5.0});
+
+    detour_layer->bind_map_view(
+        map_server,
+        [terrain_analyzer](const GridMap<Voxel>& map) {
+            return std::make_shared<DetourMapView>(map, *terrain_analyzer);
+        });
+
     using MppiPlanners = PlannerSet<finenav::RotateShim, nav2_mppi_controller::MPPIController>;
     auto my_control_layer = finenav_engine->createControlLayer<MppiPlanners>(
         "mppi_layer", finenav::TrackingPolicy{10.0});
@@ -488,16 +505,9 @@ int main(int argc, char** argv) {
     finenav_engine->registerPipeline(
         FineNavEngine::PipelineIO{
             .input_topic = "",
-            .output_topic = "route_layer_plan",
-        },
-        route_layer);
-
-    finenav_engine->registerPipeline(
-        FineNavEngine::PipelineIO{
-            .input_topic = "route_layer_plan",
             .output_topic = "mppi_layer_plan",
         },
-        my_control_layer);
+        route_layer, detour_layer, my_control_layer);
 
 
     // --------------------------------- Main Loop --------------------------------------------

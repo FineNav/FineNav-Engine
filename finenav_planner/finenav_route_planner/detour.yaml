@@ -1,0 +1,34 @@
+# detour.yaml - DetourPlanner parameter definitions
+detour_planner:
+  search_radius_m:
+    type: double
+    default_value: 5.0
+    description: "Maximum search radius (metres) for the A* detour search around the robot"
+  grid_resolution_m:
+    type: double
+    default_value: 0.1
+    description: "Grid cell size (metres) for the A* search — should match the costmap resolution"
+  blockage_threshold:
+    type: double
+    default_value: 0.8
+    description: "Normalised cost threshold (0.0–1.0). A reference-path waypoint with cost above this value is considered blocked."
+  clear_threshold:
+    type: double
+    default_value: 0.2
+    description: "Normalised cost threshold (0.0–1.0). The first waypoint downstream of a blockage with cost below this is used as the detour goal."
+  obstacle_cost_weight:
+    type: double
+    default_value: 1.0
+    description: "Coefficient applied to map cost in A* edge weight (0 = ignore cost, larger = more obstacle-avoidant). Calibrated for normalised (0–1) costs."
+  max_planning_time:
+    type: double
+    default_value: 0.1
+    description: "Maximum wall-clock time (seconds) allowed for a single detour search"
+  max_iterations:
+    type: int
+    default_value: 10000
+    description: "Maximum A* node expansions per search"
+  path_sample_interval_m:
+    type: double
+    default_value: 0.1
+    description: "Sampling interval (metres) along the reference path for blockage detection"

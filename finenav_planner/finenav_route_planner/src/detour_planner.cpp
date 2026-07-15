@@ -1,0 +1,198 @@
+// Copyright (c) 2026.
+// IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
+// All rights reserved.
+
+#include "detour_planner.hpp"
+
+#include <cmath>
+
+#include "astar_algorithm.hpp"
+#include "vec3.hpp"
+
+namespace finenav {
+
+// ── configure ──────────────────────────────────────────────────────────────
+
+void DetourPlanner::configure(const ConfigType& params)
+{
+    search_radius_m_        = params.search_radius_m;
+    grid_resolution_m_      = params.grid_resolution_m;
+    blockage_threshold_     = params.blockage_threshold;
+    clear_threshold_        = params.clear_threshold;
+    obstacle_cost_weight_   = params.obstacle_cost_weight;
+    max_planning_time_      = params.max_planning_time;
+    max_iterations_         = params.max_iterations;
+    path_sample_interval_m_ = params.path_sample_interval_m;
+}
+
+// ── findBlockage ───────────────────────────────────────────────────────────
+
+std::optional<DetourPlanner::BlockageSegment>
+DetourPlanner::findBlockage(const Context& ctx, const IMapView& map_view) const
+{
+    const auto& poses = ctx.ref_traj.poses;
+    if (poses.size() < 2) return std::nullopt;
+
+    const Position3D robot_pos{
+        ctx.robot_state.pose.position.x,
+        ctx.robot_state.pose.position.y,
+        ctx.robot_state.pose.position.z
+    };
+
+    // Find the waypoint nearest to the robot as the scan start point.
+    size_t scan_start = 0;
+    {
+        double best_dist_sq = std::numeric_limits<double>::max();
+        for (size_t i = 0; i < poses.size(); ++i) {
+            const double dx = poses[i].position.x - robot_pos.x();
+            const double dy = poses[i].position.y - robot_pos.y();
+            const double d2 = dx * dx + dy * dy;
+            if (d2 < best_dist_sq) {
+                best_dist_sq = d2;
+                scan_start = i;
+            }
+        }
+    }
+
+    std::optional<size_t> blockage_start;
+    double accumulated_dist = 0.0;
+
+    for (size_t i = scan_start; i < poses.size(); ++i) {
+        if (i > scan_start) {
+            const double dx = poses[i].position.x - poses[i - 1].position.x;
+            const double dy = poses[i].position.y - poses[i - 1].position.y;
+            accumulated_dist += std::hypot(dx, dy);
+        }
+
+        // Sample at path_sample_interval_m_ granularity
+        if (i > scan_start && (i + 1 < poses.size()) &&
+            (std::fmod(accumulated_dist, path_sample_interval_m_) > path_sample_interval_m_ * 0.5))
+            continue;
+
+        const Position3D wp{poses[i].position.x, poses[i].position.y, poses[i].position.z};
+        const double cost = map_view.getCost(wp);
+
+        if (!blockage_start.has_value()) {
+            if (cost >= blockage_threshold_) {
+                blockage_start = i;
+            }
+        } else {
+            if (cost <= clear_threshold_) {
+                return BlockageSegment{*blockage_start, i};
+            }
+        }
+
+        // Stop scanning beyond 2× the search radius
+        if (accumulated_dist > search_radius_m_ * 2.0) break;
+    }
+
+    return std::nullopt;
+}
+
+// ── plan ───────────────────────────────────────────────────────────────────
+
+DetourPlanner::Result DetourPlanner::plan(
+    const Context&  ctx,
+    const IMapView& map_view)
+{
+    const auto& poses = ctx.ref_traj.poses;
+    // No reference trajectory yet (e.g. route_layer has not published).
+    // Return empty output to keep the TrackingPolicy loop alive.
+    if (poses.empty()) {
+        return OutputDataT<DetourPlanner>{};
+    }
+
+    // ── 1. Detect blockage ──────────────────────────────────────────────────
+    const auto blockage = findBlockage(ctx, map_view);
+    if (!blockage.has_value()) {
+        OutputDataT<DetourPlanner> output;
+        output.poses = poses;
+        return output;
+    }
+
+    // ── 2. Grid coordinate helpers ──────────────────────────────────────────
+    const double step = map_view.getStepSize();
+    if (step <= 0.0) {
+        OutputDataT<DetourPlanner> output;
+        output.poses = poses;
+        return output;
+    }
+
+    const double inv_step = 1.0 / step;
+    auto worldToCell = [inv_step](double x, double y) -> astar::Vec3 {
+        return {
+            static_cast<int>(std::floor(x * inv_step)),
+            static_cast<int>(std::floor(y * inv_step)),
+            0
+        };
+    };
+    auto cellCentre = [step](const astar::Vec3& c) -> Position3D {
+        return { (c.x + 0.5) * step, (c.y + 0.5) * step, 0.0 };
+    };
+
+    // ── 3. Start cell (robot pose) + search depth ───────────────────────────
+    const auto& rp = ctx.robot_state.pose.position;
+    const astar::Vec3 start_cell = worldToCell(rp.x, rp.y);
+    const int max_depth = static_cast<int>(std::ceil(search_radius_m_ * inv_step));
+
+    // ── 4. Goal cell (exit waypoint beyond the blockage) ────────────────────
+    const auto& exit_pose = poses[blockage->exit_idx].position;
+    const astar::Vec3 goal_cell = worldToCell(exit_pose.x, exit_pose.y);
+
+    // ── 5. A* lambdas ───────────────────────────────────────────────────────
+    auto is_walkable = [&](const astar::Vec3& c) -> bool {
+        return c.z == 0
+            && std::abs(c.x - start_cell.x) <= max_depth
+            && std::abs(c.y - start_cell.y) <= max_depth
+            && map_view.isWalkable(cellCentre(c));
+    };
+
+    auto get_cost = [&](const astar::Vec3& c) -> double {
+        return map_view.getCost(cellCentre(c));
+    };
+
+    // ── 6. Run A* ───────────────────────────────────────────────────────────
+    astar::AStarAlgorithm algo(is_walkable, get_cost);
+    algo.setConnectivity(astar::Connectivity::N8);
+    algo.setHeuristic(astar::Heuristic::Euclidean);
+    algo.setGoalTolerance(0.5 * inv_step);
+    algo.setMaxIterations(max_iterations_);
+    algo.setMaxPlanningTime(max_planning_time_);
+    algo.setMovementWeight(1.0);
+    algo.setGreedyWeight(1.001);
+    algo.setObstacleCostWeight(obstacle_cost_weight_);
+
+    auto cell_path = algo.findPath(start_cell, goal_cell);
+    if (!cell_path || cell_path->size() < 2) {
+        OutputDataT<DetourPlanner> output;
+        output.poses = poses;
+        return output;
+    }
+
+    // ── 7. Stitch: [prefix] + [A* detour] + [suffix] ────────────────────────
+    OutputDataT<DetourPlanner> output;
+    output.poses.reserve(blockage->start_idx + cell_path->size()
+                         + (poses.size() - blockage->exit_idx));
+
+    for (size_t i = 0; i < blockage->start_idx; ++i) {
+        output.poses.push_back(poses[i]);
+    }
+
+    for (const auto& cell : *cell_path) {
+        Position3D wp = cellCentre(cell);
+        geometry_msgs::msg::Pose p;
+        p.position.x = wp.x();
+        p.position.y = wp.y();
+        p.position.z = wp.z();
+        p.orientation.w = 1.0;
+        output.poses.push_back(p);
+    }
+
+    for (size_t i = blockage->exit_idx; i < poses.size(); ++i) {
+        output.poses.push_back(poses[i]);
+    }
+
+    return output;
+}
+
+} // namespace finenav

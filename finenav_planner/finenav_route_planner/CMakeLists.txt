@@ -17,6 +17,7 @@ ament_auto_find_build_dependencies()
 generate_parameter_library(astar_params  astar.yaml)
 generate_parameter_library(bfs_params    bfs.yaml)
 generate_parameter_library(route_params  route.yaml)
+generate_parameter_library(detour_params detour.yaml)
 
 # ── planner library ─────────────────────────────────────────────────────────
 ament_auto_add_library(finenav_route_planner_lib
@@ -27,6 +28,8 @@ ament_auto_add_library(finenav_route_planner_lib
     src/bfs_path_search.cpp          # BFS = AStarAlgorithm(Heuristic::Zero)
     # Topological route planner (FineNav PlannerConcept)
     src/route_path_search.cpp
+    # Local detour planner (FineNav PlannerConcept)
+    src/detour_planner.cpp
     # Route internals — graph loading (GeoJSON) + Dijkstra search
     src/route/route_graph.cpp
     src/route/route_search.cpp
@@ -35,6 +38,7 @@ target_link_libraries(finenav_route_planner_lib
     astar_params
     bfs_params
     route_params
+    detour_params
     ${OpenCV_LIBS}
     Eigen3::Eigen
 )

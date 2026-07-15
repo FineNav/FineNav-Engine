@@ -117,3 +117,21 @@ hello_finenav/route_layer:
     route_planner:
       path_density: 0.05
       min_approach_angle_deg: 120.0
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DetourPlanner（局部绕障）
+# 完整节点路径: /hello_finenav/detour_layer
+# 位于 route_layer 和 mppi_layer 之间，周期检查全局路径是否被动态障碍阻塞，
+# 若阻塞则通过 A* 搜索生成局部绕行路径。
+# ══════════════════════════════════════════════════════════════════════════════
+hello_finenav/detour_layer:
+  ros__parameters:
+    detour_planner:
+      search_radius_m: 5.0
+      grid_resolution_m: 0.1
+      blockage_threshold: 0.8
+      clear_threshold: 0.2
+      obstacle_cost_weight: 1.0
+      max_planning_time: 0.1
+      max_iterations: 10000
+      path_sample_interval_m: 0.1
