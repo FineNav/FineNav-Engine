@@ -35,4 +35,8 @@ astar_planner:
     type: double
     default_value: 1.001
     description: "Weight for the greedy heuristic in the path planning"
+  obstacle_cost_weight:
+    type: double
+    default_value: 1.0
+    description: "Coefficient applied to the map obstacle cost in the A* evaluation function (0 = ignore map cost, larger = keep further from obstacles)"
 

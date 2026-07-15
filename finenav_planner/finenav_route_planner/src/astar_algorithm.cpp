@@ -76,7 +76,7 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPath(
 
             double step_cost   = calculateStepCost(current.pos, nb_pos);
             double map_cost    = get_cost_(nb_pos);
-            double tentative_g = current.g + step_cost * (movement_weight_ + map_cost);
+            double tentative_g = current.g + step_cost * (movement_weight_ + obstacle_cost_weight_ * map_cost);
 
             if (!came_from_.contains(nb_pos) ||
                 tentative_g < came_from_[nb_pos].g)
@@ -182,7 +182,7 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPathToAny(
 
             double step_cost   = calculateStepCost(current.pos, nb_pos);
             double map_cost    = get_cost_(nb_pos);
-            double tentative_g = current.g + step_cost * (movement_weight_ + map_cost);
+            double tentative_g = current.g + step_cost * (movement_weight_ + obstacle_cost_weight_ * map_cost);
 
             if (!came_from_.contains(nb_pos) ||
                 tentative_g < came_from_[nb_pos].g)

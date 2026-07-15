@@ -26,6 +26,7 @@ void BfsPathSearch::configure(const ConfigType& params)
     max_iterations_    = params.max_iterations;
     max_planning_time_ = params.max_planning_time;
     movement_weight_   = params.movement_weight;
+    obstacle_cost_weight_ = params.obstacle_cost_weight;
 }
 
 BfsPathSearch::Result BfsPathSearch::plan(
@@ -71,6 +72,7 @@ BfsPathSearch::Result BfsPathSearch::plan(
     algo.setMaxIterations(max_iterations_);
     algo.setMaxPlanningTime(max_planning_time_);
     algo.setMovementWeight(movement_weight_);
+    algo.setObstacleCostWeight(obstacle_cost_weight_);
     // greedy_weight: irrelevant when h=0, leave at default (1.001 * 0 = 0)
 
     auto cell_path = algo.findPath(start, goal);

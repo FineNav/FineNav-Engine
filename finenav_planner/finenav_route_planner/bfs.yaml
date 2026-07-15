@@ -24,4 +24,8 @@ bfs_planner:
     type: double
     default_value: 1.0
     description: "Multiplier on step cost before adding map cost. Scales movement distance vs obstacle penalty."
+  obstacle_cost_weight:
+    type: double
+    default_value: 1.0
+    description: "Coefficient applied to the map obstacle cost (0 = ignore map cost, larger = keep further from obstacles)"
 
