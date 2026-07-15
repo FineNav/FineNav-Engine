@@ -11,4 +11,4 @@ route_planner:
   obstacle_cost_weight:
     type: double
     default_value: 1.0
-    description: "Coefficient applied to the map obstacle cost in the snapping Dijkstra search (0 = ignore map cost, larger = keep further from obstacles)"
+    description: "Coefficient applied to the map obstacle cost in the snapping Dijkstra search (0 = ignore map cost, larger = keep further from obstacles). Edge cost = step * (1 + obstacle_cost_weight * cost). Rule of thumb: weight * max_traversable_cost ~= 2. Recommended: normalized 0-1 -> 1.3~3.5 (2.0 typical); OccupancyGrid 0-100 -> ~0.02; Nav2 costmap 0-252 -> ~0.008."
