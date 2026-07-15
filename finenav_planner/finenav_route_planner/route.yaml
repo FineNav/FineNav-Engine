@@ -11,4 +11,4 @@ route_planner:
   terrain_weight:
     type: double
     default_value: 1.0
-    description: "Multiplier for map terrain cost in the snapping Dijkstra search. Increase to keep connector paths further from high-cost areas."
+    description: "Multiplier for map terrain cost in the snapping Dijkstra search. Increase to keep connector paths further from high-cost areas. Rule of thumb: terrain_weight * max_traversable_cost ~= 2. Recommended: normalized cost 0-1 -> 1.3~3.5 (2.0 typical); OccupancyGrid 0-100 -> ~0.02; Nav2 costmap 0-252 -> ~0.008."

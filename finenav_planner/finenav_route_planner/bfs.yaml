@@ -27,5 +27,5 @@ bfs_planner:
   terrain_weight:
     type: double
     default_value: 1.0
-    description: "Multiplier for map terrain cost. Increase to penalize high-cost areas more. Set according to your map's cost range."
+    description: "Multiplier for map terrain cost (edge = step * (movement_weight + terrain_weight * cost)). Rule of thumb: terrain_weight * max_traversable_cost ~= 2 * movement_weight. Recommended: normalized cost 0-1 -> 1.3~3.5 (2.0 typical); OccupancyGrid 0-100 -> ~0.02; Nav2 costmap 0-252 -> ~0.008. Lethal cells (e.g. Nav2 253-255) must be blocked via IMapView::isWalkable(), not by raising this weight."
 
