@@ -10,23 +10,30 @@
 
 namespace astar {
 
+/// 启发函数类型（作用于 Vec3 栅格坐标）
 enum class Heuristic {
-    // h = 0 : degrades A* to Dijkstra's algorithm (weighted BFS).
-    // On a uniform-cost grid this is equivalent to classic BFS.
-    // On a weighted grid it finds the minimum-cost path without
-    // directional guidance, at the cost of more node expansions.
+    // h = 0：使 A* 退化为 Dijkstra 算法（加权 BFS）。
+    // 在均匀代价栅格上等价于经典 BFS。
+    // 在加权栅格上可在无方向引导的情况下找到最小代价路径，
+    // 代价是需要扩展更多节点。
     Zero,
-    Euclidean,
-    Manhattan,
-    Chebyshev,
-    // 3-D octile distance.  Admissible for 8-connected grids when
-    // diagonal cost = √2 (and corner cost = √3 in 3-D).
-    // Recommended default for D* Lite.
+    Euclidean,   // 欧氏距离
+    Manhattan,   // 曼哈顿距离
+    Chebyshev,   // 切比雪夫距离
+    // 三维 octile（对角线）距离。当对角步代价 = √2（三维角步代价 = √3）时，
+    // 对 8 连通栅格具有可采纳性。
+    // 推荐作为 D* Lite 的默认启发式。
     Diagonal
 };
 
-// Heuristic operates on Vec3 cells.
-// For 2-D grids z is always 0, so the 3-D formula degrades correctly.
+/**
+ * @brief 按给定启发式类型计算 from 到 to 的启发式代价
+ * @param type 启发函数类型
+ * @param from 起始栅格坐标
+ * @param to 目标栅格坐标
+ * @return 启发式估计代价（栅格单位）
+ * @note 启发式作用于 Vec3 栅格坐标；对 2D 栅格 z 恒为 0，三维公式可正确退化为二维
+ */
 inline double calculateHeuristic(
     Heuristic   type,
     const Vec3& from,
@@ -47,8 +54,8 @@ inline double calculateHeuristic(
                          std::abs(from.y - to.y),
                          std::abs(from.z - to.z)});
     case Heuristic::Diagonal: {
-        // Octile / Diagonal distance with √2 for 2-axis steps.
-        // Shared by D* Lite (recommended default for 8-connected grids).
+        // Octile / 对角线距离：2 轴同时步进的代价为 √2。
+        // 与 D* Lite 共享（8 连通栅格的推荐默认启发式）。
         const double dx = std::abs(from.x - to.x);
         const double dy = std::abs(from.y - to.y);
         const double dz = std::abs(from.z - to.z);

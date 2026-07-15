@@ -11,26 +11,19 @@
 
 namespace route {
 
-// =============================================================
-// findRoute
-//
-// Dijkstra's shortest-path on a route Graph, followed by
-// polyline densification to produce a dense pose list.
-//
-// Parameters:
-//   graph        — route graph built by loadFromJson().
-//   start_index  — index in graph.nodes for the start node.
-//   goal_index   — index in graph.nodes for the goal node.
-//   path_density — interpolation step in metres.
-//                  Pass 0 (or negative) to return only node centres.
-//
-// Returns:
-//   A list of [x, y] world-frame points along the route,
-//   or nullopt if no path exists (disconnected graph).
-// =============================================================
+// ===== 路网最短路搜索 =====
 
+/// 路径点序列：世界坐标系下的 [x, y] 点对列表
 using RoutePoses = std::vector<std::pair<double, double>>;
 
+/**
+ * @brief 在路网图上执行 Dijkstra 最短路搜索，并对边折线插值加密生成稠密路径点序列
+ * @param graph 由 loadFromJson() 构建的路网图
+ * @param start_index 起点节点在 graph.nodes 中的下标
+ * @param goal_index 终点节点在 graph.nodes 中的下标
+ * @param path_density 插值步长（米）；传 0（或负数）时仅返回沿途节点中心点
+ * @return 沿路径的世界坐标系 [x, y] 点序列；无可达路径（图不连通）时返回 std::nullopt
+ */
 std::optional<RoutePoses> findRoute(
     const Graph& graph,
     size_t       start_index,

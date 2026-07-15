@@ -12,40 +12,45 @@
 namespace route {
 // TODO: 目前只支持2D，后续应该直接推广成3D版本
 
-// =============================================================
-// Graph data types
-// =============================================================
+// ===== 图数据类型 =====
 
-/// A node in the route graph — a named waypoint in world coordinates.
+/**
+ * @brief 路网图中的节点——世界坐标系下的具名路标点
+ */
 struct Node {
-    unsigned int id    = 0;
-    double       x     = 0.0;   ///< world frame, metres
-    double       y     = 0.0;
-    std::string  frame;          ///< semantic name (e.g. "entrance_A"); empty if unset
+    unsigned int id    = 0;     ///< 节点唯一 id（来自 GeoJSON properties.id）
+    double       x     = 0.0;   ///< 世界坐标系 x（米）
+    double       y     = 0.0;   ///< 世界坐标系 y（米）
+    std::string  frame;          ///< 语义名称（如 "entrance_A"）；未设置时为空
 };
 
-/// One directed edge in the adjacency list.
+/**
+ * @brief 邻接表中的一条有向边
+ */
 struct Neighbor {
-    size_t to_index = 0;         ///< index into Graph::nodes
-    double cost     = 0.0;       ///< traversal cost in metres (or fixed override)
+    size_t to_index = 0;         ///< 终点节点在 Graph::nodes 中的下标
+    double cost     = 0.0;       ///< 通行代价（米，或固定覆盖值）
 
-    // Dense polyline [x, y]: first = start node centre, last = end node centre.
-    // Intermediate points come from the GeoJSON LineString geometry.
+    // 稠密折线 [x, y]：首点 = 起点节点中心，末点 = 终点节点中心。
+    // 中间点来自 GeoJSON LineString 几何。
     std::vector<std::pair<double, double>> polyline;
 };
 
-/// Adjacency-list route graph loaded from GeoJSON.
+/**
+ * @brief 从 GeoJSON 加载的邻接表路网图
+ */
 struct Graph {
-    std::vector<Node>                        nodes;
-    std::vector<std::vector<Neighbor>>       adj;       ///< adj[i] = outgoing edges of nodes[i]
-    std::unordered_map<unsigned int, size_t> id_index;  ///< node id → index in nodes
+    std::vector<Node>                        nodes;     ///< 全部节点
+    std::vector<std::vector<Neighbor>>       adj;       ///< adj[i] = nodes[i] 的出边列表
+    std::unordered_map<unsigned int, size_t> id_index;  ///< 节点 id → 在 nodes 中的下标
 
+    /// 按节点 id 查找下标；未找到返回 SIZE_MAX
     size_t indexOf(unsigned int node_id) const {
         auto it = id_index.find(node_id);
         return (it != id_index.end()) ? it->second : SIZE_MAX;
     }
 
-    /// Find index by semantic frame name; SIZE_MAX if not found.
+    /// 按语义 frame 名称查找下标；未找到返回 SIZE_MAX
     size_t indexOfFrame(const std::string& frame_name) const {
         for (size_t i = 0; i < nodes.size(); ++i)
             if (nodes[i].frame == frame_name) return i;
@@ -53,26 +58,23 @@ struct Graph {
     }
 };
 
-// =============================================================
-// GeoJSON loader
-//
-// Expected FeatureCollection schema:
-//
-//   Node  — geometry.type = "Point"
-//            properties: { id: uint, frame?: string }
-//            geometry.coordinates: [x, y]
-//
-//   Edge  — geometry.type = "LineString" | "MultiLineString"
-//            properties: { id: uint, startid: uint, endid: uint,
-//                          cost?: float, overridable?: bool }
-//            geometry.coordinates: [[x,y], ...]
-//
-// If overridable == false and cost > 0, that cost is used directly.
-// Otherwise the edge cost equals the Euclidean length of the polyline.
-//
-// Returns nullopt on any parse or schema error.
-// =============================================================
+// ===== GeoJSON 加载器 =====
 
+/**
+ * @brief 从 GeoJSON 文本解析并构建路网图
+ * @param geojson GeoJSON FeatureCollection 字符串
+ * @return 解析成功时返回 Graph；出现任何解析或 schema 错误时返回 std::nullopt
+ * @details 期望的 FeatureCollection schema：
+ *          - 节点（Node）：geometry.type = "Point"
+ *            properties: { id: uint, frame?: string }
+ *            geometry.coordinates: [x, y]
+ *          - 边（Edge）：geometry.type = "LineString" | "MultiLineString"
+ *            properties: { id: uint, startid: uint, endid: uint,
+ *                          cost?: float, overridable?: bool }
+ *            geometry.coordinates: [[x,y], ...]
+ * @note 若 overridable == false 且 cost > 0，则直接使用该 cost 作为边代价；
+ *       否则边代价等于折线的欧氏长度。
+ */
 std::optional<Graph> loadFromJson(const std::string& geojson);
 
 }  // namespace route
