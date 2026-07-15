@@ -24,4 +24,8 @@ bfs_planner:
     type: double
     default_value: 1.0
     description: "Multiplier on step cost before adding map cost. Scales movement distance vs obstacle penalty."
+  terrain_weight:
+    type: double
+    default_value: 1.0
+    description: "Multiplier for map terrain cost. Increase to penalize high-cost areas more. Set according to your map's cost range."
 

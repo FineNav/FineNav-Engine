@@ -149,6 +149,7 @@ private:
     // ── Parameters ────────────────────────────────────────────
     double path_density_ = 0.05;
     double min_approach_angle_deg_ = 0.0;
+    double terrain_weight_ = 1.0;          // 地形代价乘数（吸附搜索用）
 };
 
 } // namespace finenav

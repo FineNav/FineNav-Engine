@@ -8,3 +8,7 @@ route_planner:
     type: double
     default_value: 0.0
     description: "Minimum angle (degrees) between approach direction and path tangent for path-point snapping. Candidates with smaller angles are rejected to avoid perpendicular connector paths. For a smooth merge, set to e.g. 120.0 (approach from behind the path direction). Set to 0.0 to disable."
+  terrain_weight:
+    type: double
+    default_value: 1.0
+    description: "Multiplier for map terrain cost in the snapping Dijkstra search. Increase to keep connector paths further from high-cost areas."
