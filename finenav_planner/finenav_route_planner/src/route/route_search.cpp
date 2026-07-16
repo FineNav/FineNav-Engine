@@ -39,16 +39,19 @@ void densifySegment(
 }  // anonymous namespace
 
 std::optional<RoutePoses> findRoute(
-    const Graph& graph,
-    size_t       start_index,
-    size_t       goal_index,
-    double       path_density)
+    const Graph&         graph,
+    size_t               start_index,
+    size_t               goal_index,
+    double               path_density,
+    std::vector<size_t>* node_sequence)
 {
     const size_t N = graph.nodes.size();
     if (start_index >= N || goal_index >= N) return std::nullopt;
 
-    if (start_index == goal_index)
+    if (start_index == goal_index) {
+        if (node_sequence) *node_sequence = {start_index};
         return RoutePoses{{graph.nodes[start_index].x, graph.nodes[start_index].y}};
+    }
 
     // ── Dijkstra ──────────────────────────────────────────────────────────
     constexpr double INF = std::numeric_limits<double>::infinity();
@@ -90,6 +93,13 @@ std::optional<RoutePoses> findRoute(
         cur = p;
     }
     std::reverse(edges_fwd.begin(), edges_fwd.end());
+
+    if (node_sequence) {
+        node_sequence->clear();
+        node_sequence->push_back(start_index);
+        for (auto [fi, k] : edges_fwd)
+            node_sequence->push_back(graph.adj[fi][k].to_index);
+    }
 
     // ── Build output ──────────────────────────────────────────────────────
     RoutePoses result;

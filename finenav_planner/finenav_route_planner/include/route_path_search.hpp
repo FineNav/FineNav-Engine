@@ -28,23 +28,23 @@ namespace finenav {
 // From the user's perspective this planner takes the same IMapView
 // as AstarPathSearch / BfsPathSearch.  The occupancy map is used to
 // guide obstacle-aware BFS when snapping the robot's current pose
-// and the goal pose to the nearest reachable route graph point
-// (either a node or an intermediate point on an edge polyline).
+// and the goal pose to the route graph.
 //
 // The route graph (GeoJSON) is loaded from the /geojson topic;
 // it is cached across planning calls and reloaded when the topic
 // publishes new data.
 //
 // Planning flow in plan():
-//   1. Use cached route graph.
-//   2. AStarAlgorithm::findPathToAny (h=0 + map isWalkable/getCost)
-//      → find the nearest REACHABLE graph point (node OR path point)
-//        to ctx.robot_state.pose.
-//   3. Same search for ctx.goal_pose.
-//   4. For path-point snaps: insert virtual nodes + split edges on a
-//      mutable graph copy.
-//   5. Dijkstra on the (possibly modified) route graph (route::findRoute).
-//   6. Return the densified pose list.
+//   1. Snap robot pose and goal pose to the nearest REACHABLE graph
+//      node (obstacle-aware Dijkstra on the occupancy map, h = 0).
+//   2. Dijkstra on the route graph (route::findRoute) → route poses
+//      plus the node sequence along the route.
+//   3. Start prune: if the robot already projects positively onto the
+//      first route edge (node_seq[0] → node_seq[1]), it is past the
+//      first node — entering there would mean backtracking.  Snap the
+//      robot onto that edge instead (virtual node + edge split on a
+//      graph copy) and re-run findRoute from the virtual node.
+//   4. Output = start connector + route + reversed goal connector.
 // =============================================================
 
 class RoutePathSearch {
@@ -68,13 +68,12 @@ public:
 
     // Same map interface as AstarPathSearch and BfsPathSearch.
     // isWalkable / getCost are used during the BFS that snaps poses to
-    // the nearest route node so that the connector path avoids obstacles.
+    // the route graph so that the connector path avoids obstacles.
     using IMapView = astar::IMapView;
 
     using Context = PlanningContext<RoutePathSearch>;
     using Result  = std::optional<OutputDataT<RoutePathSearch>>;
 
-    // Loads (or reloads) the graph when graph_file param changes.
     void configure(const ConfigType& params);
     void reset() {}
 
@@ -86,66 +85,60 @@ public:
      */
     void updateGraph(const std::string& geojson_str);
 
-    // Result of snapping a world pose to the nearest reachable route graph point
-    // (either a node or an intermediate point on an edge polyline).
-    // Carries the entry point info and the obstacle-aware grid path (in world
-    // frame) that connects the pose to that point.
-    struct SnapResult {
-        // Node snapping — valid when isNode() is true.
+    // Result of snapping a world pose to the nearest reachable graph node.
+    struct NodeSnap {
         size_t node_index{SIZE_MAX};
+        std::vector<Position3D> connector_path;   // world-frame, pose → node
+        bool valid() const { return node_index != SIZE_MAX; }
+    };
 
-        // Path snapping — valid when isPath() is true.
-        // The snap landed on the edge graph.adj[edge_from][edge_idx] at an
-        // intermediate polyline point.  snap_point holds the world coordinates.
-        size_t      edge_from{SIZE_MAX};
-        size_t      edge_to{SIZE_MAX};       // target node of the edge
-        size_t      edge_idx{SIZE_MAX};      // index in graph.adj[edge_from]
-        size_t      pt_idx{SIZE_MAX};        // index in the edge's polyline
-        Position3D  snap_point{};           // world coordinates of the entry point
-
+    // Result of snapping a world pose onto one specific directed edge.
+    struct EdgeSnap {
+        size_t     edge_from{SIZE_MAX};   // source node of the edge
+        size_t     edge_idx{SIZE_MAX};    // index in graph.adj[edge_from]
+        size_t     pt_idx{SIZE_MAX};      // polyline index of the snap point;
+                                          // SIZE_MAX = projection fallback
+                                          // (snap_point is not a polyline vertex)
+        Position3D snap_point{};          // world coordinates of the entry point
         std::vector<Position3D> connector_path;   // world-frame, pose → snap_point
-
-        bool isNode() const { return node_index != SIZE_MAX; }
-        bool isPath() const { return edge_from != SIZE_MAX; }
+        bool valid() const { return edge_from != SIZE_MAX; }
     };
 
 private:
-    // Obstacle-aware BFS (Dijkstra h=0 on the occupancy map) to snap a
-    // world pose to the nearest reachable route graph point (node or path).
-    // Returns a SnapResult with both the entry info and the world-frame
-    // connector path from `pose` to that point.
-    /// @brief Node-only snap: finds the nearest reachable graph node.
-    SnapResult findNearestGraphPoint(
+    /// @brief Obstacle-aware search (Dijkstra h=0 on the occupancy map) for
+    ///        the nearest reachable graph node.  Returns an invalid NodeSnap
+    ///        when no node is reachable.
+    NodeSnap snapToNearestNode(
         const route::Graph&             graph,
         const geometry_msgs::msg::Pose& pose,
         const IMapView&                 map_view) const;
 
-    /// @brief Edge-filtered snap: finds the nearest reachable path point on
-    ///        edge(edge_from → edge_to).  Used by the start-node prune logic.
-    ///        Falls back to a pure-geometry projection if the edge has no
-    ///        intermediate polyline points.
-    SnapResult findNearestGraphPoint(
+    /// @brief Same search restricted to the intermediate polyline points of
+    ///        edge(edge_from → edge_to).  Falls back to a pure-geometry
+    ///        projection onto the edge chord when the edge has no
+    ///        intermediate points.  Used by the start prune in plan().
+    EdgeSnap snapToEdge(
         const route::Graph&             graph,
         const geometry_msgs::msg::Pose& pose,
         const IMapView&                 map_view,
         size_t                          edge_from,
         size_t                          edge_to) const;
 
-    // Insert a temporary virtual node into a mutable graph at the given
-    // world position.  Returns the index of the new node.
-    // Does NOT register the node in id_index (virtual nodes have no id).
-    size_t insertVirtualNode(
-        route::Graph&         graph,
-        const Position3D&     pos) const;
+    /// @brief Insert a virtual node at snap.snap_point and split the snapped
+    ///        edge (and its reverse edge, if present) around it.  Costs are
+    ///        pro-rated by sub-polyline length.  Returns the virtual node index.
+    size_t insertSnapNode(route::Graph& graph, const EdgeSnap& snap) const;
 
-    // Split the edge that a path-snapped SnapResult landed on.
-    // Replaces the original directed edge (graph.adj[edge_from][edge_idx])
-    // with two sub-edges: edge_from → virtual_idx  and  virtual_idx → edge_to.
-    // If a reverse edge (edge_to → edge_from) exists, it is also split.
-    void splitEdgeForSnap(
-        route::Graph&         graph,
-        const SnapResult&     snap,
-        size_t                virtual_idx) const;
+    /// @brief Split the directed edge graph.adj[from][edge_idx] at world point
+    ///        `p`: from → virtual_idx replaces the original edge and
+    ///        virtual_idx → old-target is appended.  If `p` is not an existing
+    ///        polyline vertex it is first inserted into the closest segment.
+    void splitDirectedEdge(
+        route::Graph&     graph,
+        size_t            from,
+        size_t            edge_idx,
+        const Position3D& p,
+        size_t            virtual_idx) const;
 
     // ── Cached graph & Mutex ──────────────────────────────────
     mutable std::unique_ptr<std::mutex> graph_mutex_ = std::make_unique<std::mutex>();
@@ -153,7 +146,6 @@ private:
 
     // ── Parameters ────────────────────────────────────────────
     double path_density_ = 0.05;
-    double min_approach_angle_deg_ = 0.0;
     double obstacle_cost_weight_ = 1.0;
 };
 

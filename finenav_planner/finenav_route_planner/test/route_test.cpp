@@ -5,13 +5,16 @@
 // RoutePathSearch (topological route planning) test suite.
 //
 // Covers:
-//   - GeoJSON graph loading via configure() (valid / missing / malformed)
+//   - GeoJSON graph loading via updateGraph() (valid / missing / malformed)
 //   - Dijkstra routing on the topological graph (reachable / disconnected /
 //     fixed-cost-override route selection / start==goal snapping)
-//   - Obstacle-aware pose-to-node snapping (findNearestNodeIndex), including
+//   - Obstacle-aware pose-to-node snapping (snapToNearestNode), including
 //     skipping a geometrically-closer but unreachable node
+//   - Start prune: when the robot projects positively onto the first route
+//     edge, the route enters at a point on that edge (path point or chord
+//     projection) instead of backtracking to the node behind the robot
 //   - Connector paths: obstacle-aware grid paths from robot/goal pose to
-//     nearest route node are stitched into the output
+//     the route entry/exit points are stitched into the output
 //   - Output shape: world-frame poses, densification, exact endpoints
 
 #include <gtest/gtest.h>
@@ -260,6 +263,30 @@ const char* kDiagonalDenseGraph = R"json(
 }  // namespace
 
 // =========================================================================
+// route::findRoute node-sequence out-param
+// =========================================================================
+
+TEST(RouteSearch, FindRoute_FillsNodeSequence)
+{
+    auto g = route::loadFromJson(kLinearGraph);
+    ASSERT_TRUE(g.has_value());
+
+    std::vector<size_t> seq;
+    auto poses = route::findRoute(*g, g->indexOf(0), g->indexOf(2), 0.5, &seq);
+    ASSERT_TRUE(poses.has_value());
+    ASSERT_EQ(seq.size(), 3u);
+    EXPECT_EQ(seq[0], g->indexOf(0));
+    EXPECT_EQ(seq[1], g->indexOf(1));
+    EXPECT_EQ(seq[2], g->indexOf(2));
+
+    // start == goal → single-element sequence
+    auto same = route::findRoute(*g, g->indexOf(1), g->indexOf(1), 0.5, &seq);
+    ASSERT_TRUE(same.has_value());
+    ASSERT_EQ(seq.size(), 1u);
+    EXPECT_EQ(seq[0], g->indexOf(1));
+}
+
+// =========================================================================
 // configure() / graph loading
 // =========================================================================
 
@@ -309,9 +336,10 @@ TEST(RoutePathSearch, ConfigureSucceeds_LoadsValidGraph)
 
 TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
 {
-    // The output now includes obstacle-aware connector paths:
-    //   robot (0.5,0.5) → node A (0,0) → route → node C (10,0) → goal (9.5,0.5)
-    // First point should be near the robot pose, last near the goal pose.
+    // The output includes obstacle-aware connector paths on both sides.
+    // Robot (0.5,0.5) projects positively onto edge A→B, so the start prune
+    // enters the route at the projected point (0.5,0) instead of
+    // backtracking to node A.
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     astar::GridMap grid(12, 12);
@@ -329,14 +357,15 @@ TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
     EXPECT_NEAR(result->poses.back().position.x, 9.5, 1e-6);
     EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
 
-    // The route graph interior still passes through the expected nodes
-    // (verify by checking that node A (0,0) and node C (10,0) appear)
-    bool has_node_a = false, has_node_c = false;
+    // The route passes through B and C; A is pruned (robot already past it).
+    bool has_node_a = false, has_node_b = false, has_node_c = false;
     for (const auto& p : result->poses) {
         if (std::hypot(p.position.x - 0.0, p.position.y - 0.0) < 0.01) has_node_a = true;
+        if (std::hypot(p.position.x - 5.0, p.position.y - 0.0) < 0.01) has_node_b = true;
         if (std::hypot(p.position.x - 10.0, p.position.y - 0.0) < 0.01) has_node_c = true;
     }
-    EXPECT_TRUE(has_node_a);
+    EXPECT_FALSE(has_node_a);
+    EXPECT_TRUE(has_node_b);
     EXPECT_TRUE(has_node_c);
 }
 
@@ -363,12 +392,12 @@ TEST(RoutePathSearch, PlanPrefersLowerCost_OverFixedExpensiveDirectEdge)
     ASSERT_TRUE(result.has_value());
 
     // The fixed-cost direct edge (cost=100) is far more expensive than the
-    // detour via node 2 (~20.8), so the route must visit node 2.
-    // Output now includes connectors: robot→node0, route, node1→goal.
-    // Verify the node sequence: node 0 → node 2 → node 1 appears in order.
+    // detour via node 2 (~20.8), so the route must visit node 2 before node 1.
+    // Node 0 itself is pruned: the robot (0.5,0.5) projects positively onto
+    // edge 0→2, so the route enters at the projected point instead.
     ASSERT_GE(result->poses.size(), 3u);
 
-    // Find the positions of the three nodes in the output
+    // Find the positions of the route nodes in the output
     auto findNode = [&](double x, double y) -> std::optional<size_t> {
         for (size_t i = 0; i < result->poses.size(); ++i)
             if (std::hypot(result->poses[i].position.x - x,
@@ -377,14 +406,15 @@ TEST(RoutePathSearch, PlanPrefersLowerCost_OverFixedExpensiveDirectEdge)
         return std::nullopt;
     };
 
-    auto i0 = findNode(0.0, 0.0);
     auto i2 = findNode(0.0, 8.0);
     auto i1 = findNode(10.0, 0.0);
-    ASSERT_TRUE(i0.has_value());
     ASSERT_TRUE(i2.has_value());
     ASSERT_TRUE(i1.has_value());
-    EXPECT_LT(*i0, *i2);
     EXPECT_LT(*i2, *i1);
+
+    // The expensive direct edge 0→1 was not taken: node 0 (0,0) is pruned
+    // and the path goes up through node 2 first.
+    EXPECT_FALSE(findNode(0.0, 0.0).has_value());
 }
 
 TEST(RoutePathSearch, Plan_SingleNodeGraph_StartEqualsGoal_ConnectorsBothSides)
@@ -458,9 +488,9 @@ TEST(RoutePathSearch, Plan_ZeroDensity_IncludesNodeCentresAndConnectors)
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
     ASSERT_TRUE(result.has_value());
 
-    // With zero density, route graph contributes node centres only: A(0,0), B(5,0), C(10,0).
-    // Connectors: robot(0.5,0.5)→A(0,0) and C(10,0)→goal(9.5,0.5).
-    // Verify the node centres appear in order.
+    // With zero density the route graph contributes node centres only.
+    // Robot (0.5,0.5) is past node A → start prune enters the route at the
+    // projected point (0.5,0); B(5,0) and C(10,0) must appear in order.
     auto findNode = [&](double x, double y) -> std::optional<size_t> {
         for (size_t i = 0; i < result->poses.size(); ++i)
             if (std::hypot(result->poses[i].position.x - x,
@@ -469,14 +499,12 @@ TEST(RoutePathSearch, Plan_ZeroDensity_IncludesNodeCentresAndConnectors)
         return std::nullopt;
     };
 
-    auto iA = findNode(0.0, 0.0);
     auto iB = findNode(5.0, 0.0);
     auto iC = findNode(10.0, 0.0);
-    ASSERT_TRUE(iA.has_value());
     ASSERT_TRUE(iB.has_value());
     ASSERT_TRUE(iC.has_value());
-    EXPECT_LT(*iA, *iB);
     EXPECT_LT(*iB, *iC);
+    EXPECT_FALSE(findNode(0.0, 0.0).has_value());   // A pruned
 }
 
 TEST(RoutePathSearch, Plan_OutputPoses_HaveValidOrientation)
@@ -507,10 +535,9 @@ TEST(RoutePathSearch, Plan_TotalLength_CoversRobotToGoal)
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
     ASSERT_TRUE(result.has_value());
 
-    // Path covers robot(0.5,0.5) → node A(0,0) → node B(5,0) → node C(10,0) → goal(9.5,0.5).
-    // Minimum straight-line distance from robot to goal = 9.0 m,
-    // but the path backtracks from robot to node A then forward again.
-    // robot→A ≈ 0.71, A→B→C = 10.0, C→goal ≈ 0.71 → total ≈ 11.4 m.
+    // Path covers robot(0.5,0.5) → projected entry (0.5,0) → node B(5,0) →
+    // node C(10,0) → goal(9.5,0.5).  The start prune removes the backtrack
+    // to node A: 0.5 + 9.5 + ~0.71 ≈ 10.7 m.
     const double len = pathLength(result->poses);
     EXPECT_GT(len, 9.0);
     EXPECT_LT(len, 12.0);
@@ -759,6 +786,38 @@ TEST(RoutePathSearch, Plan_DiagonalDenseEdge_SnapsToPathPoint)
             has_diag_point = true;
     }
     EXPECT_TRUE(has_diag_point);
+}
+
+TEST(RoutePathSearch, Plan_StartPrune_ProjectionFallback_EdgeWithoutIntermediatePoints)
+{
+    // kLinearGraph edges have no intermediate polyline points, so the start
+    // prune must use the chord-projection fallback.  Robot at (6.5, 2.5) is
+    // past node B on edge B→C: the route must enter at the projected point
+    // (6.5, 0) instead of backtracking to node B (5, 0).
+    //
+    // Regression: the previous implementation failed to split the edge at a
+    // projected (non-vertex) snap point and returned nullopt in this case.
+    TempFile graph(kLinearGraph);
+    auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
+    astar::GridMap grid(12, 12);
+    TestMapView view(grid, 1.0);
+
+    auto result = planner.plan(makeCtx(6.5, 2.5, 10.0, 0.0), view);  // goal on node C
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 2u);
+
+    EXPECT_NEAR(result->poses.front().position.x, 6.5, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 2.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.x, 10.0, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.0, 1e-6);
+
+    // No backtracking to node B at (5, 0)
+    for (const auto& p : result->poses)
+        EXPECT_GT(p.position.x, 5.5) << "Backtracked toward B: x=" << p.position.x;
+
+    // robot→(6.5,0) ≈ 2.5, (6.5,0)→C = 3.5 → total ≈ 6 m
+    const double len = pathLength(result->poses);
+    EXPECT_LT(len, 7.5);
 }
 
 TEST(RoutePathSearch, PlanFails_WhenNoGraphPointIsReachable)
