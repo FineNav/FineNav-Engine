@@ -114,10 +114,22 @@ private:
     // world pose to the nearest reachable route graph point (node or path).
     // Returns a SnapResult with both the entry info and the world-frame
     // connector path from `pose` to that point.
+    /// @brief Node-only snap: finds the nearest reachable graph node.
     SnapResult findNearestGraphPoint(
         const route::Graph&             graph,
         const geometry_msgs::msg::Pose& pose,
         const IMapView&                 map_view) const;
+
+    /// @brief Edge-filtered snap: finds the nearest reachable path point on
+    ///        edge(edge_from → edge_to).  Used by the start-node prune logic.
+    ///        Falls back to a pure-geometry projection if the edge has no
+    ///        intermediate polyline points.
+    SnapResult findNearestGraphPoint(
+        const route::Graph&             graph,
+        const geometry_msgs::msg::Pose& pose,
+        const IMapView&                 map_view,
+        size_t                          edge_from,
+        size_t                          edge_to) const;
 
     // Insert a temporary virtual node into a mutable graph at the given
     // world position.  Returns the index of the new node.

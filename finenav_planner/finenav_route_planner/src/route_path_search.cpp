@@ -6,6 +6,8 @@
 
 #include <cmath>
 #include <limits>
+#include <queue>
+#include <sstream>
 #include <unordered_map>
 #include <mutex>
 
@@ -105,18 +107,63 @@ RoutePathSearch::Result RoutePathSearch::plan(
     //     route edge, snap to a path point on that edge instead.  This avoids
     //     an unnatural "backtrack" to the node before going forward.
     {
-        // Find first two nodes in the densified route
-        size_t r_first = SIZE_MAX, r_next = SIZE_MAX;
-        for (const auto& pt : *route_opt) {
-            for (size_t i = 0; i < graph.nodes.size(); ++i) {
-                if (std::hypot(pt.first  - graph.nodes[i].x,
-                               pt.second - graph.nodes[i].y) < 1e-6) {
-                    if (r_first == SIZE_MAX)      r_first = i;
-                    else if (r_next == SIZE_MAX) { r_next = i; break; }
+        // Find r_first and r_next from graph topology (Dijkstra walk-back),
+        // NOT from densified coordinates which may skip intermediate nodes.
+        const size_t r_first = start_node_idx;
+        size_t r_next = SIZE_MAX;
+
+        {
+            // Run graph Dijkstra from r_first to all reachable nodes
+            std::unordered_map<size_t, double> gdist;
+            using QE = std::pair<double, size_t>;
+            std::priority_queue<QE, std::vector<QE>, std::greater<QE>> pq;
+            gdist[r_first] = 0.0;
+            pq.emplace(0.0, r_first);
+            while (!pq.empty()) {
+                auto [d, u] = pq.top(); pq.pop();
+                if (d != gdist[u]) continue;
+                if (u == goal_node_idx) break;
+                for (const auto& nb : graph.adj[u]) {
+                    double nd = d + nb.cost;
+                    if (!gdist.contains(nb.to_index) || nd < gdist[nb.to_index]) {
+                        gdist[nb.to_index] = nd;
+                        pq.emplace(nd, nb.to_index);
+                    }
                 }
             }
-            if (r_next != SIZE_MAX) break;
+            // Walk back from goal to find the first step after r_first
+            if (gdist.contains(goal_node_idx)) {
+                size_t cur = goal_node_idx;
+                while (cur != r_first) {
+                    size_t prev = SIZE_MAX;
+                    double best = std::numeric_limits<double>::max();
+                    for (size_t u = 0; u < graph.adj.size(); ++u) {
+                        if (!gdist.contains(u)) continue;
+                        for (const auto& nb : graph.adj[u]) {
+                            if (nb.to_index == cur && gdist[u] + nb.cost < best + 1e-6) {
+                                best = gdist[u] + nb.cost;
+                                prev = u;
+                            }
+                        }
+                    }
+                    if (prev == SIZE_MAX) break;
+                    if (prev == r_first) { r_next = cur; break; }
+                    cur = prev;
+                }
+            }
         }
+
+        // Debug: print edges from r_first
+        {
+            std::ostringstream oss;
+            oss << "r_first=" << r_first << " edges: ";
+            for (const auto& nb : graph.adj[r_first])
+                oss << r_first << "→" << nb.to_index << "(" << nb.polyline.size() << "pts) ";
+            RCLCPP_INFO(rclcpp::get_logger("RoutePathSearch"), "%s", oss.str().c_str());
+        }
+        RCLCPP_INFO(rclcpp::get_logger("RoutePathSearch"),
+            "Prune: r_first=%zu r_next=%zu start=%zu goal=%zu",
+            r_first, r_next, start_node_idx, goal_node_idx);
 
         if (r_first != SIZE_MAX && r_next != SIZE_MAX) {
             const auto& fn = graph.nodes[r_first];
@@ -127,105 +174,19 @@ RoutePathSearch::Result RoutePathSearch::plan(
             const double vpy = ctx.robot_state.pose.position.y - fn.y;
             const double dot = (vrx * vpx + vry * vpy) / std::max(1e-6, std::hypot(vrx, vry));
 
+            RCLCPP_INFO(rclcpp::get_logger("RoutePathSearch"),
+                "Prune: dot=%.3f prune=%s", dot, dot > 0.0 ? "YES" : "NO");
+
             if (dot > 0.0) {
-                // Robot is past r_first — snap to a path point on edge(r_first→r_next)
-                // Re-use findNearestGraphPoint infrastructure but restrict to this edge
-                const double step = map_view.getStepSize();
-                auto snap_to_edge = [&](const route::Graph& g,
-                                        const geometry_msgs::msg::Pose& pose,
-                                        const astar::IMapView& mv,
-                                        size_t from_n, size_t to_n) -> SnapResult
-                {
-                    const astar::Vec3 origin = {
-                        static_cast<int>(std::floor(pose.position.x / step)),
-                        static_cast<int>(std::floor(pose.position.y / step)), 0};
-                    auto cellCtr = [step](const astar::Vec3& c) -> Position3D {
-                        return {(c.x+0.5)*step, (c.y+0.5)*step, 0.0}; };
-
-                    // Build is_goal limited to path points on edge(from_n→to_n)
-                    std::unordered_set<astar::Vec3, astar::Vec3Hash> edge_cells;
-                    for (size_t fi = 0; fi < g.adj.size(); ++fi)
-                        for (size_t ei = 0; ei < g.adj[fi].size(); ++ei)
-                            if (fi == from_n && g.adj[fi][ei].to_index == to_n)
-                                for (size_t pi = 1; pi + 1 < g.adj[fi][ei].polyline.size(); ++pi)
-                                    edge_cells.insert({
-                                        static_cast<int>(std::floor(g.adj[fi][ei].polyline[pi].first  / step)),
-                                        static_cast<int>(std::floor(g.adj[fi][ei].polyline[pi].second / step)), 0});
-
-                    if (edge_cells.empty()) return SnapResult{};
-
-                    auto is_w = [&](const astar::Vec3& c) {
-                        return mv.isWalkable(cellCtr(c)); };
-                    auto get_c = [&](const astar::Vec3& c) {
-                        return mv.getCost(cellCtr(c)); };
-                    auto is_g = [&](const astar::Vec3& c) {
-                        return edge_cells.contains(c); };
-
-                    astar::AStarAlgorithm a(is_w, get_c);
-                    a.setConnectivity(astar::Connectivity::N8);
-                    a.setHeuristic(astar::Heuristic::Zero);
-                    a.setMaxIterations(-1);
-                    a.setMaxPlanningTime(5.0);
-                    a.setObstacleCostWeight(obstacle_cost_weight_);
-
-                    auto p = a.findPathToAny(origin, is_g);
-                    if (!p || p->size() < 2) return SnapResult{};
-
-                    // Find best path point in the goal cell (with angle filter)
-                    const auto& gc = p->back();
-                    SnapResult sr;
-                    double best_d = std::numeric_limits<double>::infinity();
-                    for (size_t ei = 0; ei < g.adj[from_n].size(); ++ei) {
-                        if (g.adj[from_n][ei].to_index != to_n) continue;
-                        const auto& poly = g.adj[from_n][ei].polyline;
-                        for (size_t pi = 1; pi+1 < poly.size(); ++pi) {
-                            astar::Vec3 pc = {
-                                static_cast<int>(std::floor(poly[pi].first  / step)),
-                                static_cast<int>(std::floor(poly[pi].second / step)), 0};
-                            if (pc != gc) continue;
-
-                            const double d = std::hypot(poly[pi].first  - pose.position.x,
-                                                        poly[pi].second - pose.position.y);
-                            // Angle filter
-                            if (min_approach_angle_deg_ > 0.0) {
-                                const double adx = poly[pi].first  - pose.position.x;
-                                const double ady = poly[pi].second - pose.position.y;
-                                double ad_norm = std::hypot(adx, ady);
-                                if (ad_norm > 1e-9) {
-                                    double tdx = poly[pi+1].first  - poly[pi-1].first;
-                                    double tdy = poly[pi+1].second - poly[pi-1].second;
-                                    double td_norm = std::hypot(tdx, tdy);
-                                    if (td_norm > 1e-9) {
-                                        double ca = (adx*tdx + ady*tdy) / (ad_norm*td_norm);
-                                        double ang = std::acos(std::clamp(ca,-1.0,1.0))*180.0/M_PI;
-                                        if (ang < min_approach_angle_deg_) continue;
-                                    }
-                                }
-                            }
-                            if (d < best_d) {
-                                sr.edge_from = from_n; sr.edge_to = to_n;
-                                sr.edge_idx = ei; sr.pt_idx = pi;
-                                sr.snap_point = {poly[pi].first, poly[pi].second, 0.0};
-                                best_d = d;
-                            }
-                        }
-                    }
-
-                    if (best_d == std::numeric_limits<double>::infinity())
-                        return SnapResult{};
-
-                    // Build connector path
-                    sr.connector_path.reserve(p->size()+1);
-                    sr.connector_path.push_back({pose.position.x, pose.position.y, 0.0});
-                    for (size_t i = 0; i < p->size(); ++i)
-                        sr.connector_path.push_back(cellCtr((*p)[i]));
-                    sr.connector_path.back() = sr.snap_point;
-                    return sr;
-                };
-
-                // Try pruning the start snap
-                auto pruned = snap_to_edge(orig_graph, ctx.robot_state.pose,
-                                           map_view, r_first, r_next);
+                // Robot past r_first — snap to a path point on edge(r_first→r_next).
+                // Re-run the same BFS as findNearestGraphPoint but with is_goal
+                // restricted to path points on this specific edge.
+                auto pruned = findNearestGraphPoint(
+                    orig_graph, ctx.robot_state.pose, map_view,
+                    r_first, r_next);
+                RCLCPP_INFO(rclcpp::get_logger("RoutePathSearch"),
+                    "Prune result: isPath=%d snap=(%.1f,%.1f)",
+                    pruned.isPath(), pruned.snap_point.x(), pruned.snap_point.y());
                 if (pruned.isPath()) {
                     // Re-route on the (now modified) graph
                     graph = orig_graph;  // fresh copy
@@ -444,6 +405,143 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
     }
 
     result.connector_path = std::move(connector);
+    return result;
+}
+
+// ── Edge-filtered overload ──────────────────────────────────────────────────
+
+RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
+    const route::Graph&             graph,
+    const geometry_msgs::msg::Pose& pose,
+    const IMapView&                 map_view,
+    size_t                          edge_from,
+    size_t                          edge_to) const
+{
+    const double step = map_view.getStepSize();
+    auto toCell = [step](double x, double y) -> astar::Vec3 {
+        return {static_cast<int>(std::floor(x / step)),
+                static_cast<int>(std::floor(y / step)), 0}; };
+    auto cellCentre = [step](const astar::Vec3& c) -> Position3D {
+        return {(c.x+0.5)*step, (c.y+0.5)*step, 0.0}; };
+
+    const astar::Vec3 origin = toCell(pose.position.x, pose.position.y);
+
+    // Build is_goal limited to path points on edge(edge_from→edge_to)
+    std::unordered_set<astar::Vec3, astar::Vec3Hash> edge_cells;
+    int max_depth = 0;
+    for (size_t ei = 0; ei < graph.adj[edge_from].size(); ++ei) {
+        if (graph.adj[edge_from][ei].to_index != edge_to) continue;
+        const auto& pl = graph.adj[edge_from][ei].polyline;
+        for (size_t pi = 1; pi + 1 < pl.size(); ++pi) {
+            const astar::Vec3 c = toCell(pl[pi].first, pl[pi].second);
+            edge_cells.insert(c);
+            max_depth = std::max(max_depth,
+                std::max(std::abs(c.x - origin.x), std::abs(c.y - origin.y)));
+        }
+    }
+
+    // Projection fallback when edge has no intermediate polyline points
+    if (edge_cells.empty()) {
+        const auto& fn = graph.nodes[edge_from];
+        const auto& nn = graph.nodes[edge_to];
+        const double vrx = nn.x - fn.x, vry = nn.y - fn.y;
+        const double vpx = pose.position.x - fn.x, vpy = pose.position.y - fn.y;
+        const double t = std::clamp(
+            (vpx*vrx + vpy*vry) / (vrx*vrx + vry*vry + 1e-12), 0.0, 1.0);
+        const double sx = fn.x + t * vrx, sy = fn.y + t * vry;
+        const astar::Vec3 snap_cell = toCell(sx, sy);
+
+        auto is_w = [&](const astar::Vec3& c) { return map_view.isWalkable(cellCentre(c)); };
+        auto get_c = [&](const astar::Vec3& c) { return map_view.getCost(cellCentre(c)); };
+        astar::AStarAlgorithm a(is_w, get_c);
+        a.setConnectivity(astar::Connectivity::N8);
+        a.setHeuristic(astar::Heuristic::Euclidean);
+        a.setMaxIterations(-1); a.setMaxPlanningTime(5.0);
+        a.setObstacleCostWeight(obstacle_cost_weight_);
+        auto proj_path = a.findPath(origin, snap_cell);
+        if (!proj_path || proj_path->size() < 2) return SnapResult{};
+
+        SnapResult sr;
+        sr.edge_from = edge_from; sr.edge_to = edge_to;
+        sr.edge_idx = 0; sr.pt_idx = 0;
+        sr.snap_point = {sx, sy, 0.0};
+        sr.connector_path.reserve(proj_path->size()+1);
+        sr.connector_path.push_back({pose.position.x, pose.position.y, 0.0});
+        for (size_t i = 0; i < proj_path->size(); ++i)
+            sr.connector_path.push_back(cellCentre((*proj_path)[i]));
+        sr.connector_path.back() = sr.snap_point;
+        return sr;
+    }
+
+    // BFS to find nearest reachable edge cell
+    auto is_walkable = [&](const astar::Vec3& c) {
+        return c.z == 0 &&
+               std::abs(c.x - origin.x) <= max_depth &&
+               std::abs(c.y - origin.y) <= max_depth &&
+               map_view.isWalkable(cellCentre(c)); };
+    auto get_cost = [&](const astar::Vec3& c) {
+        return map_view.getCost(cellCentre(c)); };
+    auto is_goal = [&](const astar::Vec3& c) {
+        return edge_cells.contains(c); };
+
+    astar::AStarAlgorithm algo(is_walkable, get_cost);
+    algo.setConnectivity(astar::Connectivity::N8);
+    algo.setHeuristic(astar::Heuristic::Zero);
+    algo.setMaxIterations(-1); algo.setMaxPlanningTime(5.0);
+    algo.setObstacleCostWeight(obstacle_cost_weight_);
+
+    auto path = algo.findPathToAny(origin, is_goal);
+    if (!path || path->size() < 2) return SnapResult{};
+
+    // Candidate selection: find best path point on edge(edge_from→edge_to)
+    // in the goal cell, with angle filter.
+    const auto& gc = path->back();
+    SnapResult result;
+    double best_d = std::numeric_limits<double>::infinity();
+
+    for (size_t ei = 0; ei < graph.adj[edge_from].size(); ++ei) {
+        if (graph.adj[edge_from][ei].to_index != edge_to) continue;
+        const auto& poly = graph.adj[edge_from][ei].polyline;
+        for (size_t pi = 1; pi + 1 < poly.size(); ++pi) {
+            astar::Vec3 pc = toCell(poly[pi].first, poly[pi].second);
+            if (pc != gc) continue;
+
+            const double d = std::hypot(poly[pi].first  - pose.position.x,
+                                        poly[pi].second - pose.position.y);
+            if (min_approach_angle_deg_ > 0.0) {
+                const double adx = poly[pi].first  - pose.position.x;
+                const double ady = poly[pi].second - pose.position.y;
+                double ad_norm = std::hypot(adx, ady);
+                if (ad_norm > 1e-9) {
+                    double tdx = poly[pi+1].first  - poly[pi-1].first;
+                    double tdy = poly[pi+1].second - poly[pi-1].second;
+                    double td_norm = std::hypot(tdx, tdy);
+                    if (td_norm > 1e-9) {
+                        double ca = (adx*tdx + ady*tdy) / (ad_norm*td_norm);
+                        double ang = std::acos(std::clamp(ca,-1.0,1.0))*180.0/M_PI;
+                        if (ang < min_approach_angle_deg_) continue;
+                    }
+                }
+            }
+            if (d < best_d) {
+                result.edge_from = edge_from; result.edge_to = edge_to;
+                result.edge_idx = ei; result.pt_idx = pi;
+                result.snap_point = {poly[pi].first, poly[pi].second, 0.0};
+                best_d = d;
+            }
+        }
+    }
+    if (best_d == std::numeric_limits<double>::infinity())
+        return SnapResult{};
+
+    // Build connector path
+    std::vector<Position3D> conn;
+    conn.reserve(path->size() + 1);
+    conn.push_back({pose.position.x, pose.position.y, 0.0});
+    for (size_t i = 0; i < path->size(); ++i)
+        conn.push_back(cellCentre((*path)[i]));
+    conn.back() = result.snap_point;
+    result.connector_path = std::move(conn);
     return result;
 }
 

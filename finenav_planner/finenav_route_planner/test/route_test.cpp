@@ -709,8 +709,9 @@ TEST(RoutePathSearch, Plan_ThreeNodeChain_NoBacktrack_GoalOnNode)
 
 TEST(RoutePathSearch, Plan_SnapsToNode_WhenNodeIsCloserThanAnyPathPoint)
 {
-    // Robot at (0.5, 0.5) — geometrically closer to node A(0,0) than to any
-    // intermediate path point.  Should still snap to the node (existing behavior).
+    // Robot at (0.5, 0.5), goal at (9.5, 0.5) on A(0,0)→B(10,0).
+    // Dot-product prune: robot past A (dot>0) → snaps to a path point on A→B.
+    // Node A should NOT appear in the output.
     TempFile graph(kDensePathGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     astar::GridMap grid(12, 12);
@@ -719,13 +720,13 @@ TEST(RoutePathSearch, Plan_SnapsToNode_WhenNodeIsCloserThanAnyPathPoint)
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
     ASSERT_TRUE(result.has_value());
 
-    // Node A (0, 0) should appear — robot snaps to it
+    // Node A not visited — prune replaced it with a path point
     bool has_node_a = false;
     for (const auto& p : result->poses) {
         if (std::hypot(p.position.x - 0.0, p.position.y - 0.0) < 1e-4)
             has_node_a = true;
     }
-    EXPECT_TRUE(has_node_a);
+    EXPECT_FALSE(has_node_a);
 }
 
 TEST(RoutePathSearch, Plan_DiagonalDenseEdge_SnapsToPathPoint)
