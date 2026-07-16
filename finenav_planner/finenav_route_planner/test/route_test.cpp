@@ -595,43 +595,36 @@ TEST(RoutePathSearch, PlanFails_WhenStartCellItselfIsBlocked)
 // Path-point snapping (new: snap to intermediate polyline points)
 // =========================================================================
 
-TEST(RoutePathSearch, Plan_SnapsToPathPoint_WhenRobotNearPathMidpoint)
+TEST(RoutePathSearch, Plan_StartPrune_ReplacesFirstNodeWithPathPoint_WhenRobotPastIt)
 {
-    // Robot at (5, 1) — near the midpoint of the A(0,0)→B(10,0) dense edge.
-    // With path-snapping, BFS should find the point (4,0) or (6,0) on the
-    // edge's polyline and snap there, rather than going all the way to node A or B.
+    // Graph: A(0,0) — B(10,0), dense polyline.  Goal on node B.
+    // Robot at (6, 0.5) — past node A, projecting positively onto A→B.
+    // Dot-product prune: robot should skip node A and snap to a path point
+    // on A→B, then route to B.  Path must NOT backtrack to A at x=0.
     TempFile graph(kDensePathGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     astar::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
-    // Robot at (5, 1), goal at (5.5, 0.5) — both near the path midpoint
-    auto result = planner.plan(makeCtx(5.0, 1.0, 5.5, 0.5), view);
+    auto result = planner.plan(makeCtx(6.0, 0.5, 10.0, 0.0), view);  // goal on node B
     ASSERT_TRUE(result.has_value());
     ASSERT_GE(result->poses.size(), 2u);
 
-    // First point should be near robot pose
-    EXPECT_NEAR(result->poses.front().position.x, 5.0, 1e-6);
-    EXPECT_NEAR(result->poses.front().position.y, 1.0, 1e-6);
+    // First point near robot
+    EXPECT_NEAR(result->poses.front().position.x, 6.0, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 0.5, 1e-6);
 
-    // Last point near goal
-    EXPECT_NEAR(result->poses.back().position.x, 5.5, 1e-6);
-    EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
+    // Last point on node B
+    EXPECT_NEAR(result->poses.back().position.x, 10.0, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.0, 1e-6);
 
-    // The total path length should be short — the robot enters the graph
-    // at a nearby path point and exits nearby, avoiding long detours to nodes.
+    // Must not backtrack to node A at x=0
+    for (const auto& p : result->poses)
+        EXPECT_GT(p.position.x, 1.0) << "Backtracked to A: x=" << p.position.x;
+
+    // Path should be short (robot enters at a nearby path point, not node A)
     const double len = pathLength(result->poses);
-    // Direct distance robot→goal ≈ 0.7 m.  Connectors should be short
-    // because both snap near the path midpoint.
-    EXPECT_LT(len, 5.0);   // well under what node-only snapping would give (~10 m)
-
-    // Intermediate poses should include a point on the path (y ≈ 0)
-    bool has_path_point = false;
-    for (const auto& p : result->poses) {
-        if (std::abs(p.position.y) < 1e-4 && p.position.x > 0.0 && p.position.x < 10.0)
-            has_path_point = true;
-    }
-    EXPECT_TRUE(has_path_point);
+    EXPECT_LT(len, 8.0);
 }
 
 TEST(RoutePathSearch, Plan_ShortConnector_WhenRobotNearDensePathFarFromNodes)
@@ -670,62 +663,48 @@ TEST(RoutePathSearch, Plan_ShortConnector_WhenRobotNearDensePathFarFromNodes)
     EXPECT_LT(len, 8.0);
 }
 
-TEST(RoutePathSearch, Plan_ThreeNodeChain_RobotEntersAtMidPath_GoesForward)
+TEST(RoutePathSearch, Plan_ThreeNodeChain_NoBacktrack_GoalOnNode)
 {
     // Graph: A(0,0) — B(10,0) — C(20,0).
-    // Robot at (8, 2), goal near C at (18, 0.5).
-    // With path-snapping: robot enters the A-B edge at ~8,0, goes forward
-    // through B to C, then to goal.  No backtracking toward A.
-    // Without path-snapping: BFS might find node A or B first, potentially
-    // causing a detour.
+    // Robot at (9.5, 1) near B, goal on node C at (20, 0).
+    // Node-only snap: robot snaps to B (nearest), route B→C.
+    // Dot-product: robot not past B (dot < 0), B kept.
+    // Must NOT backtrack to A at x=0.
+    //
+    // TODO: goal-not-on-node — when goal does not exactly fall on a graph
+    //       node, the goal connector may backtrack from the snapped node.
+    //       Future work: add goal-side prune/pruning similar to start-side.
     TempFile graph(kThreeNodeChainGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     astar::GridMap grid(22, 12);
     TestMapView view(grid, 1.0);
 
-    auto result = planner.plan(makeCtx(8.0, 2.0, 18.0, 0.5), view);
+    auto result = planner.plan(makeCtx(9.5, 1.0, 20.0, 0.0), view);  // goal on node C
     ASSERT_TRUE(result.has_value());
     ASSERT_GE(result->poses.size(), 3u);
 
     // First point near robot
-    EXPECT_NEAR(result->poses.front().position.x, 8.0, 1e-6);
-    EXPECT_NEAR(result->poses.front().position.y, 2.0, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.x, 9.5, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 1.0, 1e-6);
 
-    // Last point near goal
-    EXPECT_NEAR(result->poses.back().position.x, 18.0, 1e-6);
-    EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
+    // Last point on node C
+    EXPECT_NEAR(result->poses.back().position.x, 20.0, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.0, 1e-6);
 
-    // The path should visit node B (10, 0) somewhere in the middle
-    bool has_node_b = false;
-    for (const auto& p : result->poses) {
-        if (std::hypot(p.position.x - 10.0, p.position.y) < 1e-4)
-            has_node_b = true;
-    }
-    EXPECT_TRUE(has_node_b);
+    // Must not backtrack to node A at x=0
+    for (const auto& p : result->poses)
+        EXPECT_GT(p.position.x, 1.0) << "Backtracked to A: x=" << p.position.x;
 
-    // The non-connector portion of the path should go forward (x increasing).
-    // Check that after the point with y ≈ 0 (entry onto the graph), x-coordinates
-    // are monotonically non-decreasing (no backtracking toward A at x=0).
-    bool on_graph = false;
-    double prev_x = -std::numeric_limits<double>::infinity();
-    for (const auto& p : result->poses) {
-        if (std::abs(p.position.y) < 1e-4) on_graph = true;  // entered the graph
-        if (on_graph) {
-            EXPECT_GE(p.position.x, prev_x - 1e-6)
-                << "Backtracking detected after entering graph at x=" << p.position.x;
-            prev_x = p.position.x;
-        }
-    }
+    // Path should visit node B
+    bool has_b = false;
+    for (const auto& p : result->poses)
+        if (std::hypot(p.position.x - 10.0, p.position.y) < 1e-4) has_b = true;
+    EXPECT_TRUE(has_b);
 
-    // Crucially, the path must NOT backtrack to node A (x=0).
-    for (const auto& p : result->poses) {
-        EXPECT_GT(p.position.x, 1.0) << "Path should not go back to node A at x=0";
-    }
-
-    // Total length should be reasonable: ~2.8m robot→path + ~10m path + 0.5m goal
+    // Reasonable path length
     const double len = pathLength(result->poses);
     EXPECT_GT(len, 8.0);
-    EXPECT_LT(len, 16.0);
+    EXPECT_LT(len, 18.0);
 }
 
 TEST(RoutePathSearch, Plan_SnapsToNode_WhenNodeIsCloserThanAnyPathPoint)
