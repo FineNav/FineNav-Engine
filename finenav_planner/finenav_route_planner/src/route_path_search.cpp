@@ -132,6 +132,37 @@ double pointSegmentDist(const Position3D&               p,
     return std::hypot(wx - t * vx, wy - t * vy);
 }
 
+/// Arc length (m) along the polyline of edge(from → to) at which the point
+/// (px, py) projects closest.  Projecting onto the actual polyline — not the
+/// node-to-node chord — keeps the "is the robot past the node" test correct
+/// for curved edges.  Returns 0.0 when the edge is missing or degenerate
+/// ("cannot tell" is treated as "not past").
+double projectedArcOnEdge(
+    const route::Graph& graph, size_t from, size_t to, double px, double py)
+{
+    for (const auto& nb : graph.adj[from]) {
+        if (nb.to_index != to || nb.polyline.size() < 2) continue;
+
+        double s = 0.0, best_d = std::numeric_limits<double>::infinity(), best_s = 0.0;
+        for (size_t i = 0; i + 1 < nb.polyline.size(); ++i) {
+            const auto& a = nb.polyline[i];
+            const auto& b = nb.polyline[i + 1];
+            const double vx = b.first - a.first, vy = b.second - a.second;
+            const double wx = px - a.first,      wy = py - a.second;
+            const double len = std::hypot(vx, vy);
+            const double t   = std::clamp((wx * vx + wy * vy) / (vx * vx + vy * vy + 1e-12), 0.0, 1.0);
+            const double d   = std::hypot(wx - t * vx, wy - t * vy);
+            if (d < best_d) {
+                best_d = d;
+                best_s = s + t * len;
+            }
+            s += len;
+        }
+        return best_s;
+    }
+    return 0.0;
+}
+
 }  // anonymous namespace
 
 // ── plan ───────────────────────────────────────────────────────────────────
@@ -162,17 +193,17 @@ RoutePathSearch::Result RoutePathSearch::plan(
     // TODO: goal-side prune — symmetric treatment of the goal connector is
     //       still missing; the path may backtrack near a snapped goal node.
     //
-    // If the robot projects positively onto the first route edge
-    // (node_seq[0] → node_seq[1]) it is already past the first node, and
-    // entering the graph there would backtrack.  Snap onto the edge itself
-    // (virtual node + edge split on a graph copy) and re-route from there.
+    // If the robot projects a meaningful arc length into the first route
+    // edge (node_seq[0] → node_seq[1]) it is already past the first node,
+    // and entering the graph there would backtrack.  Snap onto the edge
+    // itself (virtual node + edge split on a graph copy) and re-route.
     std::vector<Position3D> start_connector = std::move(start_snap.connector_path);
     if (node_seq.size() >= 2) {
-        const auto& fn = graph.nodes[node_seq[0]];
-        const auto& nn = graph.nodes[node_seq[1]];
-        const double dot = (nn.x - fn.x) * (ctx.robot_state.pose.position.x - fn.x)
-                         + (nn.y - fn.y) * (ctx.robot_state.pose.position.y - fn.y);
-        if (dot > 0.0) {
+        constexpr double kMinPruneArc = 0.1;   // metres past the node
+        const double arc = projectedArcOnEdge(
+            graph, node_seq[0], node_seq[1],
+            ctx.robot_state.pose.position.x, ctx.robot_state.pose.position.y);
+        if (arc > kMinPruneArc) {
             EdgeSnap edge_snap = snapToEdge(
                 graph, ctx.robot_state.pose, map_view, node_seq[0], node_seq[1]);
             if (edge_snap.valid()) {

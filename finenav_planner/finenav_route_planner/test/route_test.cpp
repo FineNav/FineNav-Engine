@@ -260,6 +260,21 @@ const char* kDiagonalDenseGraph = R"json(
 }
 )json";
 
+// U-shaped edge: A(2,2) → B(2,8), but the polyline detours east around
+// (8,·).  The A→B chord points north while the polyline leaves A heading
+// east — chord-based direction tests misjudge a robot standing east of A.
+const char* kUShapeEdgeGraph = R"json(
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[2,2]},"properties":{"id":0,"frame":"A"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[2,8]},"properties":{"id":1,"frame":"B"}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[8,2],[8,3],[8,4],[8,5],[8,6],[8,7],[8,8],[7,8],[6,8],[5,8],[4,8],[3,8],[2,8]]},"properties":{"id":100,"startid":0,"endid":1}},
+    {"type":"Feature","geometry":{"type":"LineString","coordinates":[[2,8],[3,8],[4,8],[5,8],[6,8],[7,8],[8,8],[8,7],[8,6],[8,5],[8,4],[8,3],[8,2],[7,2],[6,2],[5,2],[4,2],[3,2],[2,2]]},"properties":{"id":101,"startid":1,"endid":0}}
+  ]
+}
+)json";
+
 }  // namespace
 
 // =========================================================================
@@ -818,6 +833,42 @@ TEST(RoutePathSearch, Plan_StartPrune_ProjectionFallback_EdgeWithoutIntermediate
     // robot→(6.5,0) ≈ 2.5, (6.5,0)→C = 3.5 → total ≈ 6 m
     const double len = pathLength(result->poses);
     EXPECT_LT(len, 7.5);
+}
+
+TEST(RoutePathSearch, Plan_StartPrune_CurvedEdge_UsesPolylineProjectionNotChord)
+{
+    // Robot at (5, 1.5): the A→B chord points north (dot with A→robot is
+    // negative), but the polyline leaves A heading EAST — the robot is
+    // already 3 m along the edge.  The prune must use the polyline
+    // projection and enter at (5, 2) instead of backtracking to A (2, 2).
+    //
+    // Regression: the chord-based dot test skipped the prune here, making
+    // the robot walk back to A and then re-pass its own position.
+    TempFile graph(kUShapeEdgeGraph);
+    auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
+    astar::GridMap grid(12, 12);
+    TestMapView view(grid, 1.0);
+
+    auto result = planner.plan(makeCtx(5.0, 1.5, 2.0, 8.5), view);  // goal near node B
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 2u);
+
+    EXPECT_NEAR(result->poses.front().position.x, 5.0, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 1.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.x, 2.0, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 8.5, 1e-6);
+
+    // Node A must NOT appear — the route enters mid-edge at (5, 2).
+    for (const auto& p : result->poses)
+        EXPECT_GT(std::hypot(p.position.x - 2.0, p.position.y - 2.0), 0.5)
+            << "Backtracked to A: (" << p.position.x << ", " << p.position.y << ")";
+
+    // The path still follows the U detour (passes the east corridor).
+    bool has_east_corridor = false;
+    for (const auto& p : result->poses)
+        if (std::hypot(p.position.x - 8.0, p.position.y - 5.0) < 0.3)
+            has_east_corridor = true;
+    EXPECT_TRUE(has_east_corridor);
 }
 
 TEST(RoutePathSearch, PlanFails_WhenNoGraphPointIsReachable)

@@ -39,11 +39,12 @@ namespace finenav {
 //      node (obstacle-aware Dijkstra on the occupancy map, h = 0).
 //   2. Dijkstra on the route graph (route::findRoute) → route poses
 //      plus the node sequence along the route.
-//   3. Start prune: if the robot already projects positively onto the
-//      first route edge (node_seq[0] → node_seq[1]), it is past the
-//      first node — entering there would mean backtracking.  Snap the
-//      robot onto that edge instead (virtual node + edge split on a
-//      graph copy) and re-run findRoute from the virtual node.
+//   3. Start prune: project the robot onto the polyline of the first
+//      route edge (node_seq[0] → node_seq[1]).  If the projection lands
+//      a meaningful arc length into the edge, the robot is past the
+//      first node — entering there would backtrack.  Snap the robot
+//      onto that edge instead (virtual node + edge split on a graph
+//      copy) and re-run findRoute from the virtual node.
 //   4. Output = start connector + route + reversed goal connector.
 // =============================================================
 
