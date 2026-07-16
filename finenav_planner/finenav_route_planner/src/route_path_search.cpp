@@ -173,21 +173,55 @@ RoutePathSearch::Result RoutePathSearch::plan(
 {
     std::lock_guard<std::mutex> lock(*graph_mutex_);
 
-    if (!cached_graph_ || cached_graph_->nodes.empty()) return std::nullopt;
+    // Throttled failure logs: plan() may be called in a loop (eval node,
+    // replanning), so each failure reason is reported at most every 2 s.
+    static rclcpp::Clock steady_clock(RCL_STEADY_TIME);
+    const auto logger = rclcpp::get_logger("RoutePathSearch");
+
+    if (!cached_graph_ || cached_graph_->nodes.empty()) {
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "plan failed: no route graph loaded (waiting for /geojson).");
+        return std::nullopt;
+    }
     const auto& graph = *cached_graph_;
 
     // ── 1. Snap robot & goal to the nearest reachable graph node ─────────
     NodeSnap start_snap = snapToNearestNode(graph, ctx.robot_state.pose, map_view);
-    if (!start_snap.valid()) return std::nullopt;
+    if (!start_snap.valid()) {
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "plan failed: cannot snap start (%.2f, %.2f) to any graph node — "
+            "start cell blocked, or every node is unreachable on the map.",
+            ctx.robot_state.pose.position.x, ctx.robot_state.pose.position.y);
+        return std::nullopt;
+    }
 
     const NodeSnap goal_snap = snapToNearestNode(graph, ctx.goal_pose, map_view);
-    if (!goal_snap.valid()) return std::nullopt;
+    if (!goal_snap.valid()) {
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "plan failed: cannot snap goal (%.2f, %.2f) to any graph node — "
+            "goal cell blocked, or every node is unreachable on the map.",
+            ctx.goal_pose.position.x, ctx.goal_pose.position.y);
+        return std::nullopt;
+    }
 
     // ── 2. Dijkstra on the route graph ────────────────────────────────────
     std::vector<size_t> node_seq;
     auto route_opt = route::findRoute(
         graph, start_snap.node_index, goal_snap.node_index, path_density_, &node_seq);
-    if (!route_opt || route_opt->empty()) return std::nullopt;
+    if (!route_opt || route_opt->empty()) {
+        // Snapping is purely nearest-by-distance; it does NOT check graph
+        // connectivity.  The route graph is required to be connected — a
+        // failure here almost always means the GeoJSON contains isolated
+        // components or one-way-only chains.
+        const auto& sn = graph.nodes[start_snap.node_index];
+        const auto& gn = graph.nodes[goal_snap.node_index];
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "plan failed: no route from node id=%u (%.2f, %.2f) to node id=%u "
+            "(%.2f, %.2f) — the graph is disconnected (isolated component or "
+            "one-way edge chain in the GeoJSON).",
+            sn.id, sn.x, sn.y, gn.id, gn.x, gn.y);
+        return std::nullopt;
+    }
 
     // ── 3. Start prune ────────────────────────────────────────────────────
     // TODO: goal-side prune — symmetric treatment of the goal connector is
