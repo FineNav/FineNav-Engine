@@ -10,9 +10,10 @@
 //     fixed-cost-override route selection / start==goal snapping)
 //   - Obstacle-aware pose-to-node snapping (snapToNearestNode), including
 //     skipping a geometrically-closer but unreachable node
-//   - Start prune: when the robot projects positively onto the first route
-//     edge, the route enters at a point on that edge (path point or chord
-//     projection) instead of backtracking to the node behind the robot
+//   - Route trimming (snapToRoute): the robot enters the route at its
+//     nearest reachable route point and the path leaves the route at the
+//     point nearest to the goal — no backtracking to node centres at
+//     either end, no matter how many nodes the robot has already passed
 //   - Connector paths: obstacle-aware grid paths from robot/goal pose to
 //     the route entry/exit points are stitched into the output
 //   - Output shape: world-frame poses, densification, exact endpoints
@@ -352,9 +353,9 @@ TEST(RoutePathSearch, ConfigureSucceeds_LoadsValidGraph)
 TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
 {
     // The output includes obstacle-aware connector paths on both sides.
-    // Robot (0.5,0.5) projects positively onto edge A→B, so the start prune
-    // enters the route at the projected point (0.5,0) instead of
-    // backtracking to node A.
+    // Route trimming enters at the robot's nearest route point (0.5, 0)
+    // and leaves at the goal's nearest route point (9.5, 0) — neither
+    // node A nor node C is visited.
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     astar::GridMap grid(12, 12);
@@ -372,7 +373,7 @@ TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
     EXPECT_NEAR(result->poses.back().position.x, 9.5, 1e-6);
     EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
 
-    // The route passes through B and C; A is pruned (robot already past it).
+    // The route passes through B; A and C are trimmed away.
     bool has_node_a = false, has_node_b = false, has_node_c = false;
     for (const auto& p : result->poses) {
         if (std::hypot(p.position.x - 0.0, p.position.y - 0.0) < 0.01) has_node_a = true;
@@ -381,7 +382,7 @@ TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
     }
     EXPECT_FALSE(has_node_a);
     EXPECT_TRUE(has_node_b);
-    EXPECT_TRUE(has_node_c);
+    EXPECT_FALSE(has_node_c);
 }
 
 TEST(RoutePathSearch, PlanFails_DisconnectedGraph_NoRouteBetweenComponents)
@@ -407,9 +408,9 @@ TEST(RoutePathSearch, PlanPrefersLowerCost_OverFixedExpensiveDirectEdge)
     ASSERT_TRUE(result.has_value());
 
     // The fixed-cost direct edge (cost=100) is far more expensive than the
-    // detour via node 2 (~20.8), so the route must visit node 2 before node 1.
-    // Node 0 itself is pruned: the robot (0.5,0.5) projects positively onto
-    // edge 0→2, so the route enters at the projected point instead.
+    // detour via node 2 (~20.8), so the route must visit node 0 → 2 → 1 in
+    // order.  With path_density = 0 the route contains node centres only,
+    // so trimming operates at node granularity and all three nodes appear.
     ASSERT_GE(result->poses.size(), 3u);
 
     // Find the positions of the route nodes in the output
@@ -421,15 +422,14 @@ TEST(RoutePathSearch, PlanPrefersLowerCost_OverFixedExpensiveDirectEdge)
         return std::nullopt;
     };
 
+    auto i0 = findNode(0.0, 0.0);
     auto i2 = findNode(0.0, 8.0);
     auto i1 = findNode(10.0, 0.0);
+    ASSERT_TRUE(i0.has_value());
     ASSERT_TRUE(i2.has_value());
     ASSERT_TRUE(i1.has_value());
+    EXPECT_LT(*i0, *i2);
     EXPECT_LT(*i2, *i1);
-
-    // The expensive direct edge 0→1 was not taken: node 0 (0,0) is pruned
-    // and the path goes up through node 2 first.
-    EXPECT_FALSE(findNode(0.0, 0.0).has_value());
 }
 
 TEST(RoutePathSearch, Plan_SingleNodeGraph_StartEqualsGoal_ConnectorsBothSides)
@@ -503,9 +503,9 @@ TEST(RoutePathSearch, Plan_ZeroDensity_IncludesNodeCentresAndConnectors)
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
     ASSERT_TRUE(result.has_value());
 
-    // With zero density the route graph contributes node centres only.
-    // Robot (0.5,0.5) is past node A → start prune enters the route at the
-    // projected point (0.5,0); B(5,0) and C(10,0) must appear in order.
+    // With zero density the route contains node centres only, so trimming
+    // operates at node granularity: A(0,0), B(5,0), C(10,0) all appear in
+    // order.  (Mid-edge entry/exit requires path_density > 0.)
     auto findNode = [&](double x, double y) -> std::optional<size_t> {
         for (size_t i = 0; i < result->poses.size(); ++i)
             if (std::hypot(result->poses[i].position.x - x,
@@ -514,12 +514,14 @@ TEST(RoutePathSearch, Plan_ZeroDensity_IncludesNodeCentresAndConnectors)
         return std::nullopt;
     };
 
+    auto iA = findNode(0.0, 0.0);
     auto iB = findNode(5.0, 0.0);
     auto iC = findNode(10.0, 0.0);
+    ASSERT_TRUE(iA.has_value());
     ASSERT_TRUE(iB.has_value());
     ASSERT_TRUE(iC.has_value());
+    EXPECT_LT(*iA, *iB);
     EXPECT_LT(*iB, *iC);
-    EXPECT_FALSE(findNode(0.0, 0.0).has_value());   // A pruned
 }
 
 TEST(RoutePathSearch, Plan_OutputPoses_HaveValidOrientation)
@@ -550,9 +552,8 @@ TEST(RoutePathSearch, Plan_TotalLength_CoversRobotToGoal)
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
     ASSERT_TRUE(result.has_value());
 
-    // Path covers robot(0.5,0.5) → projected entry (0.5,0) → node B(5,0) →
-    // node C(10,0) → goal(9.5,0.5).  The start prune removes the backtrack
-    // to node A: 0.5 + 9.5 + ~0.71 ≈ 10.7 m.
+    // Trimming enters at (0.5,0) and leaves at (9.5,0):
+    // 0.5 (robot → entry) + 9.0 (route) + 0.5 (exit → goal) ≈ 10 m.
     const double len = pathLength(result->poses);
     EXPECT_GT(len, 9.0);
     EXPECT_LT(len, 12.0);
@@ -709,13 +710,8 @@ TEST(RoutePathSearch, Plan_ThreeNodeChain_NoBacktrack_GoalOnNode)
 {
     // Graph: A(0,0) — B(10,0) — C(20,0).
     // Robot at (9.5, 1) near B, goal on node C at (20, 0).
-    // Node-only snap: robot snaps to B (nearest), route B→C.
-    // Dot-product: robot not past B (dot < 0), B kept.
-    // Must NOT backtrack to A at x=0.
-    //
-    // TODO: goal-not-on-node — when goal does not exactly fall on a graph
-    //       node, the goal connector may backtrack from the snapped node.
-    //       Future work: add goal-side prune/pruning similar to start-side.
+    // The robot's nearest route point is node B itself (route B→C starts
+    // there), so the full route B→C is kept.  Must NOT backtrack to A.
     TempFile graph(kThreeNodeChainGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     astar::GridMap grid(22, 12);
@@ -803,14 +799,14 @@ TEST(RoutePathSearch, Plan_DiagonalDenseEdge_SnapsToPathPoint)
     EXPECT_TRUE(has_diag_point);
 }
 
-TEST(RoutePathSearch, Plan_StartPrune_ProjectionFallback_EdgeWithoutIntermediatePoints)
+TEST(RoutePathSearch, Plan_StartTrim_StraightEdge_NoBacktrackToNode)
 {
-    // kLinearGraph edges have no intermediate polyline points, so the start
-    // prune must use the chord-projection fallback.  Robot at (6.5, 2.5) is
-    // past node B on edge B→C: the route must enter at the projected point
+    // kLinearGraph edges have no intermediate polyline points, but the
+    // densified route curve still provides trim points everywhere.  Robot
+    // at (6.5, 2.5) is past node B on edge B→C: the route must enter near
     // (6.5, 0) instead of backtracking to node B (5, 0).
     //
-    // Regression: the previous implementation failed to split the edge at a
+    // Regression: an earlier implementation failed to split the edge at a
     // projected (non-vertex) snap point and returned nullopt in this case.
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
@@ -835,15 +831,15 @@ TEST(RoutePathSearch, Plan_StartPrune_ProjectionFallback_EdgeWithoutIntermediate
     EXPECT_LT(len, 7.5);
 }
 
-TEST(RoutePathSearch, Plan_StartPrune_CurvedEdge_UsesPolylineProjectionNotChord)
+TEST(RoutePathSearch, Plan_StartTrim_CurvedEdge_EntersAlongPolyline)
 {
-    // Robot at (5, 1.5): the A→B chord points north (dot with A→robot is
-    // negative), but the polyline leaves A heading EAST — the robot is
-    // already 3 m along the edge.  The prune must use the polyline
-    // projection and enter at (5, 2) instead of backtracking to A (2, 2).
+    // Robot at (5, 1.5): the A→B chord points north, but the polyline
+    // leaves A heading EAST — the robot is already 3 m along the edge.
+    // The trim must enter the route at (5, 2) instead of backtracking to
+    // A (2, 2).
     //
-    // Regression: the chord-based dot test skipped the prune here, making
-    // the robot walk back to A and then re-pass its own position.
+    // Regression: a chord-based direction test misjudged this case and the
+    // robot walked back to A before re-passing its own position.
     TempFile graph(kUShapeEdgeGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     astar::GridMap grid(12, 12);
@@ -869,6 +865,31 @@ TEST(RoutePathSearch, Plan_StartPrune_CurvedEdge_UsesPolylineProjectionNotChord)
         if (std::hypot(p.position.x - 8.0, p.position.y - 5.0) < 0.3)
             has_east_corridor = true;
     EXPECT_TRUE(has_east_corridor);
+}
+
+TEST(RoutePathSearch, Plan_GoalTrim_LeavesRouteAtNearestPoint)
+{
+    // Goal at (8, 1.5) is alongside the route A(0,0)→B(10,0), well before
+    // node B.  The goal-side trim must leave the route near (8, 0) and go
+    // straight to the goal — NOT continue to node B and backtrack.
+    TempFile graph(kDensePathGraph);
+    auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
+    astar::GridMap grid(12, 12);
+    TestMapView view(grid, 1.0);
+
+    auto result = planner.plan(makeCtx(0.5, 0.5, 8.0, 1.5), view);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 2u);
+
+    EXPECT_NEAR(result->poses.front().position.x, 0.5, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 0.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.x, 8.0, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 1.5, 1e-6);
+
+    // Node B (10, 0) must NOT appear — the route is cut near (8, 0).
+    for (const auto& p : result->poses)
+        EXPECT_LT(p.position.x, 9.0)
+            << "Overshot toward B: (" << p.position.x << ", " << p.position.y << ")";
 }
 
 TEST(RoutePathSearch, PlanFails_WhenNoGraphPointIsReachable)

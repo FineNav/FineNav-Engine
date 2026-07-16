@@ -37,15 +37,15 @@ namespace finenav {
 // Planning flow in plan():
 //   1. Snap robot pose and goal pose to the nearest REACHABLE graph
 //      node (obstacle-aware Dijkstra on the occupancy map, h = 0).
-//   2. Dijkstra on the route graph (route::findRoute) → route poses
-//      plus the node sequence along the route.
-//   3. Start prune: project the robot onto the polyline of the first
-//      route edge (node_seq[0] → node_seq[1]).  If the projection lands
-//      a meaningful arc length into the edge, the robot is past the
-//      first node — entering there would backtrack.  Snap the robot
-//      onto that edge instead (virtual node + edge split on a graph
-//      copy) and re-run findRoute from the virtual node.
-//   4. Output = start connector + route + reversed goal connector.
+//   2. Dijkstra on the route graph (route::findRoute) → densified
+//      route curve.
+//   3. Trim both ends: project the robot and the goal onto the route
+//      curve (obstacle-aware BFS to the nearest reachable route point)
+//      and keep only the segment in between.  This removes the
+//      backtracking that entering/leaving at node centres would cause,
+//      no matter how many nodes the robot has already passed.
+//   4. Output = start connector + route segment + reversed goal
+//      connector.
 // =============================================================
 
 class RoutePathSearch {
@@ -93,16 +93,12 @@ public:
         bool valid() const { return node_index != SIZE_MAX; }
     };
 
-    // Result of snapping a world pose onto one specific directed edge.
-    struct EdgeSnap {
-        size_t     edge_from{SIZE_MAX};   // source node of the edge
-        size_t     edge_idx{SIZE_MAX};    // index in graph.adj[edge_from]
-        size_t     pt_idx{SIZE_MAX};      // polyline index of the snap point;
-                                          // SIZE_MAX = projection fallback
-                                          // (snap_point is not a polyline vertex)
-        Position3D snap_point{};          // world coordinates of the entry point
-        std::vector<Position3D> connector_path;   // world-frame, pose → snap_point
-        bool valid() const { return edge_from != SIZE_MAX; }
+    // Result of snapping a world pose to the nearest reachable point of the
+    // densified route curve.
+    struct RouteSnap {
+        size_t index{SIZE_MAX};                    // index into the route poses
+        std::vector<Position3D> connector_path;   // world-frame, pose → route[index]
+        bool valid() const { return index != SIZE_MAX; }
     };
 
 private:
@@ -114,32 +110,15 @@ private:
         const geometry_msgs::msg::Pose& pose,
         const IMapView&                 map_view) const;
 
-    /// @brief Same search restricted to the intermediate polyline points of
-    ///        edge(edge_from → edge_to).  Falls back to a pure-geometry
-    ///        projection onto the edge chord when the edge has no
-    ///        intermediate points.  Used by the start prune in plan().
-    EdgeSnap snapToEdge(
-        const route::Graph&             graph,
+    /// @brief Same search over the points of route[begin_idx..end).  Used by
+    ///        plan() to trim the route curve at both ends: the robot enters
+    ///        at its nearest reachable route point and the path leaves the
+    ///        route at the point nearest to the goal.
+    RouteSnap snapToRoute(
+        const route::RoutePoses&        route,
+        size_t                          begin_idx,
         const geometry_msgs::msg::Pose& pose,
-        const IMapView&                 map_view,
-        size_t                          edge_from,
-        size_t                          edge_to) const;
-
-    /// @brief Insert a virtual node at snap.snap_point and split the snapped
-    ///        edge (and its reverse edge, if present) around it.  Costs are
-    ///        pro-rated by sub-polyline length.  Returns the virtual node index.
-    size_t insertSnapNode(route::Graph& graph, const EdgeSnap& snap) const;
-
-    /// @brief Split the directed edge graph.adj[from][edge_idx] at world point
-    ///        `p`: from → virtual_idx replaces the original edge and
-    ///        virtual_idx → old-target is appended.  If `p` is not an existing
-    ///        polyline vertex it is first inserted into the closest segment.
-    void splitDirectedEdge(
-        route::Graph&     graph,
-        size_t            from,
-        size_t            edge_idx,
-        const Position3D& p,
-        size_t            virtual_idx) const;
+        const IMapView&                 map_view) const;
 
     // ── Cached graph & Mutex ──────────────────────────────────
     mutable std::unique_ptr<std::mutex> graph_mutex_ = std::make_unique<std::mutex>();

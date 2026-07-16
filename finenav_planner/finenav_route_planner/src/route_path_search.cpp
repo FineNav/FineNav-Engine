@@ -112,57 +112,6 @@ std::vector<Position3D> buildConnector(
     return conn;
 }
 
-double polylineLength(const std::vector<std::pair<double, double>>& pl)
-{
-    double len = 0.0;
-    for (size_t i = 1; i < pl.size(); ++i)
-        len += std::hypot(pl[i].first - pl[i - 1].first,
-                          pl[i].second - pl[i - 1].second);
-    return len;
-}
-
-/// Distance from point p to segment (a, b).
-double pointSegmentDist(const Position3D&               p,
-                        const std::pair<double, double>& a,
-                        const std::pair<double, double>& b)
-{
-    const double vx = b.first - a.first, vy = b.second - a.second;
-    const double wx = p.x() - a.first,   wy = p.y() - a.second;
-    const double t  = std::clamp((wx * vx + wy * vy) / (vx * vx + vy * vy + 1e-12), 0.0, 1.0);
-    return std::hypot(wx - t * vx, wy - t * vy);
-}
-
-/// Arc length (m) along the polyline of edge(from → to) at which the point
-/// (px, py) projects closest.  Projecting onto the actual polyline — not the
-/// node-to-node chord — keeps the "is the robot past the node" test correct
-/// for curved edges.  Returns 0.0 when the edge is missing or degenerate
-/// ("cannot tell" is treated as "not past").
-double projectedArcOnEdge(
-    const route::Graph& graph, size_t from, size_t to, double px, double py)
-{
-    for (const auto& nb : graph.adj[from]) {
-        if (nb.to_index != to || nb.polyline.size() < 2) continue;
-
-        double s = 0.0, best_d = std::numeric_limits<double>::infinity(), best_s = 0.0;
-        for (size_t i = 0; i + 1 < nb.polyline.size(); ++i) {
-            const auto& a = nb.polyline[i];
-            const auto& b = nb.polyline[i + 1];
-            const double vx = b.first - a.first, vy = b.second - a.second;
-            const double wx = px - a.first,      wy = py - a.second;
-            const double len = std::hypot(vx, vy);
-            const double t   = std::clamp((wx * vx + wy * vy) / (vx * vx + vy * vy + 1e-12), 0.0, 1.0);
-            const double d   = std::hypot(wx - t * vx, wy - t * vy);
-            if (d < best_d) {
-                best_d = d;
-                best_s = s + t * len;
-            }
-            s += len;
-        }
-        return best_s;
-    }
-    return 0.0;
-}
-
 }  // anonymous namespace
 
 // ── plan ───────────────────────────────────────────────────────────────────
@@ -195,7 +144,7 @@ RoutePathSearch::Result RoutePathSearch::plan(
         return std::nullopt;
     }
 
-    const NodeSnap goal_snap = snapToNearestNode(graph, ctx.goal_pose, map_view);
+    NodeSnap goal_snap = snapToNearestNode(graph, ctx.goal_pose, map_view);
     if (!goal_snap.valid()) {
         RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
             "plan failed: cannot snap goal (%.2f, %.2f) to any graph node — "
@@ -205,9 +154,8 @@ RoutePathSearch::Result RoutePathSearch::plan(
     }
 
     // ── 2. Dijkstra on the route graph ────────────────────────────────────
-    std::vector<size_t> node_seq;
-    auto route_opt = route::findRoute(
-        graph, start_snap.node_index, goal_snap.node_index, path_density_, &node_seq);
+    const auto route_opt = route::findRoute(
+        graph, start_snap.node_index, goal_snap.node_index, path_density_);
     if (!route_opt || route_opt->empty()) {
         // Snapping is purely nearest-by-distance; it does NOT check graph
         // connectivity.  The route graph is required to be connected — a
@@ -222,43 +170,43 @@ RoutePathSearch::Result RoutePathSearch::plan(
             sn.id, sn.x, sn.y, gn.id, gn.x, gn.y);
         return std::nullopt;
     }
+    const route::RoutePoses& route = *route_opt;
 
-    // ── 3. Start prune ────────────────────────────────────────────────────
-    // TODO: goal-side prune — symmetric treatment of the goal connector is
-    //       still missing; the path may backtrack near a snapped goal node.
+    // ── 3. Trim the route curve at both ends ──────────────────────────────
+    // Entering/leaving the route at node centres backtracks whenever the
+    // robot (or the goal) is already alongside the route.  Instead, project
+    // both onto the route curve — obstacle-aware BFS to the nearest
+    // reachable route point — and keep only the segment in between.  A
+    // single global nearest-point query handles being past one or MANY
+    // nodes, with no iteration or termination heuristics.
     //
-    // If the robot projects a meaningful arc length into the first route
-    // edge (node_seq[0] → node_seq[1]) it is already past the first node,
-    // and entering the graph there would backtrack.  Snap onto the edge
-    // itself (virtual node + edge split on a graph copy) and re-route.
+    // The exit search is restricted to the tail after the entry point, so
+    // entry ≤ exit always holds.  On (unlikely) trim failure the node
+    // connectors from step 1 keep the plan valid.
+    //
+    // Note: with path_density <= 0 the route contains node centres only, so
+    // trimming degrades to node granularity.
+    size_t begin_idx = 0;
+    size_t end_idx   = route.size();
     std::vector<Position3D> start_connector = std::move(start_snap.connector_path);
-    if (node_seq.size() >= 2) {
-        constexpr double kMinPruneArc = 0.1;   // metres past the node
-        const double arc = projectedArcOnEdge(
-            graph, node_seq[0], node_seq[1],
-            ctx.robot_state.pose.position.x, ctx.robot_state.pose.position.y);
-        if (arc > kMinPruneArc) {
-            EdgeSnap edge_snap = snapToEdge(
-                graph, ctx.robot_state.pose, map_view, node_seq[0], node_seq[1]);
-            if (edge_snap.valid()) {
-                route::Graph pruned = graph;   // deep copy, only when the prune fires
-                const size_t vi = insertSnapNode(pruned, edge_snap);
-                auto rerouted = route::findRoute(
-                    pruned, vi, goal_snap.node_index, path_density_);
-                // On failure keep the original (backtracking but valid) route.
-                if (rerouted && !rerouted->empty()) {
-                    route_opt       = std::move(rerouted);
-                    start_connector = std::move(edge_snap.connector_path);
-                }
-            }
-        }
+    std::vector<Position3D> goal_connector  = std::move(goal_snap.connector_path);
+
+    RouteSnap entry = snapToRoute(route, 0, ctx.robot_state.pose, map_view);
+    if (entry.valid()) {
+        begin_idx       = entry.index;
+        start_connector = std::move(entry.connector_path);
+    }
+    RouteSnap exit = snapToRoute(route, begin_idx, ctx.goal_pose, map_view);
+    if (exit.valid()) {
+        end_idx        = exit.index + 1;
+        goal_connector = std::move(exit.connector_path);
     }
 
-    // ── 4. Assemble: start connector + route + reversed goal connector ───
+    // ── 4. Assemble: start connector + route segment + reversed goal conn ─
     OutputDataT<RoutePathSearch> output;
     output.poses.reserve(start_connector.size()
-                       + route_opt->size()
-                       + goal_snap.connector_path.size());
+                       + (end_idx - begin_idx)
+                       + goal_connector.size());
 
     // Consecutive duplicate points (connector/route boundaries) are dropped.
     auto appendPose = [&](double x, double y) {
@@ -275,11 +223,10 @@ RoutePathSearch::Result RoutePathSearch::plan(
 
     for (const auto& pt : start_connector)
         appendPose(pt.x(), pt.y());
-    for (const auto& [x, y] : *route_opt)
-        appendPose(x, y);
-    // Goal connector was built goal_pose → snap point; walk it backwards.
-    for (auto it = goal_snap.connector_path.rbegin();
-         it != goal_snap.connector_path.rend(); ++it)
+    for (size_t i = begin_idx; i < end_idx; ++i)
+        appendPose(route[i].first, route[i].second);
+    // Goal connector was built goal_pose → route point; walk it backwards.
+    for (auto it = goal_connector.rbegin(); it != goal_connector.rend(); ++it)
         appendPose(it->x(), it->y());
 
     return output;
@@ -333,172 +280,53 @@ RoutePathSearch::NodeSnap RoutePathSearch::snapToNearestNode(
     return snap;
 }
 
-// ── snapToEdge ──────────────────────────────────────────────────────────────
+// ── snapToRoute ─────────────────────────────────────────────────────────────
+//
+// Same obstacle-aware search, but the goal set is the points of
+// route[begin_idx..end).  Used by plan() to trim the route curve: the
+// nearest reachable route point is where the robot enters (begin_idx = 0)
+// or where the path leaves toward the goal (begin_idx = entry index).
 
-RoutePathSearch::EdgeSnap RoutePathSearch::snapToEdge(
-    const route::Graph&             graph,
+RoutePathSearch::RouteSnap RoutePathSearch::snapToRoute(
+    const route::RoutePoses&        route,
+    size_t                          begin_idx,
     const geometry_msgs::msg::Pose& pose,
-    const IMapView&                 map_view,
-    size_t                          edge_from,
-    size_t                          edge_to) const
+    const IMapView&                 map_view) const
 {
     const CellGrid    grid{map_view.getStepSize()};
     const astar::Vec3 origin = grid.toCell(pose.position.x, pose.position.y);
 
-    // Collect the intermediate polyline points of edge(edge_from → edge_to).
-    // Endpoints coincide with the nodes themselves and are skipped.
-    struct PtRef { size_t ei, pi; };
-    std::unordered_map<astar::Vec3, std::vector<PtRef>, astar::Vec3Hash> cell_pts;
-    size_t first_ei  = SIZE_MAX;
-    int    max_depth = 0;
-    for (size_t ei = 0; ei < graph.adj[edge_from].size(); ++ei) {
-        if (graph.adj[edge_from][ei].to_index != edge_to) continue;
-        if (first_ei == SIZE_MAX) first_ei = ei;
-        const auto& pl = graph.adj[edge_from][ei].polyline;
-        for (size_t pi = 1; pi + 1 < pl.size(); ++pi) {
-            const astar::Vec3 c = grid.toCell(pl[pi].first, pl[pi].second);
-            cell_pts[c].push_back({ei, pi});
-            max_depth = std::max(max_depth, chebyshev(c, origin));
-        }
+    // cell → route point indices; max_depth bounds the search box.
+    std::unordered_map<astar::Vec3, std::vector<size_t>, astar::Vec3Hash> cell_pts;
+    int max_depth = 0;
+    for (size_t i = begin_idx; i < route.size(); ++i) {
+        const astar::Vec3 c = grid.toCell(route[i].first, route[i].second);
+        cell_pts[c].push_back(i);
+        max_depth = std::max(max_depth, chebyshev(c, origin));
     }
-    if (first_ei == SIZE_MAX) return {};   // no such edge — should not happen
+    if (cell_pts.empty()) return {};
 
-    EdgeSnap snap;
-
-    if (cell_pts.empty()) {
-        // ── Projection fallback: the edge has no intermediate points ──────
-        // Project the pose onto the edge chord; splitDirectedEdge later
-        // inserts the projected point into the polyline before splitting.
-        const auto&  fn = graph.nodes[edge_from];
-        const auto&  nn = graph.nodes[edge_to];
-        const double vx = nn.x - fn.x, vy = nn.y - fn.y;
-        const double t  = std::clamp(
-            ((pose.position.x - fn.x) * vx + (pose.position.y - fn.y) * vy) /
-                (vx * vx + vy * vy + 1e-12),
-            0.0, 1.0);
-        const Position3D proj{fn.x + t * vx, fn.y + t * vy, 0.0};
-
-        auto algo = makeSnapSearch(map_view, grid, origin,
-                                   std::numeric_limits<int>::max(), obstacle_cost_weight_);
-        algo.setHeuristic(astar::Heuristic::Euclidean);
-        const auto path = algo.findPath(origin, grid.toCell(proj.x(), proj.y()));
-        if (!path || path->empty()) return {};
-
-        snap.edge_from      = edge_from;
-        snap.edge_idx       = first_ei;
-        snap.pt_idx         = SIZE_MAX;   // not a polyline vertex
-        snap.snap_point     = proj;
-        snap.connector_path = buildConnector(pose, *path, grid, proj);
-        return snap;
-    }
-
-    // ── Obstacle-aware search to the nearest reachable point on the edge ──
     auto algo = makeSnapSearch(map_view, grid, origin, max_depth, obstacle_cost_weight_);
     const auto path = algo.findPathToAny(origin,
         [&](const astar::Vec3& c) { return cell_pts.contains(c); });
     if (!path || path->empty()) return {};
 
-    // Several points may share the goal cell — pick the closest to the pose.
+    // Several route points may share the goal cell — pick the closest to
+    // the pose (ties keep the earliest index, i.e. the least route is cut).
+    RouteSnap snap;
     double best = std::numeric_limits<double>::infinity();
-    for (const auto& [ei, pi] : cell_pts.at(path->back())) {
-        const auto& pt = graph.adj[edge_from][ei].polyline[pi];
-        const double d = std::hypot(pt.first - pose.position.x,
-                                    pt.second - pose.position.y);
+    for (const size_t idx : cell_pts.at(path->back())) {
+        const double d = std::hypot(route[idx].first - pose.position.x,
+                                    route[idx].second - pose.position.y);
         if (d < best) {
-            best            = d;
-            snap.edge_from  = edge_from;
-            snap.edge_idx   = ei;
-            snap.pt_idx     = pi;
-            snap.snap_point = {pt.first, pt.second, 0.0};
+            best       = d;
+            snap.index = idx;
         }
     }
-    snap.connector_path = buildConnector(pose, *path, grid, snap.snap_point);
+
+    snap.connector_path = buildConnector(pose, *path, grid,
+        {route[snap.index].first, route[snap.index].second, 0.0});
     return snap;
-}
-
-// ── insertSnapNode ──────────────────────────────────────────────────────────
-
-size_t RoutePathSearch::insertSnapNode(
-    route::Graph&   graph,
-    const EdgeSnap& snap) const
-{
-    // Virtual node: no id, not registered in id_index.
-    const size_t vi = graph.nodes.size();
-    graph.nodes.push_back({/*id=*/0, snap.snap_point.x(), snap.snap_point.y(), /*frame=*/""});
-    graph.adj.resize(graph.nodes.size());
-
-    const size_t to = graph.adj[snap.edge_from][snap.edge_idx].to_index;
-    splitDirectedEdge(graph, snap.edge_from, snap.edge_idx, snap.snap_point, vi);
-
-    // Split the reverse edge (to → edge_from) too, if one exists.
-    for (size_t ei = 0; ei < graph.adj[to].size(); ++ei) {
-        if (graph.adj[to][ei].to_index == snap.edge_from) {
-            splitDirectedEdge(graph, to, ei, snap.snap_point, vi);
-            break;
-        }
-    }
-    return vi;
-}
-
-// ── splitDirectedEdge ───────────────────────────────────────────────────────
-//
-// Replaces graph.adj[from][edge_idx] (from → dst) with two sub-edges:
-//   from → virtual_idx   (polyline up to and including the split point)
-//   virtual_idx → dst    (polyline from the split point onward)
-// The edge cost is pro-rated by sub-polyline length so that fixed-cost
-// overrides keep their total weight.
-
-void RoutePathSearch::splitDirectedEdge(
-    route::Graph&     graph,
-    size_t            from,
-    size_t            edge_idx,
-    const Position3D& p,
-    size_t            virtual_idx) const
-{
-    auto& nb = graph.adj[from][edge_idx];
-    auto& pl = nb.polyline;
-    if (pl.size() < 2) return;
-
-    constexpr double kTol = 1e-6;
-
-    // Locate the split index: an existing vertex matching p, otherwise
-    // insert p into the segment it lies closest to (projection fallback).
-    size_t split_idx = SIZE_MAX;
-    for (size_t i = 0; i < pl.size(); ++i) {
-        if (std::hypot(pl[i].first - p.x(), pl[i].second - p.y()) <= kTol) {
-            split_idx = i;
-            break;
-        }
-    }
-    if (split_idx == SIZE_MAX) {
-        size_t best_seg = 0;
-        double best_d   = std::numeric_limits<double>::infinity();
-        for (size_t i = 0; i + 1 < pl.size(); ++i) {
-            const double d = pointSegmentDist(p, pl[i], pl[i + 1]);
-            if (d < best_d) {
-                best_d   = d;
-                best_seg = i;
-            }
-        }
-        pl.insert(pl.begin() + best_seg + 1, {p.x(), p.y()});
-        split_idx = best_seg + 1;
-    }
-
-    std::vector<std::pair<double, double>> pl_first(pl.begin(), pl.begin() + split_idx + 1);
-    std::vector<std::pair<double, double>> pl_second(pl.begin() + split_idx, pl.end());
-
-    const double len_first  = polylineLength(pl_first);
-    const double len_second = polylineLength(pl_second);
-    const double total      = len_first + len_second;
-    const double cost_first  = (total > 1e-9) ? nb.cost * (len_first / total)  : nb.cost * 0.5;
-    const double cost_second = (total > 1e-9) ? nb.cost * (len_second / total) : nb.cost * 0.5;
-
-    const size_t dst = nb.to_index;
-    nb.to_index = virtual_idx;
-    nb.polyline = std::move(pl_first);
-    nb.cost     = cost_first;
-
-    graph.adj[virtual_idx].push_back({dst, cost_second, std::move(pl_second)});
 }
 
 } // namespace finenav

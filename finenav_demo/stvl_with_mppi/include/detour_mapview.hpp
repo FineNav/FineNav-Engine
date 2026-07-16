@@ -5,7 +5,7 @@
 #pragma once
 
 #include "imap_view.hpp"        // astar::IMapView
-#include "terrain/terrain_analysis.hpp"
+#include "terrain_analysis.hpp"
 #include "grid_map.hpp"
 
 /// Thin adapter: wraps TerrainAnalyzer + GridMap<Voxel> behind astar::IMapView.
