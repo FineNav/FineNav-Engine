@@ -4,7 +4,9 @@
 
 #include "detour_planner.hpp"
 
+#include <chrono>
 #include <cmath>
+#include <rclcpp/rclcpp.hpp>
 
 #include "astar_algorithm.hpp"
 #include "vec3.hpp"
@@ -105,6 +107,15 @@ DetourPlanner::Result DetourPlanner::plan(
     // ── 1. Detect blockage ──────────────────────────────────────────────────
     const auto blockage = findBlockage(ctx, map_view);
     if (!blockage.has_value()) {
+        {
+            static auto last_log = std::chrono::steady_clock::now();
+            auto now = std::chrono::steady_clock::now();
+            if (std::chrono::duration<double>(now - last_log).count() >= 5.0) {
+                RCLCPP_INFO(rclcpp::get_logger("DetourPlanner"),
+                    "[Detour] Path clear, pass-through. (ref %zu waypoints)", poses.size());
+                last_log = now;
+            }
+        }
         OutputDataT<DetourPlanner> output;
         output.poses = poses;
         return output;
@@ -191,6 +202,11 @@ DetourPlanner::Result DetourPlanner::plan(
     for (size_t i = blockage->exit_idx; i < poses.size(); ++i) {
         output.poses.push_back(poses[i]);
     }
+
+    RCLCPP_INFO(rclcpp::get_logger("DetourPlanner"),
+        "[Detour] BLOCKAGE [%zu→%zu] | A* detour %zu waypoints | stitched: %zu total.",
+        blockage->start_idx, blockage->exit_idx,
+        cell_path->size(), output.poses.size());
 
     return output;
 }
