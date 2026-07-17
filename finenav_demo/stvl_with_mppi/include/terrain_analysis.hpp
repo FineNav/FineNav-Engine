@@ -86,4 +86,11 @@ private:
     bool use_simple_z_threshold_{false};
     double z_obstacle_threshold_{0.3};  // voxels with z > robot_pose_z + threshold are obstacles
 
+    // Query semantics for positions OUTSIDE the rolling map window:
+    //   false → lethal (254): conservative, planners/MPPI treat the window
+    //           edge as a wall (trajectories near the boundary get rejected).
+    //   true  → free (0): optimistic-unknown, consistent with unobserved
+    //           columns INSIDE the window (which are also free).
+    bool allow_unknown_{false};
+
 };

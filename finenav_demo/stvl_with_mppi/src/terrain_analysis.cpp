@@ -31,6 +31,7 @@ TerrainAnalyzer::TerrainAnalyzer(
     node_->declare_parameter<double>("terrain_analysis.ground_z_offset", 0.125);
     node_->declare_parameter<bool>("terrain_analysis.use_simple_z_threshold", false);
     node_->declare_parameter<double>("terrain_analysis.z_obstacle_threshold", 0.3);
+    node_->declare_parameter<bool>("terrain_analysis.allow_unknown", false);
     node_->declare_parameter<std::string>("terrain_analysis.global_map_topic", "/map");
 
     node_->get_parameter("terrain_analysis.cost_scaling_factor", cost_scaling_factor_);
@@ -40,6 +41,7 @@ TerrainAnalyzer::TerrainAnalyzer(
     node_->get_parameter("terrain_analysis.ground_z_offset", ground_z_offset_);
     node_->get_parameter("terrain_analysis.use_simple_z_threshold", use_simple_z_threshold_);
     node_->get_parameter("terrain_analysis.z_obstacle_threshold", z_obstacle_threshold_);
+    node_->get_parameter("terrain_analysis.allow_unknown", allow_unknown_);
 
     std::string global_map_topic;
     node_->get_parameter("terrain_analysis.global_map_topic", global_map_topic);
@@ -91,7 +93,10 @@ int TerrainAnalyzer::getCost(const finenav::Position3D& pos, const finenav::Grid
             index.y() + map.getSize().y() / 2,
             index.x() + map.getSize().x() / 2);
     }
-    return 254;
+    // Outside the rolling window: unknown terrain.
+    //   allow_unknown → free (consistent with unobserved columns inside the
+    //   window); otherwise lethal, i.e. the window edge acts as a wall.
+    return allow_unknown_ ? 0 : 254;
 }
 
 int TerrainAnalyzer::ComputeCost(int distance) const {

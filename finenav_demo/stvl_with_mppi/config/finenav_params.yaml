@@ -72,6 +72,10 @@ hello_finenav:
       # 每个栅格柱上的最高 voxel z 超过 robot_pose_z + z_obstacle_threshold 即为障碍。
       use_simple_z_threshold: true
       z_obstacle_threshold: 0.05    # [m] 高于机器人当前 Z 多少即视为障碍
+      # 滚动窗口外的查询语义：true = 未知即自由（与窗口内未观测列一致），
+      # detour 的重连候选与 MPPI 靠近地图边界的轨迹不再被"窗口即墙"拒绝；
+      # false = 窗口外一律致命（旧行为）
+      allow_unknown: true
     stvl_manager:
       decay_time_sec: 2.0
       decay_time_fov_sec: 2.0
