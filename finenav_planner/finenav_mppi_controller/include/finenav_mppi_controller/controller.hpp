@@ -105,12 +105,9 @@ public:
             [this](std_msgs::msg::Float64::ConstSharedPtr msg) {
                 double limit = msg->data;
                 external_speed_limit_.store(limit, std::memory_order_release);
-                RCLCPP_INFO(rclcpp::get_logger("MPPIController"),
-                    "[speed_limit] Received external speed limit: %.3f m/s", limit);
+
             });
         node_thread_ = std::make_unique<finenav::NodeThread>(internal_node_);
-        RCLCPP_INFO(rclcpp::get_logger("MPPIController"),
-            "[speed_limit] Subscribed to /speed_limit topic");
 
         optimizer_.initialize(
             "MPPIController",
