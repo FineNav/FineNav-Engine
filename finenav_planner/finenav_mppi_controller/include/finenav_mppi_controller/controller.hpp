@@ -17,6 +17,7 @@
 
 #include <string>
 #include <memory>
+#include <atomic>
 
 //#include "finenav_mppi_controller/tools/path_handler.hpp"
 //#include "finenav_mppi_controller/tools/trajectory_visualizer.hpp"
@@ -24,6 +25,8 @@
 #include "finenav_mppi_controller/tools/utils.hpp"
 
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/float64.hpp"
+#include "finenav_util/node_thread.hpp"
 
 
 #include "finenav_interface/test_map_params.hpp"
@@ -88,8 +91,26 @@ public:
         std::cout<<"[nav2_mppi_controller] Critics registered. Initializing optimizer..."<<std::endl;
         std::cout<<"[nav2_mppi_controller] Number of critics: "<<critics_.size()<<std::endl;
 
-        // 存储外部速度限制参数（>0 时覆盖默认 vx_max）
-        speed_limit_ = params.speed_limit;
+        // 初始化外部速度限制：先从参数读取默认值
+        external_speed_limit_.store(params.speed_limit, std::memory_order_release);
+
+        // 创建内部节点用于订阅 /speed_limit 话题
+        // （动态参数方法未实现，改为从话题获取速度限制）
+        internal_node_ = std::make_shared<rclcpp::Node>(
+            "mppi_speed_limit_handler",
+            rclcpp::NodeOptions().use_global_arguments(false));
+        speed_limit_sub_ = internal_node_->create_subscription<std_msgs::msg::Float64>(
+            "/speed_limit",
+            rclcpp::SystemDefaultsQoS(),
+            [this](std_msgs::msg::Float64::ConstSharedPtr msg) {
+                double limit = msg->data;
+                external_speed_limit_.store(limit, std::memory_order_release);
+                RCLCPP_INFO(rclcpp::get_logger("MPPIController"),
+                    "[speed_limit] Received external speed limit: %.3f m/s", limit);
+            });
+        node_thread_ = std::make_unique<finenav::NodeThread>(internal_node_);
+        RCLCPP_INFO(rclcpp::get_logger("MPPIController"),
+            "[speed_limit] Subscribed to /speed_limit topic");
 
         optimizer_.initialize(
             "MPPIController",
@@ -118,7 +139,8 @@ public:
         start_pose_stamped.header.frame_id = "map";
 
         // 应用外部速度限制：>0 时覆盖 vx_max，<=0 时恢复 YAML 配置的默认值
-        optimizer_.setSpeedLimit(speed_limit_, false);
+        // 从 /speed_limit 话题读取（由内部节点订阅回调更新）
+        optimizer_.setSpeedLimit(external_speed_limit_.load(std::memory_order_acquire), false);
 
         const auto t_optimize_start = Clock::now();
         computeVelocityCommands(
@@ -302,9 +324,15 @@ protected:
 
   double reset_period_;
 
-  // ── 外部速度限制（ROS 2 动态参数） ──
+  // ── 外部速度限制（订阅 /speed_limit 话题） ──
   // > 0 时覆盖默认 vx_max；<= 0 时使用 YAML 配置的 vx_max
-  double speed_limit_ = -1.0;
+  // 使用 atomic 保证发布线程 → 规划线程的可见性
+  std::atomic<double> external_speed_limit_{-1.0};
+
+  // ── 内部节点：专门用于订阅 /speed_limit 话题 ──
+  rclcpp::Node::SharedPtr internal_node_;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr speed_limit_sub_;
+  std::unique_ptr<finenav::NodeThread> node_thread_;
   // Last time computeVelocityCommands was called
 //  rclcpp::Time last_time_called_;
 };

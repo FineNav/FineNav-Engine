@@ -21,6 +21,7 @@ include_directories(
 
 set(dependencies_pkgs
   rclcpp
+  std_msgs
   tf2
   geometry_msgs
   visualization_msgs
