@@ -86,7 +86,7 @@ if (BUILD_TESTING)
     target_link_libraries(detour_test detour_params)
 endif ()
 
-#add_subdirectory(eval)
+# add_subdirectory(eval)  # 旧 test_detour.cpp 引用已删除的 detour 参数,暂时关闭
 
 ament_auto_package()
 

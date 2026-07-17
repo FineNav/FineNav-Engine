@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <mutex>
+#include <queue>
 #include <unordered_map>
 
 #include <geometry_msgs/msg/pose.hpp>
@@ -83,20 +84,130 @@ RoutePathSearch::Result RoutePathSearch::plan(
         return std::nullopt;
     }
 
-    // ── 2. Dijkstra on the route graph ────────────────────────────────────
+    // ── 2. Connectivity check ─────────────────────────────────────────────
+    // Snap is nearest-by-distance; it pays no attention to graph topology.
+    // Compute the connected components of both start- and goal-snapped
+    // nodes.  When they fall in different components, re-snap the side
+    // whose component is smaller — that side is typically an isolated
+    // island — and only accept nodes of the other component.
+    const auto reachable_mask = [&](size_t from) {
+        // Undirected BFS from `from`: which nodes are reachable?
+        std::vector<bool> reachable(graph.nodes.size());
+        std::queue<size_t> q;
+        reachable[from] = true;
+        q.push(from);
+        while (!q.empty()) {
+            size_t u = q.front(); q.pop();
+            for (const auto& nb : graph.adj[u]) {
+                if (!reachable[nb.to_index]) {
+                    reachable[nb.to_index] = true;
+                    q.push(nb.to_index);
+                }
+            }
+            // Reverse edges (undirected view): scan adj[v] for edges
+            // pointing back to u.
+            for (size_t v = 0; v < graph.adj.size(); ++v) {
+                for (const auto& nb : graph.adj[v]) {
+                    if (nb.to_index == u && !reachable[v]) {
+                        reachable[v] = true;
+                        q.push(v);
+                    }
+                }
+            }
+        }
+        return reachable;
+    };
+
+    const auto cc_start = reachable_mask(start_snap.node_index);
+    if (!cc_start[goal_snap.node_index]) {
+        // The two snapped nodes lie in different components.  Figure out
+        // which side got caught in an island — the side whose component is
+        // smaller — and re-snap it, restricting the goal set to nodes of
+        // the other (presumably main) component.
+        const auto cc_goal = reachable_mask(goal_snap.node_index);
+        size_t sz_start = 0, sz_goal = 0;
+        for (size_t i = 0; i < cc_start.size(); ++i) {
+            if (cc_start[i]) ++sz_start;
+            if (cc_goal[i])  ++sz_goal;
+        }
+
+        RCLCPP_INFO_THROTTLE(logger, steady_clock, 2000,
+            "plan: snapped nodes disconnected — start component %zu nodes "
+            "(node id=%u), goal component %zu nodes (node id=%u). "
+            "Re-snapping the smaller side.",
+            sz_start, graph.nodes[start_snap.node_index].id,
+            sz_goal,  graph.nodes[goal_snap.node_index].id);
+
+        const bool fix_start = (sz_start < sz_goal);
+        const auto& allowed_mask = fix_start ? cc_goal : cc_start;
+        const auto& pose_to_fix = fix_start
+            ? ctx.robot_state.pose : ctx.goal_pose;
+        const snap::CellGrid sn_grid{map_view.getStepSize()};
+        const astar::Vec3 sn_origin = sn_grid.toCell(
+            pose_to_fix.position.x, pose_to_fix.position.y);
+
+        // cell → allowed node indices
+        std::unordered_map<astar::Vec3, std::vector<size_t>, astar::Vec3Hash> sn_cell_nodes;
+        int sn_max_depth = 0;
+        for (size_t i = 0; i < graph.nodes.size(); ++i) {
+            if (!allowed_mask[i]) continue;   // connectivity filter
+            const astar::Vec3 c = sn_grid.toCell(graph.nodes[i].x, graph.nodes[i].y);
+            sn_cell_nodes[c].push_back(i);
+            sn_max_depth = std::max(sn_max_depth, snap::chebyshev(c, sn_origin));
+        }
+
+        auto sn_algo = snap::makeSnapSearch(map_view, sn_grid, sn_origin,
+                                            sn_max_depth, obstacle_cost_weight_);
+        const auto sn_path = sn_algo.findPathToAny(sn_origin,
+            [&](const astar::Vec3& c) { return sn_cell_nodes.contains(c); });
+        if (!sn_path || sn_path->empty()) {
+            RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+                "plan failed: after re-snap, the %s side still cannot reach "
+                "any node in the other component.  Plan fails.",
+                fix_start ? "start" : "goal");
+            return std::nullopt;
+        }
+
+        // Build the corrected snap result.
+        NodeSnap corrected;
+        double best = std::numeric_limits<double>::infinity();
+        for (const size_t idx : sn_cell_nodes.at(sn_path->back())) {
+            const double d = std::hypot(graph.nodes[idx].x - pose_to_fix.position.x,
+                                        graph.nodes[idx].y - pose_to_fix.position.y);
+            if (d < best) { best = d; corrected.node_index = idx; }
+        }
+        corrected.connector_path = snap::buildConnector(
+            pose_to_fix, *sn_path, sn_grid,
+            {graph.nodes[corrected.node_index].x,
+             graph.nodes[corrected.node_index].y, 0.0});
+
+        RCLCPP_INFO_THROTTLE(logger, steady_clock, 2000,
+            "plan: re-snap %s side → node id=%u (%.2f, %.2f) in the other component.",
+            fix_start ? "start" : "goal",
+            graph.nodes[corrected.node_index].id,
+            graph.nodes[corrected.node_index].x,
+            graph.nodes[corrected.node_index].y);
+
+        if (fix_start)
+            start_snap = std::move(corrected);
+        else
+            goal_snap = std::move(corrected);
+    }
+
+    // ── 3. Dijkstra on the route graph ────────────────────────────────────
     const auto route_opt = route::findRoute(
         graph, start_snap.node_index, goal_snap.node_index, path_density_);
     if (!route_opt || route_opt->empty()) {
-        // Snapping is purely nearest-by-distance; it does NOT check graph
-        // connectivity.  The route graph is required to be connected — a
-        // failure here almost always means the GeoJSON contains isolated
-        // components or one-way-only chains.
+        // This should be extremely rare after the connectivity fix above;
+        // it can still happen with one-way-only edge chains (the undirected
+        // BFS sees them as connected but Dijkstra on the directed graph
+        // cannot traverse reverse-only edges).
         const auto& sn = graph.nodes[start_snap.node_index];
         const auto& gn = graph.nodes[goal_snap.node_index];
         RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
-            "plan failed: no route from node id=%u (%.2f, %.2f) to node id=%u "
-            "(%.2f, %.2f) — the graph is disconnected (isolated component or "
-            "one-way edge chain in the GeoJSON).",
+            "plan failed: no directed route from node id=%u (%.2f, %.2f) "
+            "to node id=%u (%.2f, %.2f) — graph may contain one-way-only "
+            "edge chains.",
             sn.id, sn.x, sn.y, gn.id, gn.x, gn.y);
         return std::nullopt;
     }

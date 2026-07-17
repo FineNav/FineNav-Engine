@@ -385,16 +385,29 @@ TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
     EXPECT_FALSE(has_node_c);
 }
 
-TEST(RoutePathSearch, PlanFails_DisconnectedGraph_NoRouteBetweenComponents)
+TEST(RoutePathSearch, Plan_DisconnectedGraph_ReSnapsToConnectedComponent)
 {
+    // Two isolated pairs: {0,1} near the origin, {2,3} far away.
+    // Start initially snaps into {0,1}, goal into {2,3}.  The connectivity
+    // fix detects the mismatch, identifies the smaller component (goal side,
+    // only 2 nodes), and re-snaps the goal into the start component's
+    // node 1 — producing a valid plan via a long connector.
     TempFile graph(kDisconnectedGraph);
     auto planner = makePlanner(graph.path());
     astar::GridMap grid(40, 10);
     TestMapView view(grid, 1.0);
 
-    // Start snaps into the {0,1} component, goal into the {2,3} component —
-    // Dijkstra on the graph must find no path and return nullopt.
-    EXPECT_FALSE(planner.plan(makeCtx(0.5, 0.5, 22.5, 0.5), view).has_value());
+    auto result = planner.plan(makeCtx(0.5, 0.5, 22.5, 0.5), view);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 2u);
+
+    // The plan succeeds: note the route graph component is {0,1} only, so
+    // Dijkstra on just 2 nodes returns a short network segment; the bulk
+    // of the journey is the long connector from the goal's re-snap.
+    EXPECT_NEAR(result->poses.front().position.x, 0.5, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 0.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.x, 22.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
 }
 
 TEST(RoutePathSearch, PlanPrefersLowerCost_OverFixedExpensiveDirectEdge)

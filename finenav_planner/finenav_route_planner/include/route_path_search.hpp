@@ -37,14 +37,19 @@ namespace finenav {
 // Planning flow in plan():
 //   1. Snap robot pose and goal pose to the nearest REACHABLE graph
 //      node (obstacle-aware Dijkstra on the occupancy map, h = 0).
-//   2. Dijkstra on the route graph (route::findRoute) → densified
+//   2. Connectivity check: if the two snapped nodes lie in different
+//      connected components of the graph, identify which component is
+//      smaller and re-snap that side, restricting the goal set to
+//      nodes of the other (presumably main) component.  This lets the
+//      planner work with non-fully-connected GeoJSON graphs.
+//   3. Dijkstra on the route graph (route::findRoute) → densified
 //      route curve.
-//   3. Trim both ends: project the robot and the goal onto the route
+//   4. Trim both ends: project the robot and the goal onto the route
 //      curve (obstacle-aware BFS to the nearest reachable route point)
 //      and keep only the segment in between.  This removes the
 //      backtracking that entering/leaving at node centres would cause,
 //      no matter how many nodes the robot has already passed.
-//   4. Output = start connector + route segment + reversed goal
+//   5. Output = start connector + route segment + reversed goal
 //      connector.  With include_connectors=false only the route
 //      segment is emitted — for pipelines where a downstream
 //      DetourPlanner re-anchors the robot to the reference every
