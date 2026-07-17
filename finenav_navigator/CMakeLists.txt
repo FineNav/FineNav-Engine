@@ -19,6 +19,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(finenav_msgs REQUIRED)
 find_package(finenav_util REQUIRED)
 find_package(finenav_localizer REQUIRED)
+find_package(std_msgs REQUIRED)
 
 include_directories(include)
 
@@ -33,6 +34,7 @@ set(dependencies
         finenav_msgs
         finenav_util
         finenav_localizer
+        std_msgs
 )
 
 # Library
@@ -80,6 +82,15 @@ ament_target_dependencies(finenav_publish_zero_cmd_vel_behavior
 )
 target_compile_definitions(finenav_publish_zero_cmd_vel_behavior PRIVATE BT_PLUGIN_EXPORT)
 
+# PublishNavigationState Plugin
+add_library(finenav_publish_navigation_state SHARED
+        src/plugins/action/publish_navigation_state.cpp
+)
+ament_target_dependencies(finenav_publish_navigation_state
+        ${dependencies}
+)
+target_compile_definitions(finenav_publish_navigation_state PRIVATE BT_PLUGIN_EXPORT)
+
 # Control & Decorator Plugins (pure BT nodes, no ROS params needed)
 add_library(finenav_recovery_node SHARED
         src/plugins/control/recovery_node.cpp
@@ -121,7 +132,7 @@ install(TARGETS finenav_navigator
         RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS finenav_compute_plan_behavior finenav_navigator_conditions finenav_publish_zero_cmd_vel_behavior finenav_recovery_node finenav_round_robin_node finenav_rate_controller finenav_dynamic_goal_follower
+install(TARGETS finenav_compute_plan_behavior finenav_navigator_conditions finenav_publish_zero_cmd_vel_behavior finenav_publish_navigation_state finenav_recovery_node finenav_round_robin_node finenav_rate_controller finenav_dynamic_goal_follower
         ARCHIVE DESTINATION lib/plugins
         LIBRARY DESTINATION lib/plugins
         RUNTIME DESTINATION bin
