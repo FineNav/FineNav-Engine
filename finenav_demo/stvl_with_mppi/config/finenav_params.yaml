@@ -128,10 +128,10 @@ hello_finenav/detour_layer:
     detour_planner:
       scan_distance_m: 5.0
       search_radius_m: 20.0
-      grid_resolution_m: 0.1
-      blockage_threshold: 0.8
-      clear_threshold: 0.2
+      grid_resolution_m: 0.05
+      blockage_threshold: 0.01
+      clear_threshold: 0.01
       obstacle_cost_weight: 1.0
       max_planning_time: 0.1
       max_iterations: 10000
-      path_sample_interval_m: 0.1
+      path_sample_interval_m: 0.05

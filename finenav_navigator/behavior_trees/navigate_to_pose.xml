@@ -55,7 +55,7 @@
                              - mppi_layer (10 Hz): 使用 detour_layer 输出的参考路径做轨迹优化
                              Pipeline 内部连接: route → detour → mppi
                              success_threshold=1: MPPI 到达目标时两者一起停止 -->
-                        <Parallel success_threshold="1" failure_threshold="1">
+                        <Parallel success_count="1" failure_count="1">
                             <RetryUntilSuccessful num_attempts="-1">
                                 <ComputePlan action_name="/hello_finenav/detour_layer"
                                              goal="{goal}"

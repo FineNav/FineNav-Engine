@@ -77,7 +77,7 @@ if (BUILD_TESTING)
     target_link_libraries(route_test route_params)
 endif ()
 
-add_subdirectory(eval)
+#add_subdirectory(eval)
 
 ament_auto_package()
 
