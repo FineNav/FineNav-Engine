@@ -60,6 +60,27 @@ DetourPlanner::findBlockage(const Context& ctx, const IMapView& map_view) const
     std::optional<size_t> blockage_start;
     double accumulated_dist = 0.0;
 
+    // ── DIAGNOSTIC ────────────────────────────────────────────
+    static int diag_count = 0;
+    if (++diag_count % 25 == 1) {  // ~every 5s at 5Hz
+        double max_cost = 0.0, min_cost = 1e9;
+        size_t max_i = 0;
+        for (size_t i = scan_start; i < poses.size(); ++i) {
+            const Position3D wp{poses[i].position.x, poses[i].position.y, poses[i].position.z};
+            double c = map_view.getCost(wp);
+            if (c > max_cost) { max_cost = c; max_i = i; }
+            if (c < min_cost) min_cost = c;
+        }
+        RCLCPP_INFO(rclcpp::get_logger("DetourPlanner"),
+            "[DIAG] poses=%zu scan_start=%zu robot=(%.2f,%.2f) "
+            "cost_range=[%.4f, %.4f] max@i=%zu pos=(%.2f,%.2f) "
+            "thr=%.2f scan=%.1fm",
+            poses.size(), scan_start, robot_pos.x(), robot_pos.y(),
+            min_cost, max_cost, max_i,
+            poses[max_i].position.x, poses[max_i].position.y,
+            blockage_threshold_, scan_distance_m_);
+    }
+
     for (size_t i = scan_start; i < poses.size(); ++i) {
         if (i > scan_start) {
             const double dx = poses[i].position.x - poses[i - 1].position.x;
