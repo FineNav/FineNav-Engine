@@ -419,14 +419,18 @@ inline NodeStatus RosActionNode<T>::tick()
           emitWakeUpSignal();
         };
     //--------------------
-    goal_options.result_callback = [this](const WrappedResult& result) {
-      if(goal_handle_->get_goal_id() == result.goal_id)
-      {
-        RCLCPP_DEBUG(logger(), "result_callback");
-        result_ = result;
-        emitWakeUpSignal();
-      }
-    };
+    // Capture goal UUID by value — avoids data race on goal_handle_ which
+    // is written by the BT tick thread and read by the ROS executor thread.
+    {
+      auto goal_uuid = goal.goal_id;
+      goal_options.result_callback = [this, goal_uuid](const WrappedResult& result) {
+        if(goal_uuid == result.goal_id) {
+          RCLCPP_DEBUG(logger(), "result_callback");
+          result_ = result;
+          emitWakeUpSignal();
+        }
+      };
+    }
     //--------------------
     goal_options.goal_response_callback =
         [this](typename GoalHandle::SharedPtr const future_handle) {
