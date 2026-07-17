@@ -12,6 +12,8 @@
 
 #include <geometry_msgs/msg/pose.hpp>
 
+#include "snap_search_utils.hpp"
+
 namespace finenav {
 
 // ── configure ──────────────────────────────────────────────────────────────
@@ -40,79 +42,6 @@ void RoutePathSearch::updateGraph(const std::string& geojson_str)
             cached_graph_->nodes.size());
     }
 }
-
-// ── grid helpers (shared by both snap searches) ────────────────────────────
-
-namespace {
-
-/// World ↔ grid-cell conversion at the map resolution.
-struct CellGrid {
-    double step;
-
-    astar::Vec3 toCell(double x, double y) const {
-        return {static_cast<int>(std::floor(x / step)),
-                static_cast<int>(std::floor(y / step)), 0};
-    }
-    Position3D centre(const astar::Vec3& c) const {
-        return {(c.x + 0.5) * step, (c.y + 0.5) * step, 0.0};
-    }
-};
-
-int chebyshev(const astar::Vec3& a, const astar::Vec3& b)
-{
-    return std::max(std::abs(a.x - b.x), std::abs(a.y - b.y));
-}
-
-/// Dijkstra (h=0) engine on the real occupancy map, bounded to a box of
-/// `max_depth` cells around `origin` so an unreachable goal set cannot
-/// trigger an unbounded expansion.
-astar::AStarAlgorithm makeSnapSearch(
-    const astar::IMapView& map_view,
-    const CellGrid&        grid,
-    const astar::Vec3&     origin,
-    int                    max_depth,
-    double                 obstacle_cost_weight)
-{
-    auto is_walkable = [mv = &map_view, grid, origin, max_depth](const astar::Vec3& c) {
-        return c.z == 0 &&
-               chebyshev(c, origin) <= max_depth &&
-               mv->isWalkable(grid.centre(c));
-    };
-    auto get_cost = [mv = &map_view, grid](const astar::Vec3& c) {
-        return mv->getCost(grid.centre(c));
-    };
-
-    astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setConnectivity(astar::Connectivity::N8);
-    algo.setHeuristic(astar::Heuristic::Zero);
-    algo.setMaxIterations(-1);
-    algo.setMaxPlanningTime(5.0);  // TODO: 后面这些应该也成为动态参数
-    algo.setObstacleCostWeight(obstacle_cost_weight);
-    return algo;
-}
-
-/// Connector = exact start pose, then the grid path's cell centres
-/// (cells[0] is the cell containing the pose and is skipped), then the
-/// exact snap point.
-std::vector<Position3D> buildConnector(
-    const geometry_msgs::msg::Pose& pose,
-    const std::vector<astar::Vec3>& cells,
-    const CellGrid&                 grid,
-    const Position3D&               end)
-{
-    std::vector<Position3D> conn;
-    conn.reserve(cells.size() + 1);
-    conn.push_back({pose.position.x, pose.position.y, 0.0});
-    for (size_t i = 1; i < cells.size(); ++i)
-        conn.push_back(grid.centre(cells[i]));
-    if (conn.size() > 1)
-        conn.back() = end;
-    else
-        conn.push_back(end);
-    return conn;
-}
-
-}  // anonymous namespace
 
 // ── plan ───────────────────────────────────────────────────────────────────
 
@@ -246,7 +175,7 @@ RoutePathSearch::NodeSnap RoutePathSearch::snapToNearestNode(
     const geometry_msgs::msg::Pose& pose,
     const IMapView&                 map_view) const
 {
-    const CellGrid    grid{map_view.getStepSize()};
+    const snap::CellGrid grid{map_view.getStepSize()};
     const astar::Vec3 origin = grid.toCell(pose.position.x, pose.position.y);
 
     // cell → node indices; max_depth bounds the search box.
@@ -255,10 +184,10 @@ RoutePathSearch::NodeSnap RoutePathSearch::snapToNearestNode(
     for (size_t i = 0; i < graph.nodes.size(); ++i) {
         const astar::Vec3 c = grid.toCell(graph.nodes[i].x, graph.nodes[i].y);
         cell_nodes[c].push_back(i);
-        max_depth = std::max(max_depth, chebyshev(c, origin));
+        max_depth = std::max(max_depth, snap::chebyshev(c, origin));
     }
 
-    auto algo = makeSnapSearch(map_view, grid, origin, max_depth, obstacle_cost_weight_);
+    auto algo = snap::makeSnapSearch(map_view, grid, origin, max_depth, obstacle_cost_weight_);
     const auto path = algo.findPathToAny(origin,
         [&](const astar::Vec3& c) { return cell_nodes.contains(c); });
     if (!path || path->empty()) return {};
@@ -275,7 +204,7 @@ RoutePathSearch::NodeSnap RoutePathSearch::snapToNearestNode(
         }
     }
 
-    snap.connector_path = buildConnector(pose, *path, grid,
+    snap.connector_path = snap::buildConnector(pose, *path, grid,
         {graph.nodes[snap.node_index].x, graph.nodes[snap.node_index].y, 0.0});
     return snap;
 }
@@ -293,7 +222,7 @@ RoutePathSearch::RouteSnap RoutePathSearch::snapToRoute(
     const geometry_msgs::msg::Pose& pose,
     const IMapView&                 map_view) const
 {
-    const CellGrid    grid{map_view.getStepSize()};
+    const snap::CellGrid grid{map_view.getStepSize()};
     const astar::Vec3 origin = grid.toCell(pose.position.x, pose.position.y);
 
     // cell → route point indices; max_depth bounds the search box.
@@ -302,11 +231,11 @@ RoutePathSearch::RouteSnap RoutePathSearch::snapToRoute(
     for (size_t i = begin_idx; i < route.size(); ++i) {
         const astar::Vec3 c = grid.toCell(route[i].first, route[i].second);
         cell_pts[c].push_back(i);
-        max_depth = std::max(max_depth, chebyshev(c, origin));
+        max_depth = std::max(max_depth, snap::chebyshev(c, origin));
     }
     if (cell_pts.empty()) return {};
 
-    auto algo = makeSnapSearch(map_view, grid, origin, max_depth, obstacle_cost_weight_);
+    auto algo = snap::makeSnapSearch(map_view, grid, origin, max_depth, obstacle_cost_weight_);
     const auto path = algo.findPathToAny(origin,
         [&](const astar::Vec3& c) { return cell_pts.contains(c); });
     if (!path || path->empty()) return {};
@@ -324,7 +253,7 @@ RoutePathSearch::RouteSnap RoutePathSearch::snapToRoute(
         }
     }
 
-    snap.connector_path = buildConnector(pose, *path, grid,
+    snap.connector_path = snap::buildConnector(pose, *path, grid,
         {route[snap.index].first, route[snap.index].second, 0.0});
     return snap;
 }

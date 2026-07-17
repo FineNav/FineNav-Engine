@@ -18,11 +18,26 @@ namespace finenav {
 // DetourPlanner
 //
 // Monitors a reference trajectory for blocked segments and
-// generates A*-based detour paths around dynamic obstacles.
+// generates grid-search detour paths around dynamic obstacles.
 //
 // Designed to sit between a global route planner and MPPI in
 // the FineNav pipeline.  When no blockage is detected the
 // reference trajectory is passed through unchanged.
+//
+// Flow in plan():
+//   1. Scan the reference path forward from the waypoint nearest
+//      to the robot (up to scan_distance_m).  A waypoint is
+//      "blocked" when !isWalkable OR cost >= blockage_threshold.
+//   2. No blocked waypoint → pass the reference through.
+//   3. Candidate set = all waypoints at least reconnect_offset_m
+//      past the blocked waypoint.  Obstacle-aware BFS (Dijkstra
+//      h=0, same primitive as RoutePathSearch::snapToRoute) finds
+//      the nearest REACHABLE candidate — unreachable ones (still
+//      inside the obstacle) are skipped automatically.
+//   4. Output = detour grid path (robot → candidate) + reference
+//      suffix from that candidate onward.
+//   5. No candidate reachable → warn + pass-through (upper layers
+//      handle the stuck condition).
 //
 // IMapView cost contract:
 //   getCost() MUST return normalised costs in [0.0, 1.0]
@@ -65,25 +80,18 @@ public:
     Result plan(const Context& ctx, const IMapView& map_view);
 
 private:
-    struct BlockageSegment {
-        size_t start_idx;
-        size_t exit_idx;
-    };
-
-    /// Walk along ctx.ref_traj and locate the first blocked segment.
-    std::optional<BlockageSegment> findBlockage(
+    /// Scan the reference path forward from the waypoint nearest to the
+    /// robot (up to scan_distance_m) and return the index of the first
+    /// blocked waypoint (!isWalkable OR cost >= blockage_threshold).
+    std::optional<size_t> findBlockage(
         const Context& ctx, const IMapView& map_view) const;
 
     // ── parameters ────────────────────────────────────────────
-    double scan_distance_m_        = 5.0;   // forward scan for blockage detection
-    double grid_resolution_m_      = 0.1;
-    double blockage_threshold_     = 0.8;
-    double clear_threshold_        = 0.2;
-    double goal_tolerance_m_       = 1.0;   // A* goal tolerance (metres)
-    double obstacle_cost_weight_   = 1.0;
-    double max_planning_time_      = 0.1;
-    int    max_iterations_         = 10000;
-    double path_sample_interval_m_ = 0.1;
+    double scan_distance_m_    = 5.0;   // forward scan for blockage detection
+    double blockage_threshold_ = 0.8;   // soft blockage: cost >= this triggers a detour
+    double reconnect_offset_m_ = 1.0;   // rejoin the path at least this far past the blockage
+    double obstacle_cost_weight_ = 1.0;
+    double max_planning_time_  = 0.1;
 };
 
 } // namespace finenav

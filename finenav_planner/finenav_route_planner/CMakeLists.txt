@@ -75,6 +75,15 @@ if (BUILD_TESTING)
     ament_target_dependencies(route_test finenav_core finenav_util finenav_msgs geometry_msgs std_msgs)
     target_include_directories(route_test PRIVATE test)
     target_link_libraries(route_test route_params)
+
+    ament_add_gtest(detour_test
+        test/detour_test.cpp
+        src/astar_algorithm.cpp        # snap search engine
+        src/detour_planner.cpp
+    )
+    ament_target_dependencies(detour_test finenav_core finenav_util finenav_msgs geometry_msgs rclcpp)
+    target_include_directories(detour_test PRIVATE test)
+    target_link_libraries(detour_test detour_params)
 endif ()
 
 #add_subdirectory(eval)
