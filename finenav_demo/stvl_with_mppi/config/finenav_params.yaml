@@ -76,6 +76,10 @@ hello_finenav:
       # detour 的重连候选与 MPPI 靠近地图边界的轨迹不再被"窗口即墙"拒绝；
       # false = 窗口外一律致命（旧行为）
       allow_unknown: true
+      # detour BFS 绕行时，机器人内切圆半径 [m]。
+      # 代价 ≥ 253*exp(-cost_scaling*radius) 的格子视为不可通行，
+      # 保证绕行路径天然留出至少此半径的间隙。设为 0 即回退到质点模型。
+      detour_inscribed_radius: 0.3
     stvl_manager:
       decay_time_sec: 2.0
       decay_time_fov_sec: 2.0

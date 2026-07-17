@@ -45,6 +45,7 @@ public:
     int getCost(const finenav::Position3D& pos, const finenav::GridMap<Voxel>& map) const;
 
     double getGroundZOffset() const { return ground_z_offset_; }
+    double getCostScalingFactor() const { return cost_scaling_factor_; }
 
     /**
      * @brief 将距离（栅格数）转换为代价值，使用缓存的分辨率，无需访问地图。

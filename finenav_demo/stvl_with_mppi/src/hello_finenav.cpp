@@ -403,10 +403,22 @@ int main(int argc, char** argv) {
     auto detour_layer = finenav_engine->createControlLayer<DetourPlanners>(
         "detour_layer", finenav::TrackingPolicy{3.0});
 
+    // detour BFS 走行性保留机器人内切圆间隙:
+    //   max_cost = 253 * exp(-cost_scaling * inscribed_radius)
+    // cells with raw (0-254) cost >= max_cost are treated as non-walkable.
+    // detour_inscribed_radius == 0 restores point-mass (max_cost = 254).
+    const double detour_radius = node->get_parameter(
+        "terrain_analysis.detour_inscribed_radius").as_double();
+    const double cost_scale   = terrain_analyzer->getCostScalingFactor();
+    const int detour_max_cost =
+        (detour_radius > 0.0)
+            ? std::max(1, static_cast<int>(253.0 * std::exp(-cost_scale * detour_radius)))
+            : 254;
+
     detour_layer->bind_map_view(
         map_server,
-        [terrain_analyzer](const GridMap<Voxel>& map) {
-            return std::make_shared<DetourMapView>(map, *terrain_analyzer);
+        [terrain_analyzer, detour_max_cost](const GridMap<Voxel>& map) {
+            return std::make_shared<DetourMapView>(map, *terrain_analyzer, detour_max_cost);
         });
 
     using MppiPlanners = PlannerSet<finenav::RotateShim, nav2_mppi_controller::MPPIController>;

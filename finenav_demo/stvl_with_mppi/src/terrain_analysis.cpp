@@ -32,6 +32,7 @@ TerrainAnalyzer::TerrainAnalyzer(
     node_->declare_parameter<bool>("terrain_analysis.use_simple_z_threshold", false);
     node_->declare_parameter<double>("terrain_analysis.z_obstacle_threshold", 0.3);
     node_->declare_parameter<bool>("terrain_analysis.allow_unknown", false);
+    node_->declare_parameter<double>("terrain_analysis.detour_inscribed_radius", 0.0);
     node_->declare_parameter<std::string>("terrain_analysis.global_map_topic", "/map");
 
     node_->get_parameter("terrain_analysis.cost_scaling_factor", cost_scaling_factor_);
