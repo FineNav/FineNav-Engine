@@ -88,6 +88,9 @@ public:
         std::cout<<"[nav2_mppi_controller] Critics registered. Initializing optimizer..."<<std::endl;
         std::cout<<"[nav2_mppi_controller] Number of critics: "<<critics_.size()<<std::endl;
 
+        // 存储外部速度限制参数（>0 时覆盖默认 vx_max）
+        speed_limit_ = params.speed_limit;
+
         optimizer_.initialize(
             "MPPIController",
             critics_,
@@ -114,71 +117,10 @@ public:
         start_pose_stamped.header.stamp = rclcpp::Clock().now();
         start_pose_stamped.header.frame_id = "map";
 
-        const auto t_optimize_start
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        = Clock::now();
+        // 应用外部速度限制：>0 时覆盖 vx_max，<=0 时恢复 YAML 配置的默认值
+        optimizer_.setSpeedLimit(speed_limit_, false);
+
+        const auto t_optimize_start = Clock::now();
         computeVelocityCommands(
             start_pose_stamped,
             robot_state.twist,  // 直接使用当前实际速度
@@ -359,6 +301,10 @@ protected:
   bool visualize_;
 
   double reset_period_;
+
+  // ── 外部速度限制（ROS 2 动态参数） ──
+  // > 0 时覆盖默认 vx_max；<= 0 时使用 YAML 配置的 vx_max
+  double speed_limit_ = -1.0;
   // Last time computeVelocityCommands was called
 //  rclcpp::Time last_time_called_;
 };

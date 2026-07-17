@@ -59,6 +59,15 @@ finenav_mppi_controller:
     default_value: 1.9
     description: "Maximum angular velocity (rad/s)"
 
+  # ── External speed limit override ───────────────────────────────────────────
+  speed_limit:
+    type: double
+    default_value: -1.0
+    description: >
+      External speed limit override (m/s). When > 0, this value replaces
+      vx_max as the maximum forward velocity. When <= 0 (default), the
+      configured vx_max is used. Set via dynamic parameter at runtime.
+
   # ── Sampling standard deviations ──────────────────────────────────────────
   vx_std:
     type: double
