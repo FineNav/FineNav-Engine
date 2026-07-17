@@ -75,6 +75,7 @@ void Navigator::execute()
         if (action_server_->is_preempt_requested()) {
             RCLCPP_INFO(pnode_->get_logger(), "[Navigator] Preemption requested.");
             tree_.haltTree();
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));  // fix: 尝试修复抢占导致的段错误
             return;
         }
 
