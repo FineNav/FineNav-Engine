@@ -135,6 +135,11 @@ DetourPlanner::Result DetourPlanner::plan(
         return output;
     }
 
+    // Blockage found — always log immediately.
+    RCLCPP_INFO(rclcpp::get_logger("DetourPlanner"),
+        "[Detour] BLOCKAGE [%zu→%zu] | scanning detour via A*...",
+        blockage->start_idx, blockage->exit_idx);
+
     // ── 2. Grid coordinate helpers ──────────────────────────────────────────
     const double step = map_view.getStepSize();
     if (step <= 0.0) {
@@ -164,12 +169,11 @@ DetourPlanner::Result DetourPlanner::plan(
     const astar::Vec3 goal_cell = worldToCell(exit_pose.x, exit_pose.y);
 
     // ── 5. A* lambdas ───────────────────────────────────────────────────────
-    // Walkability uses the same blockage_threshold_ as findBlockage().
-    // No hard search bound — A* is naturally bounded by max_iterations
-    // and max_planning_time.
+    // Walkability uses the map's own isWalkable() — separate from
+    // blockage_threshold_ which only controls findBlockage sensitivity.
     auto is_walkable = [&](const astar::Vec3& c) -> bool {
         return c.z == 0
-            && map_view.getCost(cellCentre(c)) < blockage_threshold_;
+            && map_view.isWalkable(cellCentre(c));
     };
 
     auto get_cost = [&](const astar::Vec3& c) -> double {
@@ -189,6 +193,11 @@ DetourPlanner::Result DetourPlanner::plan(
 
     auto cell_path = algo.findPath(start_cell, goal_cell);
     if (!cell_path || cell_path->size() < 2) {
+        RCLCPP_WARN(rclcpp::get_logger("DetourPlanner"),
+            "[Detour] A* FAILED (start/goal unreachable or timeout). "
+            "Pass-through. (thr=%.2f goal_tol=%.1fm max_iter=%d max_time=%.2fs)",
+            blockage_threshold_, goal_tolerance_m_,
+            max_iterations_, max_planning_time_);
         OutputDataT<DetourPlanner> output;
         output.poses = poses;
         return output;
@@ -218,8 +227,7 @@ DetourPlanner::Result DetourPlanner::plan(
     }
 
     RCLCPP_INFO(rclcpp::get_logger("DetourPlanner"),
-        "[Detour] BLOCKAGE [%zu→%zu] | A* detour %zu waypoints | stitched: %zu total.",
-        blockage->start_idx, blockage->exit_idx,
+        "[Detour] A* SUCCESS | detour %zu waypoints | stitched: %zu total.",
         cell_path->size(), output.poses.size());
 
     return output;
