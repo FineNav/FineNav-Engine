@@ -4,10 +4,6 @@ detour_planner:
     type: double
     default_value: 5.0
     description: "Maximum forward scan distance (metres) along the reference path for blockage detection"
-  search_radius_m:
-    type: double
-    default_value: 20.0
-    description: "Maximum A* search radius (metres) around the robot for detour path planning"
   grid_resolution_m:
     type: double
     default_value: 0.1
@@ -32,6 +28,10 @@ detour_planner:
     type: int
     default_value: 10000
     description: "Maximum A* node expansions per search"
+  goal_tolerance_m:
+    type: double
+    default_value: 1.0
+    description: "A* goal tolerance (metres). The detour search succeeds when it reaches a cell within this distance of the target, allowing the goal to lie slightly inside an obstacle."
   path_sample_interval_m:
     type: double
     default_value: 0.1

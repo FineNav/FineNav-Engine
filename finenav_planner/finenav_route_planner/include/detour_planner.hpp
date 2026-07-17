@@ -76,10 +76,10 @@ private:
 
     // ── parameters ────────────────────────────────────────────
     double scan_distance_m_        = 5.0;   // forward scan for blockage detection
-    double search_radius_m_        = 20.0;  // A* search box radius
     double grid_resolution_m_      = 0.1;
     double blockage_threshold_     = 0.8;
     double clear_threshold_        = 0.2;
+    double goal_tolerance_m_       = 1.0;   // A* goal tolerance (metres)
     double obstacle_cost_weight_   = 1.0;
     double max_planning_time_      = 0.1;
     int    max_iterations_         = 10000;

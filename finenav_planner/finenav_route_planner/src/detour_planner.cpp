@@ -18,10 +18,10 @@ namespace finenav {
 void DetourPlanner::configure(const ConfigType& params)
 {
     scan_distance_m_        = params.scan_distance_m;
-    search_radius_m_        = params.search_radius_m;
     grid_resolution_m_      = params.grid_resolution_m;
     blockage_threshold_     = params.blockage_threshold;
     clear_threshold_        = params.clear_threshold;
+    goal_tolerance_m_       = params.goal_tolerance_m;
     obstacle_cost_weight_   = params.obstacle_cost_weight;
     max_planning_time_      = params.max_planning_time;
     max_iterations_         = params.max_iterations;
@@ -59,27 +59,7 @@ DetourPlanner::findBlockage(const Context& ctx, const IMapView& map_view) const
 
     std::optional<size_t> blockage_start;
     double accumulated_dist = 0.0;
-
-    // ── DIAGNOSTIC ────────────────────────────────────────────
-    static int diag_count = 0;
-    if (++diag_count % 25 == 1) {  // ~every 5s at 5Hz
-        double max_cost = 0.0, min_cost = 1e9;
-        size_t max_i = 0;
-        for (size_t i = scan_start; i < poses.size(); ++i) {
-            const Position3D wp{poses[i].position.x, poses[i].position.y, poses[i].position.z};
-            double c = map_view.getCost(wp);
-            if (c > max_cost) { max_cost = c; max_i = i; }
-            if (c < min_cost) min_cost = c;
-        }
-        RCLCPP_INFO(rclcpp::get_logger("DetourPlanner"),
-            "[DIAG] poses=%zu scan_start=%zu robot=(%.2f,%.2f) "
-            "cost_range=[%.4f, %.4f] max@i=%zu pos=(%.2f,%.2f) "
-            "thr=%.2f scan=%.1fm",
-            poses.size(), scan_start, robot_pos.x(), robot_pos.y(),
-            min_cost, max_cost, max_i,
-            poses[max_i].position.x, poses[max_i].position.y,
-            blockage_threshold_, scan_distance_m_);
-    }
+    size_t last_checked = scan_start;  // track last waypoint we evaluated
 
     for (size_t i = scan_start; i < poses.size(); ++i) {
         if (i > scan_start) {
@@ -93,6 +73,8 @@ DetourPlanner::findBlockage(const Context& ctx, const IMapView& map_view) const
             (std::fmod(accumulated_dist, path_sample_interval_m_) > path_sample_interval_m_ * 0.5))
             continue;
 
+        last_checked = i;
+
         const Position3D wp{poses[i].position.x, poses[i].position.y, poses[i].position.z};
         const double cost = map_view.getCost(wp);
 
@@ -101,13 +83,23 @@ DetourPlanner::findBlockage(const Context& ctx, const IMapView& map_view) const
                 blockage_start = i;
             }
         } else {
+            // Prefer a real clear point; fall back to scan endpoint otherwise.
             if (cost <= clear_threshold_) {
                 return BlockageSegment{*blockage_start, i};
             }
+            // Keep scanning until scan_distance_m_ is exhausted
         }
 
         // Stop scanning beyond scan_distance_m_
         if (accumulated_dist > scan_distance_m_) break;
+    }
+
+    // Blockage detected — if no clear point found, fall back to the last
+    // waypoint we scanned as the detour goal.
+    if (blockage_start.has_value()) {
+        size_t exit_idx = std::max(*blockage_start + 1, last_checked);
+        exit_idx = std::min(exit_idx, poses.size() - 1);
+        return BlockageSegment{*blockage_start, exit_idx};
     }
 
     return std::nullopt;
@@ -163,23 +155,20 @@ DetourPlanner::Result DetourPlanner::plan(
         return { (c.x + 0.5) * step, (c.y + 0.5) * step, 0.0 };
     };
 
-    // ── 3. Start cell (robot pose) + search depth ───────────────────────────
+    // ── 3. Start cell (robot pose) ─────────────────────────────────────────
     const auto& rp = ctx.robot_state.pose.position;
     const astar::Vec3 start_cell = worldToCell(rp.x, rp.y);
-    const int max_depth = static_cast<int>(std::ceil(search_radius_m_ * inv_step));
 
     // ── 4. Goal cell (exit waypoint beyond the blockage) ────────────────────
     const auto& exit_pose = poses[blockage->exit_idx].position;
     const astar::Vec3 goal_cell = worldToCell(exit_pose.x, exit_pose.y);
 
     // ── 5. A* lambdas ───────────────────────────────────────────────────────
-    // Walkability uses the same blockage_threshold_ as findBlockage(),
-    // NOT external IMapView::isWalkable().  A single standard for both
-    // obstacle detection and path planning.
+    // Walkability uses the same blockage_threshold_ as findBlockage().
+    // No hard search bound — A* is naturally bounded by max_iterations
+    // and max_planning_time.
     auto is_walkable = [&](const astar::Vec3& c) -> bool {
         return c.z == 0
-            && std::abs(c.x - start_cell.x) <= max_depth
-            && std::abs(c.y - start_cell.y) <= max_depth
             && map_view.getCost(cellCentre(c)) < blockage_threshold_;
     };
 
@@ -191,7 +180,7 @@ DetourPlanner::Result DetourPlanner::plan(
     astar::AStarAlgorithm algo(is_walkable, get_cost);
     algo.setConnectivity(astar::Connectivity::N8);
     algo.setHeuristic(astar::Heuristic::Euclidean);
-    algo.setGoalTolerance(0.5 * inv_step);
+    algo.setGoalTolerance(goal_tolerance_m_ * inv_step);
     algo.setMaxIterations(max_iterations_);
     algo.setMaxPlanningTime(max_planning_time_);
     algo.setMovementWeight(1.0);
