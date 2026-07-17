@@ -58,12 +58,13 @@ def generate_launch_description():
         output='screen',
         prefix=['gdb -ex run -ex "thread apply all bt" -ex quit --args'],
         parameters=[
-            {'use_sim_time': False,},
+            {'use_sim_time': False},
             mppi_params_file,
             finenav_params_file,
             obs_cov_file,
         ],
-        #arguments=['--ros-args', '--log-level', 'debug']
+        respawn=True,                # 开启自动重启
+        respawn_delay=0.0,           # 可选：崩溃后等待2秒再重启，默认0秒
     )
 
     start_goal_pose_bridge = Node(
