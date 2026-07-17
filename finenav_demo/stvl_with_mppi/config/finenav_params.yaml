@@ -126,7 +126,8 @@ hello_finenav/route_layer:
 hello_finenav/detour_layer:
   ros__parameters:
     detour_planner:
-      search_radius_m: 5.0
+      scan_distance_m: 5.0
+      search_radius_m: 20.0
       grid_resolution_m: 0.1
       blockage_threshold: 0.8
       clear_threshold: 0.2

@@ -75,7 +75,8 @@ private:
         const Context& ctx, const IMapView& map_view) const;
 
     // ── parameters ────────────────────────────────────────────
-    double search_radius_m_        = 5.0;
+    double scan_distance_m_        = 5.0;   // forward scan for blockage detection
+    double search_radius_m_        = 20.0;  // A* search box radius
     double grid_resolution_m_      = 0.1;
     double blockage_threshold_     = 0.8;
     double clear_threshold_        = 0.2;

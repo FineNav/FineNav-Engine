@@ -17,6 +17,7 @@ namespace finenav {
 
 void DetourPlanner::configure(const ConfigType& params)
 {
+    scan_distance_m_        = params.scan_distance_m;
     search_radius_m_        = params.search_radius_m;
     grid_resolution_m_      = params.grid_resolution_m;
     blockage_threshold_     = params.blockage_threshold;
@@ -84,8 +85,8 @@ DetourPlanner::findBlockage(const Context& ctx, const IMapView& map_view) const
             }
         }
 
-        // Stop scanning beyond 2× the search radius
-        if (accumulated_dist > search_radius_m_ * 2.0) break;
+        // Stop scanning beyond scan_distance_m_
+        if (accumulated_dist > scan_distance_m_) break;
     }
 
     return std::nullopt;
@@ -151,11 +152,14 @@ DetourPlanner::Result DetourPlanner::plan(
     const astar::Vec3 goal_cell = worldToCell(exit_pose.x, exit_pose.y);
 
     // ── 5. A* lambdas ───────────────────────────────────────────────────────
+    // Walkability uses the same blockage_threshold_ as findBlockage(),
+    // NOT external IMapView::isWalkable().  A single standard for both
+    // obstacle detection and path planning.
     auto is_walkable = [&](const astar::Vec3& c) -> bool {
         return c.z == 0
             && std::abs(c.x - start_cell.x) <= max_depth
             && std::abs(c.y - start_cell.y) <= max_depth
-            && map_view.isWalkable(cellCentre(c));
+            && map_view.getCost(cellCentre(c)) < blockage_threshold_;
     };
 
     auto get_cost = [&](const astar::Vec3& c) -> double {
