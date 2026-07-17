@@ -401,7 +401,7 @@ int main(int argc, char** argv) {
     // the reference trajectory passes through unchanged.
     using DetourPlanners = PlannerSet<finenav::DetourPlanner>;
     auto detour_layer = finenav_engine->createControlLayer<DetourPlanners>(
-        "detour_layer", finenav::TrackingPolicy{5.0});
+        "detour_layer", finenav::TrackingPolicy{0.3});
 
     detour_layer->bind_map_view(
         map_server,
