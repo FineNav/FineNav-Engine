@@ -116,6 +116,9 @@ hello_finenav/route_layer:
   ros__parameters:
     route_planner:
       path_density: 0.05
+      # detour_layer 每周期负责把机器人接入参考路径；route 只输出路网内区段，
+      # 避免固化的 connector 变陈旧后误导 detour 的重锚定（前提：终点在路网上）
+      include_connectors: false
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DetourPlanner（局部绕障）

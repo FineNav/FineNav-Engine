@@ -45,7 +45,10 @@ namespace finenav {
 //      backtracking that entering/leaving at node centres would cause,
 //      no matter how many nodes the robot has already passed.
 //   4. Output = start connector + route segment + reversed goal
-//      connector.
+//      connector.  With include_connectors=false only the route
+//      segment is emitted — for pipelines where a downstream
+//      DetourPlanner re-anchors the robot to the reference every
+//      cycle (a connector baked into a single-shot plan goes stale).
 // =============================================================
 
 class RoutePathSearch {
@@ -127,6 +130,9 @@ private:
     // ── Parameters ────────────────────────────────────────────
     double path_density_ = 0.05;
     double obstacle_cost_weight_ = 1.0;
+    // When false, output only the on-network segment (entry/exit trimming
+    // still applies) — for pipelines where DetourPlanner attaches the robot.
+    bool   include_connectors_ = true;
 };
 
 } // namespace finenav

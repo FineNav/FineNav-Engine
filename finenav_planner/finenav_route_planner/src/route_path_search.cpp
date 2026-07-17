@@ -22,6 +22,7 @@ void RoutePathSearch::configure(const ConfigType& params)
 {
     path_density_         = params.path_density;
     obstacle_cost_weight_ = params.obstacle_cost_weight;
+    include_connectors_   = params.include_connectors;
 }
 
 // ── updateGraph ────────────────────────────────────────────────────────────
@@ -150,13 +151,17 @@ RoutePathSearch::Result RoutePathSearch::plan(
         output.poses.push_back(p);
     };
 
-    for (const auto& pt : start_connector)
-        appendPose(pt.x(), pt.y());
+    if (include_connectors_) {
+        for (const auto& pt : start_connector)
+            appendPose(pt.x(), pt.y());
+    }
     for (size_t i = begin_idx; i < end_idx; ++i)
         appendPose(route[i].first, route[i].second);
     // Goal connector was built goal_pose → route point; walk it backwards.
-    for (auto it = goal_connector.rbegin(); it != goal_connector.rend(); ++it)
-        appendPose(it->x(), it->y());
+    if (include_connectors_) {
+        for (auto it = goal_connector.rbegin(); it != goal_connector.rend(); ++it)
+            appendPose(it->x(), it->y());
+    }
 
     return output;
 }
