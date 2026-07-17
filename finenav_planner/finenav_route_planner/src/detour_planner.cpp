@@ -4,6 +4,7 @@
 
 #include "detour_planner.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <unordered_map>
 #include <rclcpp/rclcpp.hpp>
@@ -128,6 +129,39 @@ DetourPlanner::Result DetourPlanner::plan(
     const snap::CellGrid grid{step};
     const astar::Vec3    origin = grid.toCell(rx, ry);
 
+    // ── 2a. Diagnostics only (no behaviour change) ──────────────────────────
+    // A lethal start cell makes findPathToAny fail INSTANTLY — that is not a
+    // timeout.  Report it as its own failure mode so field logs can tell the
+    // modes apart.  Typical causes: the sensor scanning the robot body /
+    // passenger, or an over-tight z_obstacle_threshold.
+    if (!map_view.isWalkable(grid.centre(origin))) {
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "[Detour] START CELL LETHAL — search cannot even start. "
+            "robot=(%.2f, %.2f) exact-pos cost=%.2f, cell-centre cost=%.2f, "
+            "nearest wp #%zu is %.2fm away. Pass-through.",
+            rx, ry,
+            map_view.getCost({rx, ry, 0.0}),
+            map_view.getCost(grid.centre(origin)),
+            scan_start,
+            std::hypot(poses[scan_start].position.x - rx,
+                       poses[scan_start].position.y - ry));
+        return passThrough();
+    }
+
+    if (blocked_idx.has_value()) {
+        const auto& bp = poses[*blocked_idx].position;
+        const Position3D bw{bp.x, bp.y, 0.0};
+        RCLCPP_INFO_THROTTLE(logger, steady_clock, 2000,
+            "[Detour] blockage: wp #%zu at (%.2f, %.2f) cost=%.2f walkable=%d | "
+            "robot nearest wp #%zu, %.2fm off-path | candidates resume at wp #%zu.",
+            *blocked_idx, bp.x, bp.y,
+            map_view.getCost(bw), static_cast<int>(map_view.isWalkable(bw)),
+            scan_start,
+            std::hypot(poses[scan_start].position.x - rx,
+                       poses[scan_start].position.y - ry),
+            cand_begin);
+    }
+
     std::unordered_map<astar::Vec3, std::vector<size_t>, astar::Vec3Hash> cell_pts;
     int max_depth = 0;
     for (size_t i = cand_begin; i < poses.size(); ++i) {
@@ -139,15 +173,39 @@ DetourPlanner::Result DetourPlanner::plan(
     // ── 3. Obstacle-aware search to the nearest reachable candidate ─────────
     auto algo = snap::makeSnapSearch(map_view, grid, origin, max_depth,
                                      obstacle_cost_weight_, max_planning_time_);
+    const auto t0 = std::chrono::steady_clock::now();
     const auto path = algo.findPathToAny(origin,
         [&](const astar::Vec3& c) { return cell_pts.contains(c); });
+    const double elapsed =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+
     if (!path || path->empty()) {
+        // Diagnose which failure mode this is: timeout, or the bounded
+        // search space genuinely exhausted (every candidate walled off).
+        double nearest_d    = std::numeric_limits<double>::infinity();
+        double nearest_cost = -1.0;
+        bool   nearest_walk = false;
+        for (size_t i = cand_begin; i < poses.size(); ++i) {
+            const double d = std::hypot(poses[i].position.x - rx,
+                                        poses[i].position.y - ry);
+            if (d < nearest_d) {
+                const Position3D wp{poses[i].position.x, poses[i].position.y, 0.0};
+                nearest_d    = d;
+                nearest_cost = map_view.getCost(wp);
+                nearest_walk = map_view.isWalkable(wp);
+            }
+        }
         RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
-            "[Detour] no reference waypoint reachable from robot (%.2f, %.2f)%s "
-            "— pass-through. (scan=%.1fm offset=%.1fm max_time=%.2fs)",
-            rx, ry,
-            blocked_idx ? " past the blockage" : "",
-            scan_distance_m_, reconnect_offset_m_, max_planning_time_);
+            "[Detour] search FAILED (%s: %.3fs / budget %.2fs) | start cell "
+            "cost=%.2f | %zu candidate wps from #%zu, nearest %.2fm away "
+            "(cost=%.2f walkable=%d) | blocked_wp=%ld — pass-through.",
+            elapsed >= max_planning_time_ * 0.95 ? "TIMEOUT"
+                                                 : "search space exhausted",
+            elapsed, max_planning_time_,
+            map_view.getCost(grid.centre(origin)),
+            poses.size() - cand_begin, cand_begin,
+            nearest_d, nearest_cost, static_cast<int>(nearest_walk),
+            blocked_idx ? static_cast<long>(*blocked_idx) : -1L);
         return passThrough();
     }
 
