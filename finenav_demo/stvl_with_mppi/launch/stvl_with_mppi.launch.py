@@ -56,6 +56,7 @@ def generate_launch_description():
         package='finenav_demo',
         executable='hello_finenav',
         output='screen',
+        prefix=['gdb -ex run -ex "thread apply all bt" -ex quit --args'],
         parameters=[
             {'use_sim_time': False,},
             mppi_params_file,
