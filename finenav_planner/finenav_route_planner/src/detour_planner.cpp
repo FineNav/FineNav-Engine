@@ -23,29 +23,34 @@ void DetourPlanner::configure(const ConfigType& params)
     max_planning_time_    = params.max_planning_time;
 }
 
+// ── helpers ─────────────────────────────────────────────────────────────────
+
+namespace {
+
+size_t nearestWaypoint(const std::vector<geometry_msgs::msg::Pose>& poses,
+                       double rx, double ry)
+{
+    size_t best = 0;
+    double best_d2 = std::numeric_limits<double>::max();
+    for (size_t i = 0; i < poses.size(); ++i) {
+        const double dx = poses[i].position.x - rx;
+        const double dy = poses[i].position.y - ry;
+        if (dx * dx + dy * dy < best_d2) {
+            best_d2 = dx * dx + dy * dy;
+            best    = i;
+        }
+    }
+    return best;
+}
+
+}  // anonymous namespace
+
 // ── findBlockage ───────────────────────────────────────────────────────────
 
 std::optional<size_t> DetourPlanner::findBlockage(
-    const Context& ctx, const IMapView& map_view) const
+    const Context& ctx, const IMapView& map_view, size_t scan_start) const
 {
     const auto& poses = ctx.ref_traj.poses;
-    if (poses.size() < 2) return std::nullopt;
-
-    // Scan starts at the waypoint nearest to the robot.
-    size_t scan_start = 0;
-    {
-        const double rx = ctx.robot_state.pose.position.x;
-        const double ry = ctx.robot_state.pose.position.y;
-        double best_d2 = std::numeric_limits<double>::max();
-        for (size_t i = 0; i < poses.size(); ++i) {
-            const double dx = poses[i].position.x - rx;
-            const double dy = poses[i].position.y - ry;
-            if (dx * dx + dy * dy < best_d2) {
-                best_d2    = dx * dx + dy * dy;
-                scan_start = i;
-            }
-        }
-    }
 
     // Walk forward up to scan_distance_m; a waypoint is blocked when it is
     // not walkable OR its (normalised) cost reaches blockage_threshold.
@@ -66,6 +71,13 @@ std::optional<size_t> DetourPlanner::findBlockage(
 }
 
 // ── plan ───────────────────────────────────────────────────────────────────
+//
+// Output contract: the returned path ALWAYS starts at the robot pose.
+// The robot may have been displaced from the reference (manual override,
+// tracking error), so every cycle re-anchors: an obstacle-aware connector
+// from the robot to the nearest reachable reference waypoint, then the
+// reference suffix.  Blockage handling is the same operation with the
+// candidate set pushed past the blocked segment.
 
 DetourPlanner::Result DetourPlanner::plan(
     const Context&  ctx,
@@ -87,23 +99,24 @@ DetourPlanner::Result DetourPlanner::plan(
         return output;
     };
 
-    // ── 1. Detect blockage ──────────────────────────────────────────────────
-    const auto blocked_idx = findBlockage(ctx, map_view);
-    if (!blocked_idx.has_value()) {
-        RCLCPP_INFO_THROTTLE(logger, steady_clock, 5000,
-            "[Detour] Path clear, pass-through. (ref %zu waypoints)", poses.size());
-        return passThrough();
-    }
-
     const double step = map_view.getStepSize();
     if (step <= 0.0) return passThrough();
 
-    // ── 2. Candidate set: waypoints ≥ reconnect_offset_m past the blockage ──
-    // Candidates run to the end of the path; ones still inside the obstacle
-    // are unreachable and skipped automatically by the search.  If the
-    // offset overshoots the path, the last waypoint is the only candidate.
-    size_t cand_begin = *blocked_idx;
-    {
+    const double rx = ctx.robot_state.pose.position.x;
+    const double ry = ctx.robot_state.pose.position.y;
+    const size_t scan_start = nearestWaypoint(poses, rx, ry);
+
+    // ── 1. Detect blockage ahead of the robot ───────────────────────────────
+    const auto blocked_idx = findBlockage(ctx, map_view, scan_start);
+
+    // ── 2. Reconnect candidate set ──────────────────────────────────────────
+    // Clear path  → all waypoints from the nearest one onward: the robot may
+    //               be off the reference (hijacked), so re-anchor every cycle.
+    // Blocked     → additionally push the candidates reconnect_offset_m past
+    //               the blocked waypoint.  Candidates still inside the
+    //               obstacle are unreachable and skipped by the search.
+    size_t cand_begin = blocked_idx.value_or(scan_start);
+    if (blocked_idx.has_value()) {
         double acc = 0.0;
         while (cand_begin + 1 < poses.size() && acc < reconnect_offset_m_) {
             acc += std::hypot(poses[cand_begin + 1].position.x - poses[cand_begin].position.x,
@@ -113,8 +126,7 @@ DetourPlanner::Result DetourPlanner::plan(
     }
 
     const snap::CellGrid grid{step};
-    const astar::Vec3    origin = grid.toCell(ctx.robot_state.pose.position.x,
-                                              ctx.robot_state.pose.position.y);
+    const astar::Vec3    origin = grid.toCell(rx, ry);
 
     std::unordered_map<astar::Vec3, std::vector<size_t>, astar::Vec3Hash> cell_pts;
     int max_depth = 0;
@@ -131,18 +143,18 @@ DetourPlanner::Result DetourPlanner::plan(
         [&](const astar::Vec3& c) { return cell_pts.contains(c); });
     if (!path || path->empty()) {
         RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
-            "[Detour] blockage at waypoint %zu but no reconnect candidate is "
-            "reachable — pass-through. (scan=%.1fm offset=%.1fm max_time=%.2fs)",
-            *blocked_idx, scan_distance_m_, reconnect_offset_m_, max_planning_time_);
+            "[Detour] no reference waypoint reachable from robot (%.2f, %.2f)%s "
+            "— pass-through. (scan=%.1fm offset=%.1fm max_time=%.2fs)",
+            rx, ry,
+            blocked_idx ? " past the blockage" : "",
+            scan_distance_m_, reconnect_offset_m_, max_planning_time_);
         return passThrough();
     }
 
     // Earliest waypoint in the goal cell → rejoin the path as early as possible.
     const size_t exit_idx = cell_pts.at(path->back()).front();
 
-    // ── 4. Stitch: [detour: robot → exit waypoint] + [ref suffix] ───────────
-    // No prefix: the detour starts at the robot, so prepending the reference
-    // path in front of the robot would double back.
+    // ── 4. Stitch: [connector: robot → exit waypoint] + [ref suffix] ────────
     const auto connector = snap::buildConnector(
         ctx.robot_state.pose, *path, grid,
         {poses[exit_idx].position.x, poses[exit_idx].position.y, 0.0});
@@ -159,14 +171,28 @@ DetourPlanner::Result DetourPlanner::plan(
         p.orientation.w = 1.0;
         output.poses.push_back(p);
     }
-    for (size_t i = exit_idx; i < poses.size(); ++i) {
+    // Skip the exit waypoint if the robot is standing exactly on it —
+    // avoids a duplicated leading point.
+    size_t suffix_begin = exit_idx;
+    if (!output.poses.empty() &&
+        std::hypot(output.poses.back().position.x - poses[exit_idx].position.x,
+                   output.poses.back().position.y - poses[exit_idx].position.y) < 1e-6)
+        ++suffix_begin;
+    for (size_t i = suffix_begin; i < poses.size(); ++i) {
         output.poses.push_back(poses[i]);
     }
 
-    RCLCPP_INFO_THROTTLE(logger, steady_clock, 2000,
-        "[Detour] blockage at waypoint %zu | detour %zu points → rejoin at "
-        "waypoint %zu | %zu total.",
-        *blocked_idx, connector.size(), exit_idx, output.poses.size());
+    if (blocked_idx.has_value()) {
+        RCLCPP_INFO_THROTTLE(logger, steady_clock, 2000,
+            "[Detour] blockage at waypoint %zu | detour %zu points → rejoin at "
+            "waypoint %zu | %zu total.",
+            *blocked_idx, connector.size(), exit_idx, output.poses.size());
+    } else {
+        RCLCPP_INFO_THROTTLE(logger, steady_clock, 5000,
+            "[Detour] path clear — re-anchored at robot (rejoin waypoint %zu, "
+            "%zu total).",
+            exit_idx, output.poses.size());
+    }
 
     return output;
 }

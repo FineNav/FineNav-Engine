@@ -17,27 +17,32 @@ namespace finenav {
 // =============================================================
 // DetourPlanner
 //
-// Monitors a reference trajectory for blocked segments and
-// generates grid-search detour paths around dynamic obstacles.
+// Re-anchors a reference trajectory at the robot and generates
+// grid-search detour paths around dynamic obstacles.
 //
 // Designed to sit between a global route planner and MPPI in
-// the FineNav pipeline.  When no blockage is detected the
-// reference trajectory is passed through unchanged.
+// the FineNav pipeline.
+//
+// Output contract: the returned path ALWAYS starts at the robot
+// pose.  The robot may have been displaced from the reference
+// (manual override, tracking error) — every cycle an
+// obstacle-aware connector re-attaches it to the reference.
 //
 // Flow in plan():
 //   1. Scan the reference path forward from the waypoint nearest
 //      to the robot (up to scan_distance_m).  A waypoint is
 //      "blocked" when !isWalkable OR cost >= blockage_threshold.
-//   2. No blocked waypoint → pass the reference through.
-//   3. Candidate set = all waypoints at least reconnect_offset_m
-//      past the blocked waypoint.  Obstacle-aware BFS (Dijkstra
-//      h=0, same primitive as RoutePathSearch::snapToRoute) finds
-//      the nearest REACHABLE candidate — unreachable ones (still
-//      inside the obstacle) are skipped automatically.
-//   4. Output = detour grid path (robot → candidate) + reference
-//      suffix from that candidate onward.
-//   5. No candidate reachable → warn + pass-through (upper layers
-//      handle the stuck condition).
+//   2. Candidate set:
+//        clear   → all waypoints from the nearest one onward
+//        blocked → all waypoints at least reconnect_offset_m past
+//                  the blocked waypoint
+//   3. Obstacle-aware BFS (Dijkstra h=0, same primitive as
+//      RoutePathSearch::snapToRoute) finds the nearest REACHABLE
+//      candidate — ones still inside an obstacle are skipped
+//      automatically.
+//   4. Output = connector (robot → candidate) + reference suffix.
+//   5. No candidate reachable → warn + pass the reference through
+//      (upper layers handle the stuck condition).
 //
 // IMapView cost contract:
 //   getCost() MUST return normalised costs in [0.0, 1.0]
@@ -75,16 +80,16 @@ public:
     void reset() {}
 
     /// Main entry point.
-    /// Returns a detour-modified trajectory if the reference path is blocked,
-    /// or the original reference trajectory if the path is clear.
+    /// Returns a trajectory that starts at the robot pose: an obstacle-aware
+    /// connector onto the reference, detouring around blocked segments.
     Result plan(const Context& ctx, const IMapView& map_view);
 
 private:
-    /// Scan the reference path forward from the waypoint nearest to the
-    /// robot (up to scan_distance_m) and return the index of the first
-    /// blocked waypoint (!isWalkable OR cost >= blockage_threshold).
+    /// Scan the reference path forward from waypoint `scan_start` (up to
+    /// scan_distance_m) and return the index of the first blocked waypoint
+    /// (!isWalkable OR cost >= blockage_threshold).
     std::optional<size_t> findBlockage(
-        const Context& ctx, const IMapView& map_view) const;
+        const Context& ctx, const IMapView& map_view, size_t scan_start) const;
 
     // ── parameters ────────────────────────────────────────────
     double scan_distance_m_    = 5.0;   // forward scan for blockage detection

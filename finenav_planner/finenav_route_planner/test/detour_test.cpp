@@ -5,12 +5,14 @@
 // DetourPlanner test suite.
 //
 // Covers:
-//   - Pass-through behaviour: empty reference, clear path, fully blocked
+//   - Output contract: the returned path always starts at the robot pose
+//     (re-anchoring), including when the robot was displaced off the
+//     reference (hijack) or sits mid-path
 //   - Lethal blockage (!isWalkable on the path) → detour around, rejoin
 //   - Soft blockage (cost >= blockage_threshold, still walkable) → detour
 //   - Obstacle covering a long stretch: unreachable reconnect candidates
 //     are skipped automatically, path rejoins beyond the obstacle
-//   - Stitch shape: output starts at the robot (no doubled-back prefix)
+//   - Fallback pass-through: empty reference, no reachable candidate
 
 #include <gtest/gtest.h>
 
@@ -113,8 +115,10 @@ TEST(DetourPlanner, EmptyReference_ReturnsEmptyOutput)
     EXPECT_TRUE(result->poses.empty());
 }
 
-TEST(DetourPlanner, ClearPath_PassesThroughUnchanged)
+TEST(DetourPlanner, ClearPath_RobotAtStart_OutputIdentical)
 {
+    // Robot standing exactly on the first reference waypoint: re-anchoring
+    // degenerates to the identity — output equals the reference.
     auto planner = makePlanner();
     astar::GridMap grid(20, 10);
     TestMapView view(grid, 1.0);
@@ -123,6 +127,59 @@ TEST(DetourPlanner, ClearPath_PassesThroughUnchanged)
     auto result = planner.plan(makeCtx(0.5, 0.5, ref), view);
     ASSERT_TRUE(result.has_value());
     expectSamePath(result->poses, ref);
+}
+
+TEST(DetourPlanner, ClearPath_RobotMidPath_DropsWaypointsBehind)
+{
+    // Robot on the path but halfway along it: output starts at the robot
+    // and the reference prefix behind the robot is dropped.
+    auto planner = makePlanner();
+    astar::GridMap grid(20, 10);
+    TestMapView view(grid, 1.0);
+
+    const auto ref = makeRefPath(0.5, 15.5, 0.5);
+    auto result = planner.plan(makeCtx(8.5, 0.5, ref), view);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 2u);
+
+    EXPECT_NEAR(result->poses.front().position.x, 8.5, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 0.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.x, 15.5, 1e-6);
+
+    for (const auto& p : result->poses)
+        EXPECT_GE(p.position.x, 8.5 - 1e-6)
+            << "Kept waypoint behind robot: x=" << p.position.x;
+}
+
+TEST(DetourPlanner, HijackedRobot_ReanchorsFromRobot)
+{
+    // Robot displaced off the reference (manual override), with a wall
+    // between it and the path.  The output must start at the robot and
+    // reconnect to the reference around the wall — this is the case that
+    // makes pass-through unacceptable.
+    auto planner = makePlanner();
+    astar::GridMap grid(20, 10);
+    // Wall row y=2, x=0..4: blocks the straight line from robot to path.
+    for (int x = 0; x <= 4; ++x) grid.setObstacle(x, 2, true);
+    TestMapView view(grid, 1.0);
+
+    const auto ref = makeRefPath(0.5, 15.5, 0.5);
+    auto result = planner.plan(makeCtx(2.5, 4.5, ref), view);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GE(result->poses.size(), 2u);
+
+    // Starts at the (displaced) robot pose.
+    EXPECT_NEAR(result->poses.front().position.x, 2.5, 1e-6);
+    EXPECT_NEAR(result->poses.front().position.y, 4.5, 1e-6);
+
+    // Never crosses the wall.
+    for (const auto& p : result->poses)
+        EXPECT_FALSE(p.position.x < 5.0 && p.position.y >= 2.0 && p.position.y < 3.0)
+            << "Crossed wall at (" << p.position.x << ", " << p.position.y << ")";
+
+    // Rejoins the reference and reaches its end.
+    EXPECT_NEAR(result->poses.back().position.x, 15.5, 1e-6);
+    EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
 }
 
 TEST(DetourPlanner, LethalBlockage_DetoursAroundAndRejoins)
