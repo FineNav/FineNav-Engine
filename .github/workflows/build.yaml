@@ -1,0 +1,109 @@
+name: Build and Package
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    container:
+      image: osrf/ros:humble-desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            ros-humble-generate-parameter-library \
+            libxtensor-dev \
+            libxsimd-dev \
+            libbenchmark-dev \
+            libomp-dev \
+            libpcl-dev \
+            libopencv-dev \
+            python3-bloom \
+            fakeroot \
+            dpkg-dev
+
+      - name: Install ROS dependencies
+        run: |
+          rosdep update
+          rosdep install --from-paths . --ignore-src --rosdistro humble -y -r
+
+      - name: Build
+        shell: bash
+        run: |
+          . /opt/ros/humble/setup.sh
+          colcon build \
+            --merge-install \
+            --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            --parallel-workers $(nproc) \
+            --event-handlers console_direct+
+
+      - name: Prepare DEB Package
+        shell: bash
+        run: |
+          # 1. 定义包名和版本
+          PKG_NAME="ros-humble-finenav-engine"
+          PKG_VERSION="1.0.0-$(date +%Y%m%d%H%M)"
+          DEB_DIR="deb_workspace"
+          
+          # 2. 创建目录
+          INSTALL_PREFIX="opt/ros/humble"
+          mkdir -p ${DEB_DIR}/DEBIAN
+          mkdir -p ${DEB_DIR}/${INSTALL_PREFIX}
+          
+          # 3. 复制编译好的文件
+          # 使用 -a (archive) 保持权限，确保不带 symlink-install
+          cp -a install/* ${DEB_DIR}/${INSTALL_PREFIX}/
+          
+          # 【关键步骤：删除冲突文件】
+          # 这些文件由 ros-humble-ros-workspace 提供，自定义包不能包含它们
+          echo "Removing redundant colcon setup files to avoid conflicts..."
+          cd ${DEB_DIR}/${INSTALL_PREFIX}
+          rm -f ERROR_ON_SETUP_ZSH_DOTZSH_NOT_FOUND
+          rm -f _local_setup_util_ps1.py
+          rm -f _local_setup_util_sh.py
+          rm -f colcon_merged_prefix_setup.cfg
+          rm -f local_setup.bash
+          rm -f local_setup.sh
+          rm -f local_setup.zsh
+          rm -f local_setup.ps1
+          rm -f setup.bash
+          rm -f setup.sh
+          rm -f setup.zsh
+          rm -rf .colcon_install_layout
+          cd - # 回到根目录
+
+          # 4. 创建 control 文件
+          # 注意：Maintainer 增加默认值防止为空
+          cat <<EOF > ${DEB_DIR}/DEBIAN/control
+          Package: ${PKG_NAME}
+          Version: ${PKG_VERSION}
+          Section: misc
+          Priority: optional
+          Architecture: amd64
+          Maintainer: ${GITHUB_ACTOR:-"finenav-developer"}
+          Description: FineNav Engine Package for ROS 2 Humble.
+          Depends: ros-humble-desktop, libomp-dev, libpcl-dev, libopencv-dev
+          EOF
+          
+          # 5. 修正权限 (防止 dpkg-deb 因为权限过高警告)
+          chmod -R 755 ${DEB_DIR}/${INSTALL_PREFIX}
+          chmod 644 ${DEB_DIR}/DEBIAN/control
+          
+          # 6. 构建 DEB
+          # 增加 --root-owner-group 确保包内文件所有者为 root
+          dpkg-deb --root-owner-group --build ${DEB_DIR} ${PKG_NAME}.deb
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: finenav-engine-deb
+          path: "*.deb"
+          retention-days: 7
