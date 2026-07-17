@@ -221,7 +221,7 @@ finenav_mppi_controller:
     use_path_orientations:
       type: bool
       default_value: false
-      description: "Include path point orientation in alignment cost"
+      description: "Use stored path pose orientations for the heading alignment term (feasible planners only); when false the heading term uses the path's geometric direction of travel"
 
   PathAlignLegacyCritic:
     enabled:
@@ -257,7 +257,7 @@ finenav_mppi_controller:
     use_path_orientations:
       type: bool
       default_value: false
-      description: "Include path point orientation in alignment cost"
+      description: "Use stored path pose orientations for the heading alignment term; when false the heading term uses the matched segment's direction of travel"
 
   PathFollowCritic:
     enabled:

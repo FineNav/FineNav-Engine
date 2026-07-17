@@ -116,7 +116,9 @@
         trajectory_point_step: 4
         threshold_to_consider: 0.5
         offset_from_furthest: 20        # 只有轨迹规划足够远时才考虑此 Critic
-        use_path_orientations: false    # 是否跟随全局规划的朝向（Hybrid A* 时开启）
+        use_path_orientations: false    # true=使用全局路径自带朝向（Hybrid A* 时开启）；
+                                        # false=用路径几何行进方向做朝向对齐（A*/BFS 路径无朝向时用此项，
+                                        # 轨迹朝向与路径方向反 180° 会被显著惩罚）
 
       # PathAlignLegacyCritic：旧版路径对齐，通常用 PathAlignCritic 代替
       PathAlignLegacyCritic:

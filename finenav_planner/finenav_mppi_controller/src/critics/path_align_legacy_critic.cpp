@@ -110,7 +110,18 @@ void PathAlignLegacyCritic::score(CriticData & data, const IMapView& map_view)
       // The nearest path point to align to needs to be not in collision, else
       // let the obstacle critic take over in this region due to dynam<MapView>ic obstacles
       if (min_s != 0 && (*data.path_pts_valid)[min_s]) {
-        summed_dist += sqrtf(min_dist_sq);
+        if (use_path_orientations_) {
+          // min_dist_sq already includes the stored-orientation dyaw term
+          summed_dist += sqrtf(min_dist_sq);
+        } else {
+          // Upstream planners emit identity orientations, so derive the
+          // reference heading from the matched segment's direction of travel;
+          // trajectories heading 180 degrees off the path then score high.
+          const float path_dir =
+            atan2f(P_y(min_s + 1) - P_y(min_s), P_x(min_s + 1) - P_x(min_s));
+          dyaw = angles::shortest_angular_distance(path_dir, T_yaw(t, p));
+          summed_dist += sqrtf(min_dist_sq + dyaw * dyaw);
+        }
       }
     }
 

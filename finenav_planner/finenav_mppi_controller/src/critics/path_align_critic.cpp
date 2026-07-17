@@ -73,14 +73,25 @@ void PathAlignCritic::score(CriticData & data, const IMapView& map_view)
   const size_t time_steps = data.trajectories.x.shape(1);
   auto && cost = xt::xtensor<float, 1>::from_shape({data.costs.shape(0)});
 
-  // Find integrated distance in the path
+  // Find integrated distance in the path, and the direction of travel of each
+  // segment. Upstream planners (A*/BFS/Route) emit paths with identity
+  // orientations, so the reference heading must be derived from the path
+  // geometry itself — otherwise trajectories facing 180 degrees away from the
+  // path direction would score just as well as aligned ones.
   std::vector<float> path_integrated_distances(path_segments_count, 0.0f);
+  std::vector<float> path_directions(path_segments_count, 0.0f);
   float dx = 0.0f, dy = 0.0f;
   for (unsigned int i = 1; i != path_segments_count; i++) {
     dx = P_x(i) - P_x(i - 1);
     dy = P_y(i) - P_y(i - 1);
     float curr_dist = sqrtf(dx * dx + dy * dy);
     path_integrated_distances[i] = path_integrated_distances[i - 1] + curr_dist;
+    // Degenerate (duplicated) points carry the previous segment's direction
+    path_directions[i - 1] =
+      curr_dist > 1e-6f ? atan2f(dy, dx) : (i > 1 ? path_directions[i - 2] : 0.0f);
+  }
+  if (path_segments_count > 1) {
+    path_directions[path_segments_count - 1] = path_directions[path_segments_count - 2];
   }
 
   float traj_integrated_distance = 0.0f;
@@ -95,6 +106,7 @@ void PathAlignCritic::score(CriticData & data, const IMapView& map_view)
     path_pt = 0u;
     const auto T_x = xt::view(data.trajectories.x, t, xt::all());
     const auto T_y = xt::view(data.trajectories.y, t, xt::all());
+    const auto T_yaw = xt::view(data.trajectories.yaws, t, xt::all());
     for (size_t p = trajectory_point_step_; p < time_steps; p += trajectory_point_step_) {
       Tx = T_x(p);
       Ty = T_y(p);
@@ -110,13 +122,14 @@ void PathAlignCritic::score(CriticData & data, const IMapView& map_view)
         dx = P_x(path_pt) - Tx;
         dy = P_y(path_pt) - Ty;
         num_samples += 1.0f;
-        if (use_path_orientations_) {
-          const auto T_yaw = xt::view(data.trajectories.yaws, t, xt::all());
-          dyaw = angles::shortest_angular_distance(P_yaw(path_pt), T_yaw(p));
-          summed_path_dist += sqrtf(dx * dx + dy * dy + dyaw * dyaw);
-        } else {
-          summed_path_dist += sqrtf(dx * dx + dy * dy);
-        }
+        // Reference heading: the path pose orientation when the upstream
+        // planner provides one (use_path_orientations), otherwise the
+        // direction of travel derived from the path geometry. Either way a
+        // trajectory heading 180 degrees off the path pays ~pi per sample.
+        const float ref_yaw =
+          use_path_orientations_ ? P_yaw(path_pt) : path_directions[path_pt];
+        dyaw = angles::shortest_angular_distance(ref_yaw, T_yaw(p));
+        summed_path_dist += sqrtf(dx * dx + dy * dy + dyaw * dyaw);
       }
     }
     if (num_samples > 0) {
