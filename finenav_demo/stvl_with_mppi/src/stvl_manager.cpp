@@ -6,6 +6,20 @@
 
 using namespace finenav;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Angle utilities
+// ═══════════════════════════════════════════════════════════════════════════
+
+double StvlManager::normalizeAngle(double angle) {
+    while (angle > M_PI)  angle -= 2.0 * M_PI;
+    while (angle < -M_PI) angle += 2.0 * M_PI;
+    return angle;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Constructor
+// ═══════════════════════════════════════════════════════════════════════════
+
 StvlManager::StvlManager(rclcpp::Node::SharedPtr node)
     : node_(std::move(node))
 {
@@ -13,39 +27,53 @@ StvlManager::StvlManager(rclcpp::Node::SharedPtr node)
     node_->declare_parameter<double>("stvl_manager.decay_time_fov_sec", 1000000.0);
     node_->declare_parameter<double>("stvl_manager.min_range", 0.0);
     node_->declare_parameter<double>("stvl_manager.max_range", 50.0);
-    node_->declare_parameter<double>("stvl_manager.min_angle", 0.0);
-    node_->declare_parameter<double>("stvl_manager.max_angle", M_PI / 3.0);
+    node_->declare_parameter<double>("stvl_manager.fov_start_angle", -M_PI_2);
+    node_->declare_parameter<double>("stvl_manager.fov_end_angle",   M_PI_2);
 
     node_->get_parameter("stvl_manager.decay_time_sec", decay_time_sec_);
     node_->get_parameter("stvl_manager.decay_time_fov_sec", decay_time_fov_sec_);
     node_->get_parameter("stvl_manager.min_range", min_range_);
     node_->get_parameter("stvl_manager.max_range", max_range_);
-    node_->get_parameter("stvl_manager.min_angle", min_angle_);
-    node_->get_parameter("stvl_manager.max_angle", max_angle_);
+    node_->get_parameter("stvl_manager.fov_start_angle", fov_start_angle_);
+    node_->get_parameter("stvl_manager.fov_end_angle",   fov_end_angle_);
 }
 
-bool StvlManager::isInFrustum(const Eigen::Isometry3d & T_map_body, const Position & p_world,
-                               double min_range, double max_range,
-                               double min_angle, double max_angle)
+// ═══════════════════════════════════════════════════════════════════════════
+// FOV
+// ═══════════════════════════════════════════════════════════════════════════
+
+bool StvlManager::isInFov(const Eigen::Isometry3d & T_map_body,
+                          const Position & p_world) const
 {
     const Eigen::Vector3d origin = T_map_body.translation();
     const Eigen::Vector3d v_world = p_world - origin;
 
     const double r = v_world.norm();
-    if (r <= 0.0 || r < min_range || r > max_range) {
+    if (r <= 0.0 || r < min_range_ || r > max_range_) {
         return false;
     }
 
-    const Eigen::Vector3d v_sensor = T_map_body.linear().transpose() * v_world;
-    const double norm = v_sensor.norm();
-    if (norm <= 0.0) {
-        return false;
-    }
+    // Rotate to body frame, compute azimuth in XY plane.
+    // 0 = +X (forward), +π/2 = +Y (left), -π/2 = -Y (right).
+    const Eigen::Vector3d v_body = T_map_body.linear().transpose() * v_world;
+    const double azi = std::atan2(v_body.y(), v_body.x());
 
-    const double cos_theta = std::clamp(v_sensor.z() / norm, -1.0, 1.0);
-    const double theta = std::acos(cos_theta);
-    return theta >= min_angle && theta <= max_angle;
+    // Single [start, end] range with wraparound.
+    // Normalise everything so we can write a clean interval check.
+    double a   = normalizeAngle(azi);
+    double s   = normalizeAngle(fov_start_angle_);
+    double e   = normalizeAngle(fov_end_angle_);
+    double mid = normalizeAngle(s + normalizeAngle(e - s) * 0.5);
+
+    // Compute signed deviation from the sector centre and compare to half-width.
+    double dev   = normalizeAngle(a - mid);
+    double width = normalizeAngle(e - s);
+    return std::abs(dev) <= std::abs(width) * 0.5 + 1e-9;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PruneExpiredCells
+// ═══════════════════════════════════════════════════════════════════════════
 
 void StvlManager::PruneExpiredCells(GridMap<Voxel> & map, const Eigen::Isometry3d & T_map_body)
 {
@@ -60,7 +88,7 @@ void StvlManager::PruneExpiredCells(GridMap<Voxel> & map, const Eigen::Isometry3
         }
 
         Voxel & cell = map.atPosition(pos);
-        if (cell.timestamp.nanoseconds() == 0) {    // TODO: 按逻辑不应出现，后续排查
+        if (cell.timestamp.nanoseconds() == 0) {
             it = dynamic_cells_.erase(it);
             continue;
         }
@@ -72,7 +100,7 @@ void StvlManager::PruneExpiredCells(GridMap<Voxel> & map, const Eigen::Isometry3
             continue;
         }
 
-        const bool in_fov = isInFrustum(T_map_body, pos, min_range_, max_range_, min_angle_, max_angle_);
+        const bool in_fov = isInFov(T_map_body, pos);
         const double active_decay = in_fov ? decay_time_fov_sec_ : decay_time_sec_;
 
         if (age_sec > active_decay) {
@@ -82,7 +110,6 @@ void StvlManager::PruneExpiredCells(GridMap<Voxel> & map, const Eigen::Isometry3
             ++it;
         }
     }
-
 }
 
 void StvlManager::InsertPointCloud(const pcl::PointCloud<pcl::PointXYZ> & cloud, GridMap<Voxel> & map,

@@ -85,8 +85,16 @@ hello_finenav:
       decay_time_fov_sec: 2.0
       min_range: 0.0
       max_range: 50.0
-      min_angle: 0.0
-      max_angle: 1.047 # M_PI / 3.0
+      # ── 2D FOV 扇形参数 ────────────────────────────────────────────────
+      # 车辆前方为 0 rad (+X), 左侧 +π/2, 右侧 -π/2.
+      # fov_start_angle: 扇形起始角度 [rad]
+      # fov_end_angle:   扇形结束角度 [rad]
+      #   e.g. 前方180°: start=-1.57, end=1.57
+      #        前方150°: start=-1.31, end=1.31
+      #        仅右侧60°: start=-0.52, end=0.52 (向前展开)
+      #        start > end 表示跨越 ±π 边界 (如后方: start=2.62, end=-2.62)
+      fov_start_angle: -1.57     # [-π, π], 默认 -π/2 (右侧)
+      fov_end_angle:   1.57      # [-π, π], 默认 +π/2 (左侧) → 前方 180°
     collision_model:
       # ── 非对称 OBB 模式（推荐用于差速机器人等非对称构型）───────────────────
       # 机器人本体坐标系：X=前, Y=左, Z=上。所有值均为正数，表示从机器人中心

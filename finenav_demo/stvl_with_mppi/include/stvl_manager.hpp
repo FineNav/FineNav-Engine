@@ -57,20 +57,25 @@ public:
                           const Eigen::Isometry3d & T_map_body);
 
 private:
-    static bool isInFrustum(const Eigen::Isometry3d & T_map_body, const Position & p_world,
-                            double min_range, double max_range,
-                            double min_angle, double max_angle);
+    /// 2D sector FOV: checks whether p_world falls inside the angular
+    /// sector [fov_start_angle_, fov_end_angle_] in the body-frame XY plane.
+    /// 0 rad = +X (forward), +π/2 = +Y (left).
+    /// Handles wraparound (e.g. start=165°, end=-165° for a rear sector).
+    bool isInFov(const Eigen::Isometry3d & T_map_body,
+                 const Position & p_world) const;
+
+    static double normalizeAngle(double angle);
 
     rclcpp::Node::SharedPtr node_;
 
     DynamicPosSet dynamic_cells_;
-    double decay_time_sec_     = 1000000.0;
-    double decay_time_fov_sec_ = 1000000.0;
+    double decay_time_sec_       = 1000000.0;
+    double decay_time_fov_sec_   = 1000000.0;
     // FOV parameters
-    double min_range_ = 0.0;
-    double max_range_ = 50.0;
-    double min_angle_ = 0.0;
-    double max_angle_ = M_PI / 3.0;
+    double min_range_        = 0.0;
+    double max_range_        = 50.0;
+    double fov_start_angle_  = -M_PI_2;  // default: right (-90°)
+    double fov_end_angle_    = M_PI_2;   // to left (+90°) = 180° front
 };
 
 } // namespace finenav
