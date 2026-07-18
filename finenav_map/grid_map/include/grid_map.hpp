@@ -44,48 +44,50 @@ public:
 
 
     void configure(const ConfigType& params) {
-        // TODO: 之后整，主要把 GridMap( Length, double, Poosition ) 的构造函数搬过来
-        std::cout << "[GridMap] configure with params" << std::endl;
+        const double resolution = params.resolution;
+        const Length length(params.length.x, params.length.y, params.length.z);
 
-    // ===== 固定测试参数 =====
-    resolution_ = 0.05;                     // 5cm
-    length_ = Length(10.0, 10.0, 1.0);     // 10m x 10m x 3m
-    origin_ = Position(0.0, 0.0, 0.0);
+        // 几何参数未变化时跳过重建，避免其他动态参数更新（如背景色）导致地图数据被清空
+        if (!data_.empty() && resolution == resolution_ &&
+            length.x() == length_.x() && length.y() == length_.y() && length.z() == length_.z()) {
+            return;
+        }
 
-    // ===== 派生量 =====
-    inv_resolution_ = 1.0 / resolution_;
+        resolution_ = resolution;
+        length_ = length;
+        // 注意：不重置 origin_，运行期修改尺寸时保留当前窗口位置
 
-    size_ = (length_.array() * inv_resolution_).ceil().cast<int>();
+        // ===== 派生量 =====
+        inv_resolution_ = 1.0 / resolution_;
 
-    // 保证是奇数（关键）
-    size_ = size_.unaryExpr([](int v) {
-        return (v % 2 == 0) ? v + 1 : v;
-    });
+        size_ = (length_.array() * inv_resolution_).ceil().cast<int>();
 
-    half_size_ = size_ / 2;
+        // 保证是奇数（关键）
+        size_ = size_.unaryExpr([](int v) {
+            return (v % 2 == 0) ? v + 1 : v;
+        });
 
-    // ===== 分配内存（核心）=====
-    const size_t total_size =
-        static_cast<size_t>(size_.x()) *
-        static_cast<size_t>(size_.y()) *
-        static_cast<size_t>(size_.z());
+        half_size_ = size_ / 2;
 
-    data_.clear();
-    data_.resize(total_size);
+        // ===== 分配内存（核心）=====
+        const size_t total_size =
+            static_cast<size_t>(size_.x()) *
+            static_cast<size_t>(size_.y()) *
+            static_cast<size_t>(size_.z());
 
-    // 初始化每个 voxel
-    for (auto& cell : data_) {
-        cell = T{};   // 你的 Voxel 默认是 NAN / false / 0
-    }
+        // 零初始化每个 voxel（默认是 NAN / false / 0）
+        data_.assign(total_size, T{});
 
-    start_index_ = Index::Zero();
+        start_index_ = Index::Zero();
 
-    // ===== debug 输出 =====
-    std::cout << "[GridMap] resolution: " << resolution_ << std::endl;
-    std::cout << "[GridMap] size: "
-              << size_.x() << " x "
-              << size_.y() << " x "
-              << size_.z() << std::endl;
+        // ===== debug 输出 =====
+        std::cout << "[GridMap] configure: resolution: " << resolution_
+                  << ", length: " << length_.x() << " x " << length_.y() << " x " << length_.z()
+                  << " [m]" << std::endl;
+        std::cout << "[GridMap] size: "
+                  << size_.x() << " x "
+                  << size_.y() << " x "
+                  << size_.z() << std::endl;
         std::cout << "[GridMap] total cells: " << total_size << std::endl;
     }
 

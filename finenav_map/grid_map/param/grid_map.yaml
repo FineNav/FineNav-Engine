@@ -1,4 +1,29 @@
 grid_map:
+  resolution:
+    type: double
+    default_value: 0.05
+    description: "Grid resolution, metres per cell"
+    validation:
+      gt<>: [0.0]
+  length:
+    x:
+      type: double
+      default_value: 10.0
+      description: "Rolling window size along X, metres"
+      validation:
+        gt<>: [0.0]
+    y:
+      type: double
+      default_value: 10.0
+      description: "Rolling window size along Y, metres"
+      validation:
+        gt<>: [0.0]
+    z:
+      type: double
+      default_value: 1.0
+      description: "Rolling window size along Z, metres"
+      validation:
+        gt<>: [0.0]
   background:
     r:
       type: int
