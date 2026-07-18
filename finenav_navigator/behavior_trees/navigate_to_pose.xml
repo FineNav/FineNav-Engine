@@ -86,7 +86,6 @@
                             <Parallel success_count="1" failure_count="1">
                                 <!-- detour 绕障分支：启动时发布 MPPI_OBSTACLE_BLOCKED 状态 -->
                                 <Sequence>
-                                    <PublishNavigationState topic_name="/navigation_state" state="MPPI_OBSTACLE_BLOCKED"/>
                                     <RetryUntilSuccessful num_attempts="-1">
                                         <ComputePlan action_name="/hello_finenav/detour_layer"
                                                      goal="{goal}"
