@@ -95,6 +95,18 @@ hello_finenav:
       #        start > end 表示跨越 ±π 边界 (如后方: start=2.62, end=-2.62)
       fov_start_angle: -1.57     # [-π, π], 默认 -π/2 (右侧)
       fov_end_angle:   1.57      # [-π, π], 默认 +π/2 (左侧) → 前方 180°
+    # ── 预测性 costmap: DBSCAN → Kalman → CV 预测 → costmap 注入 ────
+    prediction:
+      cluster_eps: 0.5           # DBSCAN 邻域半径 [m]
+      cluster_min_pts: 3         # 最小点数
+      meas_noise_std: 0.1        # 观测噪声标准差 [m]
+      proc_noise_std: 0.5        # 过程噪声标准差 [m/s²]
+      horizon_sec: 3.0           # 预测时域 [s]
+      base_radius: 0.3           # 基础碰撞半径 [m]
+      uncertainty_growth: 0.1    # 不确定性增长率 [m/s]
+      confirm_hits: 3            # 确认跟踪所需连续命中次数
+      delete_misses: 5           # 删除跟踪前容忍丢失次数
+      max_assoc_dist: 2.0        # 关联门限最大距离 [m]
     collision_model:
       # ── 非对称 OBB 模式（推荐用于差速机器人等非对称构型）───────────────────
       # 机器人本体坐标系：X=前, Y=左, Z=上。所有值均为正数，表示从机器人中心

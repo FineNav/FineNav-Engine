@@ -52,6 +52,13 @@ public:
      */
     int ComputeCost(int distance) const;
 
+    /// @brief 获取膨胀后的 costmap 图像（可写引用），供外部模块叠加预测障碍物。
+    cv::Mat & getMutableCostmap() { return costmap_image_; }
+    const cv::Mat & getCostmap() const { return costmap_image_; }
+
+    /// @brief 获取地图分辨率 [m/cell]。
+    double getResolution() const { return cached_resolution_; }
+
 
 private:
     void ApplyGroundMeanFilter(Eigen::ArrayXXf& ground_array, int kernel_size);

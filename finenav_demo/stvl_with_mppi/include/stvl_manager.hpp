@@ -56,6 +56,9 @@ public:
     void InsertPointCloud(const pcl::PointCloud<pcl::PointXYZ> & cloud, GridMap<Voxel> & map,
                           const Eigen::Isometry3d & T_map_body);
 
+    /// @brief 获取当前所有动态障碍物栅格的位置集合（只读）。
+    const DynamicPosSet & getDynamicCells() const { return dynamic_cells_; }
+
 private:
     /// 2D sector FOV: checks whether p_world falls inside the angular
     /// sector [fov_start_angle_, fov_end_angle_] in the body-frame XY plane.

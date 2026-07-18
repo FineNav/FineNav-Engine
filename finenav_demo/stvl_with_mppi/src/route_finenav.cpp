@@ -29,6 +29,7 @@
 #include "finenav_mppi_controller/controller.hpp"
 #include "stvl_manager.hpp"
 #include "terrain_mapview.hpp"
+#include "predictive_costmap.hpp"
 #include "finenav_util/cloud_publish_helper.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "trim_by_distance.hpp"
@@ -231,6 +232,8 @@ int main(int argc, char** argv) {
     auto terrain_analyzer = std::make_shared<TerrainAnalyzer>(
         map_server, node, passability_helper, costmap_helper, ground_helper);
 
+    auto predictive_costmap = std::make_shared<finenav::PredictiveCostmap>(node);
+
     map_server->registerPreUpdateHook([stvl_manager, localizer](GridMap<Voxel> & map) {
         const auto & state = localizer->getState();
         Eigen::Isometry3d T_map_body = Eigen::Isometry3d::Identity();
@@ -264,6 +267,16 @@ int main(int argc, char** argv) {
             }
         }
     });
+
+    // ── 预测性 costmap: DBSCAN 聚类 → Kalman 跟踪 → 匀速预测 → 注入 costmap ──
+    map_server->registerPostUpdateHook(
+        [predictive_costmap, stvl_manager, terrain_analyzer, localizer](GridMap<Voxel> & map) {
+            const auto & state = localizer->getState();
+            Eigen::Isometry3d T_map_body = Eigen::Isometry3d::Identity();
+            T_map_body.linear()      = state.R.matrix();
+            T_map_body.translation() = state.p;
+            predictive_costmap->update(*stvl_manager, *terrain_analyzer, map, T_map_body);
+        });
 
     MapServer<GridMap<Voxel>>::SourceBufferPolicy policy;
     policy.max_buffer_size = 50000;
