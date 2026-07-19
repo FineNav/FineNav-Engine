@@ -2,17 +2,176 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-// RoutePathSearch (topological route planning) test suite.
-//
-// Covers:
-//   - GeoJSON graph loading via configure() (valid / missing / malformed)
-//   - Dijkstra routing on the topological graph (reachable / disconnected /
-//     fixed-cost-override route selection / start==goal snapping)
-//   - Obstacle-aware pose-to-node snapping (findNearestNodeIndex), including
-//     skipping a geometrically-closer but unreachable node
-//   - Connector paths: obstacle-aware grid paths from robot/goal pose to
-//     nearest route node are stitched into the output
-//   - Output shape: world-frame poses, densification, exact endpoints
+/**
+ * @file route_test.cpp
+ * @brief 拓扑路由规划器单元测试 — GeoJSON 图加载 + Dijkstra + 障碍感知 snap + 路径拼接
+ *
+ * @details
+ * ==========================================================================
+ * 测试总览
+ * ==========================================================================
+ * RoutePathSearch 是 finenav_route_planner 中最复杂的规划器:
+ * 它在预定义的拓扑图 (GeoJSON, 节点+边) 上运行 Dijkstra,
+ * 然后将 robot→最近路由节点 和 路由末节点→goal 的两段栅格路径
+ * (connector path) 拼接到路由路径两端, 形成完整的起点→终点规划结果。
+ *
+ * 复杂度来源于两个关键特性:
+ *   1. 障碍感知 snap — robot/goal 不是简单找几何最近节点,
+ *      而是通过 BFS (findPathToAny) 找**可达的**最近节点
+ *   2. 路径点 snap — 不仅可 snap 到节点, 还可 snap 到边上的
+ *      中间路径点 (polyline 上的点), 避免绕远路
+ *
+ * 被测对象:
+ *   - RoutePathSearch (finenav:: 命名空间, PlannerConcept 实现)
+ *
+ * 测试分组:
+ *   -# configure() / 图加载 — 缺失文件、格式错误、空路径、正常加载
+ *   -# Dijkstra 路由 — 线性链图、不连通图、固定代价边、单节点起终点同节点
+ *   -# 输出形状 — 路径稠密化间距、零密度退化为仅节点、四元数合法性、总长度
+ *   -# 障碍感知 snap — 几何近但不可达节点被跳过、所有节点不可达、起点被占据
+ *   -# 路径点 snap — robot 靠近路径中点、短 connector、三节点链向前搜索、
+ *      节点比路径点更近时 snap 到节点、对角边路径点 snap、所有图点不可达
+ *
+ * ==========================================================================
+ * 测试环境
+ * ==========================================================================
+ * 测试框架:     Google Test (GTest)
+ * 依赖:         finenav_route_planner, common/grid_map.hpp,
+ *               geometry_msgs (Pose), std::filesystem
+ * ROS 依赖:     geometry_msgs (消息类型), rclcpp (PlannerConcept configure)
+ * 构建:         colcon build --packages-select finenav_route_planner
+ *
+ * 运行:
+ * @code
+ *   cd ~/FineNav_ws
+ *   colcon test --packages-select finenav_route_planner
+ *   # 直接运行:
+ *   ./build/finenav_route_planner/test/route_test
+ *   # 按分组过滤:
+ *   ./build/finenav_route_planner/test/route_test --gtest_filter="*Configure*"
+ *   ./build/finenav_route_planner/test/route_test --gtest_filter="*Plan*"
+ *   ./build/finenav_route_planner/test/route_test --gtest_filter="*Snap*"
+ * @endcode
+ *
+ * ==========================================================================
+ * GeoJSON 测试图说明
+ * ==========================================================================
+ * 本测试文件定义了 8 个 GeoJSON 测试图 (内联 C 字符串), 每个图
+ * 专门测试一个路由场景:
+ *
+ *   kLinearGraph          — A(0,0)→B(5,0)→C(10,0) 双向线性链
+ *                           (基础可用性、路径稠密化、坐标输出)
+ *   kDisconnectedGraph     — {0,1} 和 {2,3} 两个不相连的连通分量
+ *                           (不连通图返回 nullopt)
+ *   kCostOverrideGraph     — A→B 直接边 cost=100 (固定), A→C→B 约 20.8
+ *                           (Dijkstra 选低价绕路)
+ *   kSnapGraph             — P(2.5,2.5) 和 Q(6.5,0.5)
+ *                           (验证跳过几何近但不可达的节点)
+ *   kIsolatedNodeGraph     — 单节点 (5.5, 5.5), 无边
+ *                           (起终点同节点、所有节点不可达)
+ *   kDensePathGraph        — A(0,0)→B(10,0), 每 2m 一个中间点
+ *                           (路径点 snap: 靠近中点时进入图)
+ *   kThreeNodeChainGraph   — A(0,0)→B(10,0)→C(20,0), 密集折线
+ *                           (向前搜索, 不回退到更早的节点)
+ *   kDiagonalDenseGraph    — A(0,0)→B(10,10), 对角折线
+ *                           (对角边上的路径点 snap)
+ *
+ * ==========================================================================
+ * 测试详细说明
+ * ==========================================================================
+ *
+ * --- Group 1: configure() / 图加载 ---
+ * ConfigureFails_GracefullyOnMissingFile   — graph_file 指向不存在文件
+ *                                              → plan() 返回 nullopt (不崩溃)
+ * ConfigureFails_GracefullyOnMalformedJson — GeoJSON 语法错误
+ *                                              → 解析失败, 不崩溃
+ * PlanFails_WhenGraphFileEmpty             — graph_file 为空字符串
+ *                                              → "no graph cached" 提前退出
+ * ConfigureSucceeds_LoadsValidGraph        — 加载正常 GeoJSON
+ *                                              → plan() 推进到路由计算
+ *
+ * --- Group 2: Dijkstra 路由 ---
+ * PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal
+ *   — robot(0.5,0.5)→A(0,0)→B(5,0)→C(10,0)→goal(9.5,0.5)
+ *     验证: 首点=robot 位姿, 末点=goal 位姿, A/C 节点出现在中间
+ * PlanFails_DisconnectedGraph_NoRouteBetweenComponents
+ *   — robot snap 到 {0,1} 分量, goal snap 到 {2,3} 分量
+ *     → Dijkstra 找不到路径 → nullopt
+ * PlanPrefersLowerCost_OverFixedExpensiveDirectEdge
+ *   — 固定代价边 cost=100 vs 绕路 ~20.8
+ *     → 路径经过 node C(0,8), 验证节点顺序 0→2→1
+ * Plan_SingleNodeGraph_StartEqualsGoal_ConnectorsBothSides
+ *   — robot(5.6,5.6)→node(5.5,5.5)→goal(5.4,5.4)
+ *     起终点 snap 到同一节点, 两侧都有 connector
+ *
+ * --- Group 3: 输出形状 ---
+ * Plan_Densification_SpacingMatchesPathDensity
+ *   — path_density=1.0, 路由段上相邻点间距 ≈ 1.0m
+ *     (connector 段不受 densification 约束, 跳过)
+ * Plan_ZeroDensity_IncludesNodeCentresAndConnectors
+ *   — path_density=0.0 → 只输出节点中心 + connector, 无插值
+ * Plan_OutputPoses_HaveValidOrientation
+ *   — 所有输出四元数归一化 (|q|≈1.0)
+ * Plan_TotalLength_CoversRobotToGoal
+ *   — robot(0.5,0.5)→A(0,0)→C(10,0)→goal(9.5,0.5)
+ *     总长 ≈ 11.4m, 在 (9.0, 12.0) 范围内
+ *
+ * --- Group 4: 障碍感知 snap ---
+ * Plan_SnapsToReachableNode_IncludesConnectorPath
+ *   — P(2.5,2.5) 被 8 邻域障碍隔离, Q(6.5,0.5) 开放
+ *     robot(0.6,0.6) 和 goal(0.7,0.7) 都 snap 到 Q
+ *     验证: Q 出现在路径中, P 不出现在路径中
+ * PlanFails_WhenNoNodeIsReachableFromRobot
+ *   — 单节点 (5.5,5.5) 被 8 邻域障碍完全封锁
+ *     → 无可达节点 → nullopt
+ * PlanFails_WhenStartCellItselfIsBlocked
+ *   — robot cell 本身被占据 → BFS 从起点开始就不可达 → nullopt
+ *
+ * --- Group 5: 路径点 snap (path-point snapping) ---
+ * Plan_SnapsToPathPoint_WhenRobotNearPathMidpoint
+ *   — robot(5,1) 靠近 A→B 边中点 → snap 到路径点而非节点
+ *     验证: 总路径长度 < 5.0m (远小于节点 snap 的 ~10m)
+ * Plan_ShortConnector_WhenRobotNearDensePathFarFromNodes
+ *   — robot(5,0.5) 靠近路径中点 (5,0)
+ *     验证: 早期位姿中包含接近 (5,0) 的点 = 从路径中点进入
+ * Plan_ThreeNodeChain_RobotEntersAtMidPath_GoesForward
+ *   — robot(8,2) 靠近 A-B 边, goal(18,0.5) 靠近 C
+ *     验证: x 坐标在进入图后单调不降 (不向 A(0,0) 回退),
+ *           所有点 x > 1.0, node B(10,0) 出现
+ * Plan_SnapsToNode_WhenNodeIsCloserThanAnyPathPoint
+ *   — robot(0.5,0.5) 几何最近点是 node A(0,0)
+ *     验证: node A 仍然出现在输出中 (不会错误地跳过节点)
+ * Plan_DiagonalDenseEdge_SnapsToPathPoint
+ *   — robot(5.5,4.5) 靠近对角边 (0,0)→(10,10)
+ *     验证: 路径中包含对角线上点 (y≈x, 0<x<10)
+ * PlanFails_WhenNoGraphPointIsReachable
+ *   — 密集折线图, 但整个图区域被障碍覆盖
+ *     → 无节点也无路径点可 snap → nullopt
+ *
+ * ==========================================================================
+ * 设计说明
+ * ==========================================================================
+ *   - TempFile RAII: RoutePathSearch 通过 graph_file 参数加载 GeoJSON 文件,
+ *     测试必须在磁盘上创建真实文件; TempFile 在构造时写入临时文件,
+ *     析构时自动删除, 确保测试不遗留文件
+ *   - enclose(): 将一个 cell 的 8 邻域全部设为障碍,
+ *     模拟"节点 cell 被障碍包围但仍可行走"的场景
+ *     (enclose 只封闭邻域, 不占据 cell 本身)
+ *   - makePlanner 不经过 configure(graph_file) 而是 updateGraph(buf),
+ *     因为 configure() 中的 graph_file 参数需要真实文件路径;
+ *     测试手动加载文件内容再 updateGraph() 避免了这一间接层
+ *   - path_density 参数控制路由段上的插值密度:
+ *     > 0 表示相邻点目标间距 (米), = 0 表示只输出节点中心
+ *   - 路径点 snap 是 connector path 的优化: 传统做法是先走到节点
+ *     再沿路由前进, 路径点 snap 允许 robot 直接"切入"边的中间点,
+ *     对于 robot 恰在路径中段附近的场景可显著缩短 connector 长度
+ *   - 已知差异: configure() 注释中提到的 graph_file 参数实际经
+ *     /geojson 话题加载 (见 chinese-comment-update memory 中的已知陷阱)
+ *
+ * @author Jinghui Wang (wangjinghui@sjtu.edu.cn)
+ * @author IWIN-FINS Lab, Shanghai Jiao Tong University
+ * @date 2026-07-19
+ */
 
 #include <gtest/gtest.h>
 

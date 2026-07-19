@@ -2,13 +2,121 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-// DStarLitePathSearch / D* Lite test suite.
-//
-// Tests are organised in two layers matching the existing
-// astar_test / bfs_test pattern:
-//
-//   Layer 1 — Core DStarLiteAlgorithm tests (lambda callbacks, no IMapView).
-//   Layer 2 — DStarLitePathSearch integration tests (TestMapView + PlanningContext).
+/**
+ * @file dstarlite_test.cpp
+ * @brief D* Lite 算法单元测试 — 覆盖核心引擎 + 增量 replan + PlannerConcept 集成
+ *
+ * @details
+ * ==========================================================================
+ * 测试总览
+ * ==========================================================================
+ * 本文件使用 Google Test 验证 DStarLiteAlgorithm 核心引擎和
+ * DStarLitePathSearch 包装器的正确性。D* Lite 与 A* 的关键区别在于
+ * **增量 replan**——环境局部变化时只修复受影响区域而非全量重搜索，
+ * 因此本测试套件的重心放在障碍物变化后的 replan 行为验证上。
+ *
+ * 被测对象:
+ *   - DStarLiteAlgorithm (astar:: 命名空间, 无 ROS 依赖)
+ *   - DStarLitePathSearch (finenav:: 命名空间, PlannerConcept 实现)
+ *
+ * 测试分层:
+ *   -# 核心引擎 — 基础寻路、障碍处理、增量 replan (add/remove/syncMap)、
+ *      搜索限制、goal_tolerance、3D 支持
+ *   -# PlannerConcept 集成 — TestMapView + PlanningContext + plan(),
+ *      replan、reset 生命周期
+ *
+ * ==========================================================================
+ * 测试环境
+ * ==========================================================================
+ * 测试框架:     Google Test (GTest)
+ * 依赖:         finenav_route_planner, common/grid_map.hpp (测试工具)
+ * ROS 依赖:     无（核心引擎层）, 集成层需 ROS 2 头文件
+ * 构建:         colcon build --packages-select finenav_route_planner
+ *
+ * 运行:
+ * @code
+ *   cd ~/FineNav_ws
+ *   colcon test --packages-select finenav_route_planner
+ *   # 或直接运行:
+ *   ./build/finenav_route_planner/test/dstarlite_test
+ *   # 仅核心引擎:
+ *   ./build/finenav_route_planner/test/dstarlite_test --gtest_filter="DStarLiteAlgorithm.*"
+ *   # 仅集成层:
+ *   ./build/finenav_route_planner/test/dstarlite_test --gtest_filter="DStarLitePathSearch.*"
+ *   # 仅 replan 相关:
+ *   ./build/finenav_route_planner/test/dstarlite_test --gtest_filter="*Replan*:*Adapts*:*Remove*:*Sync*"
+ * @endcode
+ *
+ * ==========================================================================
+ * 测试详细说明
+ * ==========================================================================
+ *
+ * --- Layer 1: DStarLiteAlgorithm (核心引擎) ---
+ *
+ * 基础寻路:
+ *   FindsPath_OpenSpace          — 20×20 空网格, N8, (0,0)→(5,5)
+ *   StartEqualsGoal              — 起点=终点 → 单 cell 路径
+ *   Diagonal_ShorterPath         — N8 路径 < N4 路径 (对角线缩短)
+ *   PathIsContinuous_N4          — 相邻 cell 曼哈顿距离 = 1
+ *
+ * 障碍处理:
+ *   GoalBlocked_ReturnsEmpty     — 终点被占据 → extractPath() 返回空
+ *   PathAvoidsObstacles          — x=3 垂直墙, 路径不穿越
+ *
+ * 增量 replan (★ D* Lite 核心竞争力):
+ *   Replan_AdaptsToNewObstacle   — 初始规划成功 → setObstacle 添加墙 →
+ *                                    replan() → 新路径绕开障碍
+ *   RemoveObstacle_OpensNewPath  — 全墙阻断 → removeObstacle 开缺口 →
+ *                                    replan() → 新路径穿过缺口
+ *   SyncMap_DetectsChanges       — 外部修改 GridMap → syncMap() 检测变更 →
+ *                                    replan() 避开新障碍
+ *        @note 此测试验证 D* Lite 的"地图同步"机制:
+ *              engine 通过回调函数读取 GridMap,
+ *              当 GridMap 被外部直接修改时 engine 不知情;
+ *              syncMap() 重新扫描所有节点, 将 rhs/g 值不一致的节点入队
+ *
+ * 搜索限制:
+ *   MaxExpansions_TerminatesEarly — 1000² 网格, max_expansions=50 → 不挂死
+ *
+ * Goal tolerance:
+ *   GoalTolerance_NearGoalSuccess — 终点及 4 邻居被占据, tolerance=2 →
+ *                                    在距离 ≤2 的 cell 终止
+ *
+ * 3D:
+ *   ThreeD_FindsPath_OpenVolume  — 5×5×5 立方体, N26, (0,0,0)→(3,3,3)
+ *
+ * --- Layer 2: DStarLitePathSearch 集成 ---
+ *
+ *   PlanSucceeds_OpenGrid        — 10×10 开放网格, goal_tolerance=0.6
+ *   PlanFails_GoalBlocked         — 终点及 8 邻居全占据 → nullopt
+ *   PlanFails_InvalidStepSize     — step_size=0 → nullopt
+ *   OutputPoses_AreWorldCoordinates — 所有输出位姿在 grid 范围内
+ *   ReplanAfterObstacleChange    — 初始规划 → grid.setObstacle →
+ *                                    同一 planner 实例再次 plan() → 避开新障碍
+ *   Reset_ClearsEngineState       — plan() → reset() → 新 goal 的 plan() 成功
+ *        @note Reset 测试验证 PlannerConcept 的 reset() 契约:
+ *              planner 实例可在收到新目标时被重置,
+ *              清除内部 D* Lite 引擎的 rhs/g/key 状态
+ *
+ * ==========================================================================
+ * D* Lite 特有的测试关注点
+ * ==========================================================================
+ *   -# setObstacle / removeObstacle 是 D* Lite 的原生接口,
+ *      直接修改引擎内部节点状态并更新 priority queue;
+ *      这与 syncMap (通过回调重新发现变化) 是两条不同的变更路径
+ *   -# extractPath() 在目标不可达时返回空 vector (不是 nullopt),
+ *      与 A* 的 findPath 返回 std::optional 不同 — 这是历史 API 差异
+ *   -# DStarLiteAlgorithm 的构造函数需要 rows/cols 尺寸参数
+ *      (不像 AStarAlgorithm 从 lambda 推断), 因为引擎需预分配
+ *      全部节点的 rhs/g 值存储
+ *   -# TestMapView 实现了 DStarLitePathSearch::IMapView 的全部接口:
+ *      isWalkable + getCost + getStepSize (继承自 astar::IMapView)
+ *      + rows() + cols() + layers() (D* Lite 特有, 用于引擎初始化)
+ *
+ * @author Jinghui Wang (wangjinghui@sjtu.edu.cn)
+ * @author IWIN-FINS Lab, Shanghai Jiao Tong University
+ * @date 2026-07-19
+ */
 
 #include <gtest/gtest.h>
 #include <cmath>

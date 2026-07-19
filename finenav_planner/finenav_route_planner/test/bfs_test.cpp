@@ -2,12 +2,107 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-// BfsPathSearch / Dijkstra-mode test suite.
-//
-// BfsAlgorithm no longer exists as a separate class.
-// "BFS" is now AStarAlgorithm configured with Heuristic::Zero,
-// which degrades A* to Dijkstra (= BFS on uniform-cost grids).
-// All tests use this unified algorithm directly or via BfsPathSearch.
+/**
+ * @file bfs_test.cpp
+ * @brief BFS / Dijkstra 模式单元测试 — AStarAlgorithm(Heuristic::Zero) + BfsPathSearch 集成
+ *
+ * @details
+ * ==========================================================================
+ * 测试总览
+ * ==========================================================================
+ * BFS 在代码重构后不再作为独立算法类存在, 而是 AStarAlgorithm 在
+ * Heuristic::Zero 配置下的退化形式 (= Dijkstra, 等价于均匀代价网格上的 BFS)。
+ * 因此本文件所有测试都通过统一的 AStarAlgorithm + Heuristic::Zero 运行。
+ *
+ * 被测对象:
+ *   - AStarAlgorithm (Heuristic::Zero, h=0 → Dijkstra)
+ *   - BfsPathSearch (finenav:: 命名空间, PlannerConcept 实现)
+ *   - findPathToAny (BFS 特有的多目标搜索接口)
+ *
+ * 测试分层:
+ *   -# 算法层 — 基础寻路、路径长度、对角线、障碍规避、边界条件、
+ *      多目标搜索 (findPathToAny)、3D、带权代价偏好
+ *   -# 集成层 — BfsPathSearch + TestMapView, plan 成功/失败/坐标验证
+ *
+ * ==========================================================================
+ * 测试环境
+ * ==========================================================================
+ * 测试框架:     Google Test (GTest)
+ * 依赖:         finenav_route_planner (AStarAlgorithm, BfsPathSearch),
+ *               common/grid_map.hpp
+ * ROS 依赖:     无（算法层）, 集成层需 ROS 2 头文件
+ * 构建:         colcon build --packages-select finenav_route_planner
+ *
+ * 运行:
+ * @code
+ *   cd ~/FineNav_ws
+ *   colcon test --packages-select finenav_route_planner
+ *   # 或直接运行:
+ *   ./build/finenav_route_planner/test/bfs_test
+ *   # 仅算法:
+ *   ./build/finenav_route_planner/test/bfs_test --gtest_filter="BfsAlgorithm2D.*"
+ *   # 仅 findPathToAny:
+ *   ./build/finenav_route_planner/test/bfs_test --gtest_filter="*FindPathToAny*"
+ *   # 仅集成:
+ *   ./build/finenav_route_planner/test/bfs_test --gtest_filter="BfsPathSearch.*"
+ * @endcode
+ *
+ * ==========================================================================
+ * 测试详细说明
+ * ==========================================================================
+ *
+ * --- 算法层 (BfsAlgorithm2D / BfsAlgorithm3D) ---
+ *
+ * FindsPath_OpenSpace              — 20×20 空网格, N4, (0,0)→(5,5) 可到达
+ * PathLength_Orthogonal            — 直线 5 步 = 6 cells (含起点)
+ * Diagonal_AllowedReducesPathLength — N8 路径 < N4 路径
+ * PathAvoidsObstacles              — x=3 垂直墙, 路径不穿越
+ * StartEqualsGoal                  — 单 cell 路径
+ * GoalBlocked_ReturnsNullopt       — 终点被占据 → nullopt
+ * MaxIterations_TerminatesEarly    — 1000² 网格, max_iterations=10 → 不挂死
+ * MaxIterationsZero_ReturnsNulloptForDifferentGoal — max_iterations=0, 起点≠终点 → nullopt
+ *
+ * findPathToAny (BFS/Dijkstra 特有的多目标搜索):
+ *   FindPathToAny_ReturnsStartWhenStartIsGoal         — 起点满足 goal_pred → 立即返回
+ *   FindPathToAny_StopsAtFirstReachableGoal           — 两个候选目标 (3,0) 和 (8,0),
+ *                                                       算法停在更近的 (3,0)
+ *
+ * 带权代价:
+ *   PrefersLowerCostPath_WeightedGrid — x=2 列有 3 个高代价 cell (cost=100),
+ *                                         Dijkstra 应绕道低代价路径而非直线穿过
+ *
+ * 3D:
+ *   FindsPath_OpenVolume             — (0,0,0)→(3,3,3), N26, h=0
+ *
+ * --- 集成层 (BfsPathSearch) ---
+ *
+ * PlanSucceeds_OpenGrid             — 10×10, goal_tolerance=0.6, step=1.0
+ * PlanFails_GoalBlocked              — 终点占据 → nullopt
+ * PlanFails_InvalidStepSize          — step_size=0 → nullopt
+ * OutputPoses_AreWorldCoordinates    — 所有输出位姿在 grid 范围内
+ *
+ * ==========================================================================
+ * 设计说明
+ * ==========================================================================
+ *   - Heuristic::Zero 将 A* 退化为 Dijkstra:
+ *     f(n) = g(n) + ε·h(n) 中 h=0 → f(n)=g(n)
+ *     此时算法按照实际代价 g(n) 逐层扩展, 等价于 BFS 在均匀代价网格上的行为
+ *   - findPathToAny 是 BFS 场景下的特有接口:
+ *     接受一个 goal predicate 函数而非单一目标坐标,
+ *     在搜索过程中遇到第一个满足条件的 cell 即返回,
+ *     用于 RoutePathSearch 中的"找最近可达路由节点"场景
+ *   - 带权代价测试 (PrefersLowerCostPath_WeightedGrid) 验证:
+ *     Dijkstra 的 g(n) 包含地形代价, 因此会选择累积代价更低的绕道路径,
+ *     而不是几何最短但代价更高的直线路径
+ *   - 与 A* 测试的关系:
+ *     bfs_test 专注于 h=0 的行为 (Dijkstra 模式),
+ *     astar_test 专注于 h>0 的行为 (启发式搜索);
+ *     两者共享 AStarAlgorithm 代码但验证不同的配置路径
+ *
+ * @author Jinghui Wang (wangjinghui@sjtu.edu.cn)
+ * @author IWIN-FINS Lab, Shanghai Jiao Tong University
+ * @date 2026-07-19
+ */
 
 #include <gtest/gtest.h>
 #include <cmath>

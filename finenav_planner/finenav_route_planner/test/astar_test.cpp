@@ -2,14 +2,95 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-// =============================================================
-// Unit tests for AStarAlgorithm
-//
-// Tests are organised in three groups:
-//   1. Core algorithm correctness (via lambda maps, no FineNav deps)
-//   2. Edge cases and search limits
-//   3. AstarPathSearch integration (IMapView + planner config)
-// =============================================================
+/**
+ * @file astar_test.cpp
+ * @brief A* 算法单元测试 — 覆盖核心引擎正确性 + PlannerConcept 集成
+ *
+ * @details
+ * ==========================================================================
+ * 测试总览
+ * ==========================================================================
+ * 本文件使用 Google Test 验证 AStarAlgorithm 核心引擎和 AstarPathSearch
+ * 包装器的正确性。测试按四个层次组织，从纯算法到 FineNav 框架集成逐层推进。
+ *
+ * 被测对象:
+ *   - AStarAlgorithm (astar:: 命名空间, 无 ROS 依赖)
+ *   - AstarPathSearch (finenav:: 命名空间, PlannerConcept 实现)
+ *
+ * 测试分层:
+ *   -# 2D 核心算法 — 开放空间寻路、路径长度、连续性、对角 vs 正交、
+ *      障碍规避 (lambda 回调, 不依赖 IMapView)
+ *   -# 边界条件与搜索限制 — 起点=终点、起点/终点被障碍占据、封闭目标、
+ *      max_iterations 截断
+ *   -# 3D 搜索 — N26 连通性、N6 面邻居路径长度
+ *   -# AstarPathSearch 集成 — TestMapView + PlanningContext + plan(),
+ *      覆盖成功/失败/世界坐标输出
+ *
+ * ==========================================================================
+ * 测试环境
+ * ==========================================================================
+ * 测试框架:     Google Test (GTest)
+ * 依赖:         finenav_route_planner, common/grid_map.hpp (测试工具)
+ * ROS 依赖:     无（核心算法层）, 仅 AstarPathSearch 集成层需要 ROS 2 头文件
+ * 构建:         colcon build --packages-select finenav_route_planner
+ *               自动作为 BUILD_TESTING 的一部分编译
+ *
+ * 运行:
+ * @code
+ *   cd ~/FineNav_ws
+ *   colcon test --packages-select finenav_route_planner
+ *   # 或直接运行可执行文件:
+ *   ./build/finenav_route_planner/test/astar_test
+ *   # 按名称过滤:
+ *   ./build/finenav_route_planner/test/astar_test --gtest_filter="AStarAlgorithm2D.*"
+ *   ./build/finenav_route_planner/test/astar_test --gtest_filter="AStarPathSearch.*"
+ * @endcode
+ *
+ * ==========================================================================
+ * 测试详细说明
+ * ==========================================================================
+ *
+ * --- Group 1: AStarAlgorithm2D (核心算法, 2D) ---
+ * FindsPath_OpenSpace             — 20×20 空网格, N4, (0,0)→(5,5) 可到达
+ * PathLength_Orthogonal           — 直线 5 步, N4, 验证路径长度 = 6 cells
+ * PathIsContinuous                — 验证相邻 cell 曼哈顿距离 = 1 (连续性)
+ * Diagonal_AllowedReducesPathLength — N8 路径长度 < N4 路径长度 (对角线更短)
+ * PathAvoidsObstacles             — x=3 处垂直墙, 验证路径不穿越障碍
+ *
+ * --- Group 2: 边界条件 ---
+ * StartEqualsGoal                 — 起点=终点 → 返回单 cell 路径
+ * StartBlocked_ReturnsNullopt     — 起点被占据 → nullopt
+ * GoalBlocked_ReturnsNullopt      — 终点被占据 → nullopt
+ * EnclosedGoal_ReturnsNullopt     — 终点被 8 邻域障碍包围, goal_tolerance=0 → nullopt
+ * MaxIterations_TerminatesEarly   — 1000² 网格, max_iterations=10 → 不挂死
+ *
+ * --- Group 3: AStarAlgorithm3D ---
+ * FindsPath_OpenVolume            — 全通 3D 空间, N26, (0,0,0)→(3,3,3)
+ * PathLength_FaceNeighbours       — N6 (面邻居), (0,0,0)→(0,0,4) = 5 cells
+ *
+ * --- Group 4: AstarPathSearch 集成 ---
+ * PlanSucceeds_OpenGrid           — 10×10 开放网格, goal_tolerance=0.6 → 成功
+ * PlanFails_GoalBlocked            — 终点 cell 被占据 → nullopt
+ * OutputPoses_AreWorldCoordinates  — 所有输出位姿的 x,y 在 [0,10) 范围内
+ *
+ * ==========================================================================
+ * 设计说明
+ * ==========================================================================
+ *   - 核心算法测试使用 lambda 回调 (is_walkable, get_cost) 直接操作 GridMap,
+ *     完全绕开 IMapView 抽象层, 保证测试的是纯算法逻辑
+ *   - GridMap 按值捕获到 lambda 中 (makeGridLambdas 的 [g] 捕获),
+ *     确保 lambda 拥有数据所有权, 临时 GridMap 对象也不会悬挂引用
+ *   - AstarPathSearch 集成层使用 TestMapView 适配 GridMap,
+ *     与生产环境的 OccGrid2DMap → IMapView 模式一致
+ *   - 3D 测试复用 2D 算法 (Vec3 的 x/y 作为 grid 坐标, z 作为 layer),
+ *     与代码中 DStarLiteAlgorithm 的多层支持对应
+ *   - MaxIterations_TerminatesEarly 只验证不挂死, 不验证路径正确性
+ *     (被截断后路径不完整是预期行为)
+ *
+ * @author Jinghui Wang (wangjinghui@sjtu.edu.cn)
+ * @author IWIN-FINS Lab, Shanghai Jiao Tong University
+ * @date 2026-07-19
+ */
 
 #include <gtest/gtest.h>
 #include <cmath>
