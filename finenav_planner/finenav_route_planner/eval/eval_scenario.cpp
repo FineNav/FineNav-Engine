@@ -60,6 +60,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -537,26 +538,81 @@ struct StageTimer {
     }
 };
 
+/// 写 _config.json 供 plot.py 自动同步参数
+static void writeConfigJSON() {
+    ensureOutputDir();
+    std::string p = std::string(cfg::kOutputDir) + "/_config.json";
+    std::ofstream f(p);
+    if (!f) return;
+    f << "{\n"
+      << "  \"grid_size\": " << cfg::kGridSize << ",\n"
+      << "  \"wall_x\": " << cfg::kWallX << ",\n"
+      << "  \"gap_y0\": " << cfg::kGapY0 << ",\n"
+      << "  \"gap_y1\": " << cfg::kGapY1 << ",\n"
+      << "  \"closure_y0\": " << cfg::kClosureY0 << ",\n"
+      << "  \"closure_y1\": " << cfg::kClosureY1 << ",\n"
+      << "  \"band_x0\": " << cfg::kBandX0 << ",\n"
+      << "  \"band_x1\": " << cfg::kBandX1 << ",\n"
+      << "  \"band_y0\": " << cfg::kBandY0 << ",\n"
+      << "  \"band_y1\": " << cfg::kBandY1 << ",\n"
+      << "  \"band_cost\": " << cfg::kTerrainBandCost << "\n"
+      << "}\n";
+    std::cout << "[_config.json] → " << p << "\n";
+}
+
+/// 打印格式化的数据对比表格
+static void printResultTable(const std::vector<PathResult>& results) {
+    if (results.empty()) return;
+
+    // 列宽
+    const int w_algo = 10, w_label = 10, w_len = 8, w_time = 10, w_cost = 8;
+    auto sep = [&](const char* l, const char* m, const char* r) {
+        std::cout << l;
+        for (int i = 0; i < w_algo + w_label + w_len + w_time + w_cost + 14; ++i)
+            std::cout << "─";
+        std::cout << r << "\n";
+    };
+
+    sep("┌", "┬", "┐");
+    printf("│ %-*s │ %-*s │ %*s │ %*s │ %*s │\n",
+           w_algo, "Algorithm", w_label, "Stage",
+           w_len, "Length", w_time, "Time(ms)", w_cost, "Cost");
+    sep("├", "┼", "┤");
+
+    for (const auto& r : results) {
+        printf("│ %-*s │ %-*s │ %*d │ %*.2f │ %*.0f │\n",
+               w_algo, r.algo.c_str(),
+               w_label, r.label.c_str(),
+               w_len,   (int)r.path.size(),
+               w_time,  r.compute_ms,
+               w_cost,  r.total_terrain_cost);
+    }
+    sep("└", "┴", "┘");
+    std::cout << "\n";
+}
+
 /// 处理单个 scenario 的 CSV 输出 + 自动调用 plot.py
 static void finishScenario(const EvalRun& run) {
     writePathsCSV(run.paths);
     writeStatsCSV(run.paths);
+    writeConfigJSON();
 
-    std::cout << "\n── " << run.name << " Summary ──\n";
-    for (const auto& r : run.paths) {
-        std::cout << "  [" << r.algo << "][" << r.label << "] "
-                  << "len=" << r.path.size()
-                  << "  time=" << r.compute_ms << " ms"
-                  << "  cost=" << r.total_terrain_cost << "\n";
-    }
+    std::cout << "\n── " << run.name << " ──\n";
+    printResultTable(run.paths);
 
-    // Auto-invoke plot.py
-    std::string cmd = "python3 src/FineNav-Engine/finenav_planner/finenav_route_planner/eval/plot.py "
+    // Auto-invoke plot.py（路径由 CMake 编译时注入，适配任意克隆位置）
+    std::string cmd = std::string("python3 ") + EVAL_DIR + "/plot.py "
                     + std::string(cfg::kOutputDir);
     std::cout << "\n[plot] " << std::flush;
     int ret = std::system(cmd.c_str());
     if (ret != 0)
         std::cerr << "[plot] Warning: plot.py exited with code " << ret << "\n";
+
+    // 清理临时文件
+    std::error_code ec;
+    fs::remove(std::string(cfg::kOutputDir) + "/paths.csv", ec);
+    fs::remove(std::string(cfg::kOutputDir) + "/stats.csv", ec);
+    fs::remove(std::string(cfg::kOutputDir) + "/_config.json", ec);
     std::cout << "\n";
 }
 

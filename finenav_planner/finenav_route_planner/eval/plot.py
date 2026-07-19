@@ -37,18 +37,40 @@ from matplotlib.lines import Line2D
 # ── Default output dir (mirrors cfg::kOutputDir) ────────────────────────────
 DEFAULT_DIR = "/tmp/dstarlite_eval"
 
-# ── Grid config constants — MUST match eval_config.hpp ───────────────────────
-GRID_SIZE      = 100
-# Scenario 2: wall with gap + closure (must match eval_config.hpp)
-KWallX         = 50
-KGapY0         = 30
-KGapY1         = 70
-KClosureY0     = 45   # closure seals y∈[45,55]
-KClosureY1     = 55
-# Scenario 3: terrain band
+# ── Grid config constants — auto-loaded from _config.json ─────────────────────
+GRID_SIZE       = 100
+KWallX          = 50
+KGapY0, KGapY1  = 30, 70
+KClosureY0, KClosureY1 = 45, 55
 KBandX0, KBandX1 = 35, 45
 KBandY0, KBandY1 = 10, 89
 KTerrainBandCost = 10.0
+
+
+def _load_config(out_dir):
+    """Read eval_config constants from _config.json, falling back to defaults."""
+    import json as _json
+    cfg_path = os.path.join(out_dir, "_config.json")
+    if not os.path.exists(cfg_path):
+        return
+    try:
+        with open(cfg_path) as f:
+            d = _json.load(f)
+        global GRID_SIZE, KWallX, KGapY0, KGapY1, KClosureY0, KClosureY1
+        global KBandX0, KBandX1, KBandY0, KBandY1, KTerrainBandCost
+        GRID_SIZE       = d.get("grid_size", GRID_SIZE)
+        KWallX          = d.get("wall_x", KWallX)
+        KGapY0          = d.get("gap_y0", KGapY0)
+        KGapY1          = d.get("gap_y1", KGapY1)
+        KClosureY0      = d.get("closure_y0", KClosureY0)
+        KClosureY1      = d.get("closure_y1", KClosureY1)
+        KBandX0         = d.get("band_x0", KBandX0)
+        KBandX1         = d.get("band_x1", KBandX1)
+        KBandY0         = d.get("band_y0", KBandY0)
+        KBandY1         = d.get("band_y1", KBandY1)
+        KTerrainBandCost = d.get("band_cost", KTerrainBandCost)
+    except Exception:
+        pass  # keep defaults
 
 # ── Colour palette ──────────────────────────────────────────────────────────
 ALGO_COLORS = {
@@ -299,6 +321,8 @@ def main():
         print("  Run the eval first:")
         print("    ./build/finenav_route_planner/eval/route_planner_eval")
         sys.exit(1)
+
+    _load_config(out_dir)
 
     paths_df = pd.read_csv(paths_path)
     stats_df = pd.read_csv(stats_path)
