@@ -89,6 +89,9 @@ if (BUILD_TESTING)
     add_subdirectory(test/benchmark)
 endif ()
 
+# ── standalone eval (always built, no ROS deps) ─────────────────────────
+add_subdirectory(eval)
+
 install(TARGETS astar_params bfs_params route_params dstarlite_params
         EXPORT export_${PROJECT_NAME}_params
         ARCHIVE DESTINATION lib
