@@ -105,18 +105,18 @@
 // Build a simple walkable-everywhere lambda map for AStarAlgorithm.
 inline auto makeOpenMap()
 {
-    return [](const astar::Vec3&) { return true; };
+    return [](const finenav::Vec3&) { return true; };
 }
 
 // Build a lambda map backed by GridMap.
 // Takes GridMap by VALUE so lambdas own the data and are safe
 // even when called with a temporary GridMap argument.
-inline auto makeGridLambdas(astar::GridMap g, double /*res*/ = 1.0)
+inline auto makeGridLambdas(finenav::GridMap g, double /*res*/ = 1.0)
 {
-    auto is_walkable = [g](const astar::Vec3& c) -> bool {
+    auto is_walkable = [g](const finenav::Vec3& c) -> bool {
         return g.isWalkableCell(c.x, c.y);
     };
-    auto get_cost = [g](const astar::Vec3& c) -> double {
+    auto get_cost = [g](const finenav::Vec3& c) -> double {
         return g.getCostCell(c.x, c.y);
     };
     return std::make_pair(is_walkable, get_cost);
@@ -128,20 +128,20 @@ inline auto makeGridLambdas(astar::GridMap g, double /*res*/ = 1.0)
 
 TEST(AStarAlgorithm2D, FindsPath_OpenSpace)
 {
-    auto [is_walkable, get_cost] = makeGridLambdas(astar::GridMap(20, 20));
+    auto [is_walkable, get_cost] = makeGridLambdas(finenav::GridMap(20, 20));
     astar::AStarAlgorithm algo(is_walkable, get_cost);
     algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
 
     auto path = algo.findPath({0, 0, 0}, {5, 5, 0});
     ASSERT_TRUE(path.has_value());
-    EXPECT_EQ(path->front(), (astar::Vec3{0, 0, 0}));
-    EXPECT_EQ(path->back(),  (astar::Vec3{5, 5, 0}));
+    EXPECT_EQ(path->front(), (finenav::Vec3{0, 0, 0}));
+    EXPECT_EQ(path->back(),  (finenav::Vec3{5, 5, 0}));
 }
 
 TEST(AStarAlgorithm2D, PathLength_Orthogonal)
 {
     // Straight line of 5 steps → 6 cells including start
-    auto [is_walkable, get_cost] = makeGridLambdas(astar::GridMap(20, 20));
+    auto [is_walkable, get_cost] = makeGridLambdas(finenav::GridMap(20, 20));
     astar::AStarAlgorithm algo(is_walkable, get_cost);
     algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
 
@@ -153,7 +153,7 @@ TEST(AStarAlgorithm2D, PathLength_Orthogonal)
 TEST(AStarAlgorithm2D, PathIsContinuous)
 {
     // Every consecutive pair of cells differs by exactly 1 in one axis.
-    auto [is_walkable, get_cost] = makeGridLambdas(astar::GridMap(20, 20));
+    auto [is_walkable, get_cost] = makeGridLambdas(finenav::GridMap(20, 20));
     astar::AStarAlgorithm algo(is_walkable, get_cost);
     algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
 
@@ -172,7 +172,7 @@ TEST(AStarAlgorithm2D, PathIsContinuous)
 
 TEST(AStarAlgorithm2D, Diagonal_AllowedReducesPathLength)
 {
-    auto [iw, gc] = makeGridLambdas(astar::GridMap(20, 20));
+    auto [iw, gc] = makeGridLambdas(finenav::GridMap(20, 20));
 
     astar::AStarAlgorithm ortho(iw, gc);
     ortho.setConnectivity(astar::AStarAlgorithm::Connectivity::N4);
@@ -189,7 +189,7 @@ TEST(AStarAlgorithm2D, Diagonal_AllowedReducesPathLength)
 
 TEST(AStarAlgorithm2D, PathAvoidsObstacles)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     // Vertical wall at x=3, y=0..8
     for (int y = 0; y <= 8; ++y)
         grid.setObstacle(3, y, true);
@@ -213,18 +213,18 @@ TEST(AStarAlgorithm2D, PathAvoidsObstacles)
 
 TEST(AStarAlgorithm2D, StartEqualsGoal)
 {
-    auto [iw, gc] = makeGridLambdas(astar::GridMap(10, 10));
+    auto [iw, gc] = makeGridLambdas(finenav::GridMap(10, 10));
     astar::AStarAlgorithm algo(iw, gc);
     auto path = algo.findPath({3, 3, 0}, {3, 3, 0});
     // A single-cell path is valid
     ASSERT_TRUE(path.has_value());
     EXPECT_EQ(path->size(), 1u);
-    EXPECT_EQ(path->front(), (astar::Vec3{3, 3, 0}));
+    EXPECT_EQ(path->front(), (finenav::Vec3{3, 3, 0}));
 }
 
 TEST(AStarAlgorithm2D, StartBlocked_ReturnsNullopt)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     grid.setObstacle(0, 0, true);
     auto [iw, gc] = makeGridLambdas(grid);
     astar::AStarAlgorithm algo(iw, gc);
@@ -233,7 +233,7 @@ TEST(AStarAlgorithm2D, StartBlocked_ReturnsNullopt)
 
 TEST(AStarAlgorithm2D, GoalBlocked_ReturnsNullopt)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     grid.setObstacle(5, 5, true);
     auto [iw, gc] = makeGridLambdas(grid);
     astar::AStarAlgorithm algo(iw, gc);
@@ -242,7 +242,7 @@ TEST(AStarAlgorithm2D, GoalBlocked_ReturnsNullopt)
 
 TEST(AStarAlgorithm2D, EnclosedGoal_ReturnsNullopt)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     // Surround goal (5,5) with a solid ring
     for (int d = -1; d <= 1; ++d) {
         grid.setObstacle(4, 5 + d, true);
@@ -259,7 +259,7 @@ TEST(AStarAlgorithm2D, EnclosedGoal_ReturnsNullopt)
 
 TEST(AStarAlgorithm2D, MaxIterations_TerminatesEarly)
 {
-    auto [iw, gc] = makeGridLambdas(astar::GridMap(1000, 1000));
+    auto [iw, gc] = makeGridLambdas(finenav::GridMap(1000, 1000));
     astar::AStarAlgorithm algo(iw, gc);
     algo.setMaxIterations(10);
     algo.setGoalTolerance(0.0);
@@ -278,23 +278,23 @@ TEST(AStarAlgorithm2D, MaxIterations_TerminatesEarly)
 TEST(AStarAlgorithm3D, FindsPath_OpenVolume)
 {
     // All-walkable 3D space via lambda
-    auto is_walkable = [](const astar::Vec3&) { return true; };
-    auto get_cost    = [](const astar::Vec3&) { return 0.0; };
+    auto is_walkable = [](const finenav::Vec3&) { return true; };
+    auto get_cost    = [](const finenav::Vec3&) { return 0.0; };
 
     astar::AStarAlgorithm algo(is_walkable, get_cost);
     algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N26);
 
     auto path = algo.findPath({0, 0, 0}, {3, 3, 3});
     ASSERT_TRUE(path.has_value());
-    EXPECT_EQ(path->front(), (astar::Vec3{0, 0, 0}));
-    EXPECT_EQ(path->back(),  (astar::Vec3{3, 3, 3}));
+    EXPECT_EQ(path->front(), (finenav::Vec3{0, 0, 0}));
+    EXPECT_EQ(path->back(),  (finenav::Vec3{3, 3, 3}));
 }
 
 TEST(AStarAlgorithm3D, PathLength_FaceNeighbours)
 {
     // With face-only neighbours, cost from (0,0,0) to (0,0,4) = 5 cells
-    auto is_walkable = [](const astar::Vec3&) { return true; };
-    auto get_cost    = [](const astar::Vec3&) { return 0.0; };
+    auto is_walkable = [](const finenav::Vec3&) { return true; };
+    auto get_cost    = [](const finenav::Vec3&) { return 0.0; };
 
     astar::AStarAlgorithm algo(is_walkable, get_cost);
     algo.setConnectivity(astar::AStarAlgorithm::Connectivity::N6);
@@ -311,7 +311,7 @@ TEST(AStarAlgorithm3D, PathLength_FaceNeighbours)
 // Minimal IMapView implementation backed by GridMap
 class TestMapView : public finenav::AstarPathSearch::IMapView {
 public:
-    TestMapView(const astar::GridMap& g, double step_size)
+    TestMapView(const finenav::GridMap& g, double step_size)
         : grid_(g), step_(step_size) {}
 
     bool isWalkable(const finenav::Position3D& p) const override {
@@ -327,7 +327,7 @@ public:
     double getStepSize() const override { return step_; }
 
 private:
-    const astar::GridMap& grid_;
+    const finenav::GridMap& grid_;
     double step_;
 };
 
@@ -359,7 +359,7 @@ makeCtx(double sx, double sy, double gx, double gy)
 
 TEST(AstarPathSearch, PlanSucceeds_OpenGrid)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
     auto planner = makePlanner();
 
@@ -370,7 +370,7 @@ TEST(AstarPathSearch, PlanSucceeds_OpenGrid)
 
 TEST(AstarPathSearch, PlanFails_GoalBlocked)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     grid.setObstacle(5, 5, true);
     TestMapView view(grid, 1.0);
     auto planner = makePlanner();
@@ -381,7 +381,7 @@ TEST(AstarPathSearch, PlanFails_GoalBlocked)
 
 TEST(AstarPathSearch, OutputPoses_AreWorldCoordinates)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
     auto planner = makePlanner();
 

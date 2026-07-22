@@ -16,7 +16,19 @@
 #include "finenav_route_planner/common/heuristic.hpp"            // Heuristic, calculateHeuristic
 #include "finenav_route_planner/common/priority_key.hpp"         // Key, kInf
 
-namespace astar {
+namespace dstarlite {
+
+// ── 从 finenav 引入通用栅格搜索类型 ──────────────────────────────────
+using finenav::Vec3;
+using finenav::Vec3Hash;
+using finenav::Heuristic;
+using finenav::Connectivity;
+using finenav::Key;
+using finenav::kInf;
+using finenav::kKeyEpsilon;
+using finenav::calculateHeuristic;
+using finenav::getNeighbors;
+using finenav::calculateStepCost;
 
 /**
  * @brief 有状态的 D* Lite 增量搜索引擎，支持 2-D / 3-D 栅格地图
@@ -338,4 +350,4 @@ private:
     mutable std::recursive_mutex mutex_;  // 递归互斥锁（部分函数内部嵌套调用）
 };
 
-}  // namespace astar
+}  // namespace dstarlite

@@ -20,18 +20,18 @@ namespace finenav {
 void DStarLitePathSearch::configure(const ConfigType& params)
 {
     // ── 解析连接方式字符串 → Connectivity 枚举 ──
-    astar::Connectivity new_conn = astar::Connectivity::N8;
-    if      (params.connectivity == "4")  new_conn = astar::Connectivity::N4;
-    else if (params.connectivity == "8")  new_conn = astar::Connectivity::N8;
-    else if (params.connectivity == "6")  new_conn = astar::Connectivity::N6;
-    else if (params.connectivity == "18") new_conn = astar::Connectivity::N18;
-    else if (params.connectivity == "26") new_conn = astar::Connectivity::N26;
+    finenav::Connectivity new_conn = finenav::Connectivity::N8;
+    if      (params.connectivity == "4")  new_conn = finenav::Connectivity::N4;
+    else if (params.connectivity == "8")  new_conn = finenav::Connectivity::N8;
+    else if (params.connectivity == "6")  new_conn = finenav::Connectivity::N6;
+    else if (params.connectivity == "18") new_conn = finenav::Connectivity::N18;
+    else if (params.connectivity == "26") new_conn = finenav::Connectivity::N26;
 
     // ── 解析启发函数字符串 → Heuristic 枚举 ──
-    astar::Heuristic new_heur = astar::Heuristic::Diagonal;
-    if      (params.heuristic == "Manhattan") new_heur = astar::Heuristic::Manhattan;
-    else if (params.heuristic == "Euclidean") new_heur = astar::Heuristic::Euclidean;
-    else if (params.heuristic == "Chebyshev") new_heur = astar::Heuristic::Chebyshev;
+    finenav::Heuristic new_heur = finenav::Heuristic::Diagonal;
+    if      (params.heuristic == "Manhattan") new_heur = finenav::Heuristic::Manhattan;
+    else if (params.heuristic == "Euclidean") new_heur = finenav::Heuristic::Euclidean;
+    else if (params.heuristic == "Chebyshev") new_heur = finenav::Heuristic::Chebyshev;
 
     // ── 读取数值参数 ──
     goal_tolerance_m_  = params.goal_tolerance;
@@ -91,22 +91,22 @@ DStarLitePathSearch::Result DStarLitePathSearch::plan(
     step_size_ = step;
 
     // ── 世界坐标 ↔ 栅格坐标转换（与 AstarPathSearch 保持一致）──
-    auto worldToCell = [step](double x, double y, double z) -> astar::Vec3 {
+    auto worldToCell = [step](double x, double y, double z) -> finenav::Vec3 {
         return {static_cast<int>(std::floor(x / step)),
                 static_cast<int>(std::floor(y / step)),
                 static_cast<int>(std::floor(z / step))};
     };
 
-    auto cellCentre = [step](const astar::Vec3& c) -> Position3D {
+    auto cellCentre = [step](const finenav::Vec3& c) -> Position3D {
         return {(c.x + 0.5) * step,
                 (c.y + 0.5) * step,
                 (c.z + 0.5) * step};
     };
 
-    auto is_walkable = [&](const astar::Vec3& c) -> bool {
+    auto is_walkable = [&](const finenav::Vec3& c) -> bool {
         return map_view.isWalkable(cellCentre(c));
     };
-    auto get_cost = [&](const astar::Vec3& c) -> double {
+    auto get_cost = [&](const finenav::Vec3& c) -> double {
         return map_view.getCost(cellCentre(c));
     };
 
@@ -114,8 +114,8 @@ DStarLitePathSearch::Result DStarLitePathSearch::plan(
     const auto& sp = ctx.robot_state.position;
     const auto& gp = ctx.goal_pose.position;
 
-    astar::Vec3 start_cell = worldToCell(sp.x(), sp.y(), sp.z());
-    astar::Vec3 goal_cell  = worldToCell(gp.x,  gp.y,  gp.z);
+    finenav::Vec3 start_cell = worldToCell(sp.x(), sp.y(), sp.z());
+    finenav::Vec3 goal_cell  = worldToCell(gp.x,  gp.y,  gp.z);
 
     // ── 从 IMapView 读取栅格维度 ──
     const int rows   = map_view.rows();
@@ -141,14 +141,14 @@ DStarLitePathSearch::Result DStarLitePathSearch::plan(
 
     if (dimensions_changed) {
         // 情况 1：首次调用或栅格尺寸发生变化 → 完全重建引擎
-        auto is_walkable = [&](const astar::Vec3& c) -> bool {
+        auto is_walkable = [&](const finenav::Vec3& c) -> bool {
             return map_view.isWalkable(cellCentre(c));
         };
-        auto get_cost = [&](const astar::Vec3& c) -> double {
+        auto get_cost = [&](const finenav::Vec3& c) -> double {
             return map_view.getCost(cellCentre(c));
         };
 
-        engine_ = std::make_unique<astar::DStarLiteAlgorithm>(
+        engine_ = std::make_unique<dstarlite::DStarLiteAlgorithm>(
             rows, cols, is_walkable, get_cost,
             connectivity_, heuristic_, layers);
 

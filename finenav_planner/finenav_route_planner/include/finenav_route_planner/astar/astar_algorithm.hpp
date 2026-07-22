@@ -19,6 +19,17 @@
 
 namespace astar {
 
+// ── 从 finenav 引入通用栅格搜索类型 ──────────────────────────────────
+using finenav::Vec3;
+using finenav::Vec3Hash;
+using finenav::Heuristic;
+using finenav::Connectivity;
+using finenav::calculateHeuristic;
+using finenav::getNeighbors;
+using finenav::calculateStepCost;
+using finenav::cellDistance;
+using finenav::reconstructPathImpl;
+
 /**
  * @brief A* 搜索的内部节点结构，统一使用 Vec3 坐标
  * @details 每个节点记录三个核心代价：
@@ -61,7 +72,7 @@ struct AstarNodeCompare {
 class AStarAlgorithm {
 public:
 
-    using Connectivity = astar::Connectivity;   // 重导出，方便外部使用
+    using Connectivity = finenav::Connectivity;   // 重导出，方便外部使用
 
     /// 可通行性回调：传入栅格坐标，返回该格是否可通行
     using IsWalkableFn = std::function<bool(const Vec3&)>;

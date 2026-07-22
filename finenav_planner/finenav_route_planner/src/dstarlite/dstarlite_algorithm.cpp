@@ -9,7 +9,18 @@
 #include <iostream>
 #include <stdexcept>
 
-namespace astar {
+namespace dstarlite {
+
+using finenav::Vec3;
+using finenav::Vec3Hash;
+using finenav::Heuristic;
+using finenav::Connectivity;
+using finenav::Key;
+using finenav::kInf;
+using finenav::kKeyEpsilon;
+using finenav::calculateHeuristic;
+using finenav::getNeighbors;
+using finenav::calculateStepCost;
 
 // ===== 构造 =====
 
@@ -551,4 +562,4 @@ void DStarLiteAlgorithm::checkBounds(const Vec3& p) const {
     }
 }
 
-}  // namespace astar
+}  // namespace dstarlite

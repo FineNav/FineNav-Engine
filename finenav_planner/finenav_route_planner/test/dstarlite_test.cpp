@@ -110,7 +110,7 @@
  *      (不像 AStarAlgorithm 从 lambda 推断), 因为引擎需预分配
  *      全部节点的 rhs/g 值存储
  *   -# TestMapView 实现了 DStarLitePathSearch::IMapView 的全部接口:
- *      isWalkable + getCost + getStepSize (继承自 astar::IMapView)
+ *      isWalkable + getCost + getStepSize (继承自 finenav::IMapView)
  *      + rows() + cols() + layers() (D* Lite 特有, 用于引擎初始化)
  *
  * @author Jinghui Wang (wangjinghui@sjtu.edu.cn)
@@ -131,18 +131,18 @@
 // ═══════════════════════════════════════════════════════════════════
 
 // Build a DStarLiteAlgorithm over a GridMap using lambda callbacks.
-inline astar::DStarLiteAlgorithm makeEngine(
-    const astar::GridMap& g,
-    astar::Connectivity  conn = astar::Connectivity::N8,
-    astar::Heuristic     heur = astar::Heuristic::Diagonal)
+inline dstarlite::DStarLiteAlgorithm makeEngine(
+    const finenav::GridMap& g,
+    finenav::Connectivity  conn = finenav::Connectivity::N8,
+    finenav::Heuristic     heur = finenav::Heuristic::Diagonal)
 {
-    auto is_walkable = [g](const astar::Vec3& c) {
+    auto is_walkable = [g](const finenav::Vec3& c) {
         return g.isWalkableCell(c.x, c.y);
     };
-    auto get_cost = [g](const astar::Vec3& c) {
+    auto get_cost = [g](const finenav::Vec3& c) {
         return g.getCostCell(c.x, c.y);
     };
-    return astar::DStarLiteAlgorithm(g.getHeight(), g.getWidth(),
+    return dstarlite::DStarLiteAlgorithm(g.getHeight(), g.getWidth(),
                                  is_walkable, get_cost, conn, heur);
 }
 
@@ -154,36 +154,36 @@ inline astar::DStarLiteAlgorithm makeEngine(
 
 TEST(DStarLiteAlgorithm, FindsPath_OpenSpace)
 {
-    auto engine = makeEngine(astar::GridMap(20, 20));
+    auto engine = makeEngine(finenav::GridMap(20, 20));
     engine.initialize({0, 0, 0}, {5, 5, 0});
     engine.computeShortestPath();
     auto path = engine.extractPath();
 
     ASSERT_FALSE(path.empty());
-    EXPECT_EQ(path.front(), (astar::Vec3{0, 0, 0}));
-    EXPECT_EQ(path.back(),  (astar::Vec3{5, 5, 0}));
+    EXPECT_EQ(path.front(), (finenav::Vec3{0, 0, 0}));
+    EXPECT_EQ(path.back(),  (finenav::Vec3{5, 5, 0}));
 }
 
 TEST(DStarLiteAlgorithm, StartEqualsGoal)
 {
-    auto engine = makeEngine(astar::GridMap(10, 10));
+    auto engine = makeEngine(finenav::GridMap(10, 10));
     engine.initialize({3, 3, 0}, {3, 3, 0});
     engine.computeShortestPath();
     auto path = engine.extractPath();
 
     ASSERT_FALSE(path.empty());
     EXPECT_EQ(path.size(), 1u);
-    EXPECT_EQ(path.front(), (astar::Vec3{3, 3, 0}));
+    EXPECT_EQ(path.front(), (finenav::Vec3{3, 3, 0}));
 }
 
 TEST(DStarLiteAlgorithm, Diagonal_ShorterPath)
 {
-    auto ortho = makeEngine(astar::GridMap(20, 20), astar::Connectivity::N4);
+    auto ortho = makeEngine(finenav::GridMap(20, 20), finenav::Connectivity::N4);
     ortho.initialize({0, 0, 0}, {5, 5, 0});
     ortho.computeShortestPath();
     auto path_ortho = ortho.extractPath();
 
-    auto diag = makeEngine(astar::GridMap(20, 20), astar::Connectivity::N8);
+    auto diag = makeEngine(finenav::GridMap(20, 20), finenav::Connectivity::N8);
     diag.initialize({0, 0, 0}, {5, 5, 0});
     diag.computeShortestPath();
     auto path_diag = diag.extractPath();
@@ -195,7 +195,7 @@ TEST(DStarLiteAlgorithm, Diagonal_ShorterPath)
 
 TEST(DStarLiteAlgorithm, PathIsContinuous_N4)
 {
-    auto engine = makeEngine(astar::GridMap(10, 10), astar::Connectivity::N4);
+    auto engine = makeEngine(finenav::GridMap(10, 10), finenav::Connectivity::N4);
     engine.initialize({1, 1, 0}, {5, 5, 0});
     engine.computeShortestPath();
     auto path = engine.extractPath();
@@ -213,7 +213,7 @@ TEST(DStarLiteAlgorithm, PathIsContinuous_N4)
 
 TEST(DStarLiteAlgorithm, GoalBlocked_ReturnsEmpty)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     grid.setObstacle(5, 5, true);
     auto engine = makeEngine(grid);
     engine.initialize({0, 0, 0}, {5, 5, 0});
@@ -223,11 +223,11 @@ TEST(DStarLiteAlgorithm, GoalBlocked_ReturnsEmpty)
 
 TEST(DStarLiteAlgorithm, PathAvoidsObstacles)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     // Build a vertical wall at x=3
     for (int y = 0; y <= 8; ++y) grid.setObstacle(3, y, true);
 
-    auto engine = makeEngine(grid, astar::Connectivity::N4);
+    auto engine = makeEngine(grid, finenav::Connectivity::N4);
     engine.initialize({0, 5, 0}, {6, 5, 0});
     engine.computeShortestPath();
     auto path = engine.extractPath();
@@ -243,7 +243,7 @@ TEST(DStarLiteAlgorithm, PathAvoidsObstacles)
 
 TEST(DStarLiteAlgorithm, Replan_AdaptsToNewObstacle)
 {
-    auto engine = makeEngine(astar::GridMap(10, 10));
+    auto engine = makeEngine(finenav::GridMap(10, 10));
     engine.initialize({0, 0, 0}, {9, 9, 0});
     engine.computeShortestPath();
     auto path1 = engine.extractPath();
@@ -268,7 +268,7 @@ TEST(DStarLiteAlgorithm, Replan_AdaptsToNewObstacle)
 TEST(DStarLiteAlgorithm, RemoveObstacle_OpensNewPath)
 {
     // Full vertical wall at x=5
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     for (int y = 0; y <= 9; ++y) grid.setObstacle(5, y, true);
     auto engine = makeEngine(grid);
 
@@ -293,16 +293,16 @@ TEST(DStarLiteAlgorithm, RemoveObstacle_OpensNewPath)
 TEST(DStarLiteAlgorithm, SyncMap_DetectsChanges)
 {
     // Start with an all-free map, then add an obstacle externally.
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
 
-    auto is_walkable = [&grid](const astar::Vec3& c) {
+    auto is_walkable = [&grid](const finenav::Vec3& c) {
         return grid.isWalkableCell(c.x, c.y);
     };
-    auto get_cost = [&grid](const astar::Vec3& c) {
+    auto get_cost = [&grid](const finenav::Vec3& c) {
         return grid.getCostCell(c.x, c.y);
     };
 
-    astar::DStarLiteAlgorithm engine(grid.getHeight(), grid.getWidth(),
+    dstarlite::DStarLiteAlgorithm engine(grid.getHeight(), grid.getWidth(),
                                  is_walkable, get_cost);
 
     engine.initialize({0, 0, 0}, {9, 9, 0});
@@ -330,7 +330,7 @@ TEST(DStarLiteAlgorithm, SyncMap_DetectsChanges)
 
 TEST(DStarLiteAlgorithm, MaxExpansions_TerminatesEarly)
 {
-    auto engine = makeEngine(astar::GridMap(1000, 1000));
+    auto engine = makeEngine(finenav::GridMap(1000, 1000));
     engine.setMaxExpansions(50);
     engine.setGoalTolerance(0);
     engine.initialize({0, 0, 0}, {999, 999, 0});
@@ -343,7 +343,7 @@ TEST(DStarLiteAlgorithm, MaxExpansions_TerminatesEarly)
 
 TEST(DStarLiteAlgorithm, GoalTolerance_NearGoalSuccess)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     // Block goal (5,5) and its immediate Manhattan neighbours
     grid.setObstacle(5, 5, true);
     grid.setObstacle(4, 5, true);
@@ -367,20 +367,20 @@ TEST(DStarLiteAlgorithm, GoalTolerance_NearGoalSuccess)
 
 TEST(DStarLiteAlgorithm, ThreeD_FindsPath_OpenVolume)
 {
-    auto walk = [](const astar::Vec3&) { return true; };
-    auto cost = [](const astar::Vec3&) { return 0.0; };
+    auto walk = [](const finenav::Vec3&) { return true; };
+    auto cost = [](const finenav::Vec3&) { return 0.0; };
 
-    astar::DStarLiteAlgorithm engine(5, 5, walk, cost,
-                                 astar::Connectivity::N26,
-                                 astar::Heuristic::Diagonal,
+    dstarlite::DStarLiteAlgorithm engine(5, 5, walk, cost,
+                                 finenav::Connectivity::N26,
+                                 finenav::Heuristic::Diagonal,
                                  5);  // 5 layers
     engine.initialize({0, 0, 0}, {3, 3, 3});
     engine.computeShortestPath();
     auto path = engine.extractPath();
 
     ASSERT_FALSE(path.empty());
-    EXPECT_EQ(path.front(), (astar::Vec3{0, 0, 0}));
-    EXPECT_EQ(path.back(),  (astar::Vec3{3, 3, 3}));
+    EXPECT_EQ(path.front(), (finenav::Vec3{0, 0, 0}));
+    EXPECT_EQ(path.back(),  (finenav::Vec3{3, 3, 3}));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -388,11 +388,11 @@ TEST(DStarLiteAlgorithm, ThreeD_FindsPath_OpenVolume)
 // ═══════════════════════════════════════════════════════════════════
 
 // TestMapView: wraps GridMap into DStarLitePathSearch::IMapView.
-// Must provide isWalkable, getCost, getStepSize (from astar::IMapView)
+// Must provide isWalkable, getCost, getStepSize (from finenav::IMapView)
 // PLUS rows, cols, layers (from DStarLitePathSearch::IMapView).
 class TestMapView : public finenav::DStarLitePathSearch::IMapView {
 public:
-    TestMapView(const astar::GridMap& g, double step_size)
+    TestMapView(const finenav::GridMap& g, double step_size)
         : grid_(g), step_(step_size) {}
 
     bool isWalkable(const finenav::core::Position3D& p) const override {
@@ -412,7 +412,7 @@ public:
     int layers() const override { return 1; }
 
 private:
-    const astar::GridMap& grid_;
+    const finenav::GridMap& grid_;
     double step_;
 };
 
@@ -441,7 +441,7 @@ makeCtx(double sx, double sy, double gx, double gy)
 
 TEST(DStarLitePathSearch, PlanSucceeds_OpenGrid)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
     finenav::DStarLitePathSearch planner;
     configurePlanner(planner);
@@ -452,7 +452,7 @@ TEST(DStarLitePathSearch, PlanSucceeds_OpenGrid)
 
 TEST(DStarLitePathSearch, PlanFails_GoalBlocked)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     // Block the goal and all neighbours so goal tolerance can't rescue.
     for (int dy = -1; dy <= 1; ++dy)
         for (int dx = -1; dx <= 1; ++dx)
@@ -465,7 +465,7 @@ TEST(DStarLitePathSearch, PlanFails_GoalBlocked)
 
 TEST(DStarLitePathSearch, PlanFails_InvalidStepSize)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 0.0);
     finenav::DStarLitePathSearch planner;
     configurePlanner(planner);
@@ -474,7 +474,7 @@ TEST(DStarLitePathSearch, PlanFails_InvalidStepSize)
 
 TEST(DStarLitePathSearch, OutputPoses_AreWorldCoordinates)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
     finenav::DStarLitePathSearch planner;
     configurePlanner(planner);
@@ -490,7 +490,7 @@ TEST(DStarLitePathSearch, OutputPoses_AreWorldCoordinates)
 
 TEST(DStarLitePathSearch, ReplanAfterObstacleChange)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
     finenav::DStarLitePathSearch planner;
     configurePlanner(planner);
@@ -522,7 +522,7 @@ TEST(DStarLitePathSearch, ReplanAfterObstacleChange)
 
 TEST(DStarLitePathSearch, Reset_ClearsEngineState)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
     finenav::DStarLitePathSearch planner;
     configurePlanner(planner);

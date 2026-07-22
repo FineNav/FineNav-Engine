@@ -114,16 +114,16 @@
 // ── helpers ──────────────────────────────────────────────────────────────
 
 // Build a Dijkstra-mode (h=0) AStarAlgorithm over a GridMap.
-inline astar::AStarAlgorithm makeDijkstra(const astar::GridMap& g)
+inline astar::AStarAlgorithm makeDijkstra(const finenav::GridMap& g)
 {
-    auto is_walkable = [g](const astar::Vec3& c) {
+    auto is_walkable = [g](const finenav::Vec3& c) {
         return g.isWalkableCell(c.x, c.y);
     };
-    auto get_cost = [g](const astar::Vec3& c) {
+    auto get_cost = [g](const finenav::Vec3& c) {
         return g.getCostCell(c.x, c.y);
     };
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setHeuristic(astar::Heuristic::Zero);
+    algo.setHeuristic(finenav::Heuristic::Zero);
     return algo;
 }
 
@@ -131,19 +131,19 @@ inline astar::AStarAlgorithm makeDijkstra(const astar::GridMap& g)
 
 TEST(BfsAlgorithm2D, FindsPath_OpenSpace)
 {
-    auto algo = makeDijkstra(astar::GridMap(20, 20));
-    algo.setConnectivity(astar::Connectivity::N4);
+    auto algo = makeDijkstra(finenav::GridMap(20, 20));
+    algo.setConnectivity(finenav::Connectivity::N4);
 
     auto path = algo.findPath({0, 0, 0}, {5, 5, 0});
     ASSERT_TRUE(path.has_value());
-    EXPECT_EQ(path->front(), (astar::Vec3{0, 0, 0}));
-    EXPECT_EQ(path->back(),  (astar::Vec3{5, 5, 0}));
+    EXPECT_EQ(path->front(), (finenav::Vec3{0, 0, 0}));
+    EXPECT_EQ(path->back(),  (finenav::Vec3{5, 5, 0}));
 }
 
 TEST(BfsAlgorithm2D, PathLength_Orthogonal)
 {
-    auto algo = makeDijkstra(astar::GridMap(20, 20));
-    algo.setConnectivity(astar::Connectivity::N4);
+    auto algo = makeDijkstra(finenav::GridMap(20, 20));
+    algo.setConnectivity(finenav::Connectivity::N4);
 
     auto path = algo.findPath({0, 0, 0}, {5, 0, 0});
     ASSERT_TRUE(path.has_value());
@@ -152,14 +152,14 @@ TEST(BfsAlgorithm2D, PathLength_Orthogonal)
 
 TEST(BfsAlgorithm2D, Diagonal_AllowedReducesPathLength)
 {
-    astar::GridMap grid(20, 20);
+    finenav::GridMap grid(20, 20);
     auto ortho = makeDijkstra(grid);
-    ortho.setConnectivity(astar::Connectivity::N4);
+    ortho.setConnectivity(finenav::Connectivity::N4);
     auto path_ortho = ortho.findPath({0, 0, 0}, {5, 5, 0});
     ASSERT_TRUE(path_ortho.has_value());
 
     auto diag = makeDijkstra(grid);
-    diag.setConnectivity(astar::Connectivity::N8);
+    diag.setConnectivity(finenav::Connectivity::N8);
     auto path_diag = diag.findPath({0, 0, 0}, {5, 5, 0});
     ASSERT_TRUE(path_diag.has_value());
 
@@ -168,11 +168,11 @@ TEST(BfsAlgorithm2D, Diagonal_AllowedReducesPathLength)
 
 TEST(BfsAlgorithm2D, PathAvoidsObstacles)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     for (int y = 0; y <= 8; ++y) grid.setObstacle(3, y, true);
 
     auto algo = makeDijkstra(grid);
-    algo.setConnectivity(astar::Connectivity::N4);
+    algo.setConnectivity(finenav::Connectivity::N4);
 
     auto path = algo.findPath({0, 5, 0}, {6, 5, 0});
     ASSERT_TRUE(path.has_value());
@@ -184,16 +184,16 @@ TEST(BfsAlgorithm2D, PathAvoidsObstacles)
 
 TEST(BfsAlgorithm2D, StartEqualsGoal)
 {
-    auto algo = makeDijkstra(astar::GridMap(10, 10));
+    auto algo = makeDijkstra(finenav::GridMap(10, 10));
     auto path = algo.findPath({3, 3, 0}, {3, 3, 0});
     ASSERT_TRUE(path.has_value());
     EXPECT_EQ(path->size(), 1u);
-    EXPECT_EQ(path->front(), (astar::Vec3{3, 3, 0}));
+    EXPECT_EQ(path->front(), (finenav::Vec3{3, 3, 0}));
 }
 
 TEST(BfsAlgorithm2D, GoalBlocked_ReturnsNullopt)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     grid.setObstacle(5, 5, true);
     auto algo = makeDijkstra(grid);
     EXPECT_FALSE(algo.findPath({0, 0, 0}, {5, 5, 0}).has_value());
@@ -201,7 +201,7 @@ TEST(BfsAlgorithm2D, GoalBlocked_ReturnsNullopt)
 
 TEST(BfsAlgorithm2D, MaxIterations_TerminatesEarly)
 {
-    auto algo = makeDijkstra(astar::GridMap(1000, 1000));
+    auto algo = makeDijkstra(finenav::GridMap(1000, 1000));
     algo.setMaxIterations(10);
     algo.setGoalTolerance(0.0);
     (void)algo.findPath({0, 0, 0}, {999, 999, 0});
@@ -210,7 +210,7 @@ TEST(BfsAlgorithm2D, MaxIterations_TerminatesEarly)
 
 TEST(BfsAlgorithm2D, MaxIterationsZero_ReturnsNulloptForDifferentGoal)
 {
-    auto algo = makeDijkstra(astar::GridMap(10, 10));
+    auto algo = makeDijkstra(finenav::GridMap(10, 10));
     algo.setMaxIterations(0);
     algo.setGoalTolerance(0.0);
     EXPECT_FALSE(algo.findPath({0, 0, 0}, {1, 0, 0}).has_value());
@@ -219,40 +219,40 @@ TEST(BfsAlgorithm2D, MaxIterationsZero_ReturnsNulloptForDifferentGoal)
 // findPathToAny is now a method of AStarAlgorithm (h forced to 0 internally)
 TEST(BfsAlgorithm2D, FindPathToAny_ReturnsStartWhenStartIsGoal)
 {
-    auto algo = makeDijkstra(astar::GridMap(10, 10));
-    auto path = algo.findPathToAny({3, 3, 0}, [](const astar::Vec3& c) {
-        return c == astar::Vec3{3, 3, 0};
+    auto algo = makeDijkstra(finenav::GridMap(10, 10));
+    auto path = algo.findPathToAny({3, 3, 0}, [](const finenav::Vec3& c) {
+        return c == finenav::Vec3{3, 3, 0};
     });
     ASSERT_TRUE(path.has_value());
     ASSERT_EQ(path->size(), 1u);
-    EXPECT_EQ(path->front(), (astar::Vec3{3, 3, 0}));
+    EXPECT_EQ(path->front(), (finenav::Vec3{3, 3, 0}));
 }
 
 TEST(BfsAlgorithm2D, FindPathToAny_StopsAtFirstReachableGoal)
 {
-    auto algo = makeDijkstra(astar::GridMap(20, 20));
-    algo.setConnectivity(astar::Connectivity::N8);
+    auto algo = makeDijkstra(finenav::GridMap(20, 20));
+    algo.setConnectivity(finenav::Connectivity::N8);
 
-    auto path = algo.findPathToAny({0, 0, 0}, [](const astar::Vec3& c) {
-        return c == astar::Vec3{3, 0, 0} || c == astar::Vec3{8, 0, 0};
+    auto path = algo.findPathToAny({0, 0, 0}, [](const finenav::Vec3& c) {
+        return c == finenav::Vec3{3, 0, 0} || c == finenav::Vec3{8, 0, 0};
     });
     ASSERT_TRUE(path.has_value());
-    EXPECT_EQ(path->back(), (astar::Vec3{3, 0, 0}));
+    EXPECT_EQ(path->back(), (finenav::Vec3{3, 0, 0}));
     EXPECT_EQ(path->size(), 4u);
 }
 
 TEST(BfsAlgorithm3D, FindsPath_OpenVolume)
 {
-    auto is_walkable = [](const astar::Vec3&) { return true; };
-    auto get_cost    = [](const astar::Vec3&) { return 0.0; };
+    auto is_walkable = [](const finenav::Vec3&) { return true; };
+    auto get_cost    = [](const finenav::Vec3&) { return 0.0; };
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setHeuristic(astar::Heuristic::Zero);
-    algo.setConnectivity(astar::Connectivity::N26);
+    algo.setHeuristic(finenav::Heuristic::Zero);
+    algo.setConnectivity(finenav::Connectivity::N26);
 
     auto path = algo.findPath({0, 0, 0}, {3, 3, 3});
     ASSERT_TRUE(path.has_value());
-    EXPECT_EQ(path->front(), (astar::Vec3{0, 0, 0}));
-    EXPECT_EQ(path->back(),  (astar::Vec3{3, 3, 3}));
+    EXPECT_EQ(path->front(), (finenav::Vec3{0, 0, 0}));
+    EXPECT_EQ(path->back(),  (finenav::Vec3{3, 3, 3}));
 }
 
 // Weighted-cost test: Dijkstra must prefer low-cost detour over shorter obstacle-adjacent path
@@ -260,13 +260,13 @@ TEST(BfsAlgorithm2D, PrefersLowerCostPath_WeightedGrid)
 {
     // 5-wide grid. Direct path (x=2 column) has high cost cells.
     // Detour (x=0 column) is longer but cheaper.
-    astar::GridMap grid(5, 6);
+    finenav::GridMap grid(5, 6);
     grid.setCost(2, 1, 100.0);
     grid.setCost(2, 2, 100.0);
     grid.setCost(2, 3, 100.0);
 
     auto algo = makeDijkstra(grid);
-    algo.setConnectivity(astar::Connectivity::N4);
+    algo.setConnectivity(finenav::Connectivity::N4);
     algo.setGoalTolerance(0.0);
 
     auto path = algo.findPath({2, 0, 0}, {2, 5, 0});
@@ -283,7 +283,7 @@ TEST(BfsAlgorithm2D, PrefersLowerCostPath_WeightedGrid)
 
 class TestMapView : public finenav::BfsPathSearch::IMapView {
 public:
-    TestMapView(const astar::GridMap& g, double step_size)
+    TestMapView(const finenav::GridMap& g, double step_size)
         : grid_(g), step_(step_size) {}
 
     bool isWalkable(const finenav::Position3D& p) const override {
@@ -299,7 +299,7 @@ public:
     double getStepSize() const override { return step_; }
 
 private:
-    const astar::GridMap& grid_;
+    const finenav::GridMap& grid_;
     double step_;
 };
 
@@ -329,7 +329,7 @@ makeCtx(double sx, double sy, double gx, double gy)
 
 TEST(BfsPathSearch, PlanSucceeds_OpenGrid)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
     auto planner = makePlanner();
     auto result = planner.plan(makeCtx(0.5, 0.5, 5.5, 5.5), view);
@@ -339,7 +339,7 @@ TEST(BfsPathSearch, PlanSucceeds_OpenGrid)
 
 TEST(BfsPathSearch, PlanFails_GoalBlocked)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     grid.setObstacle(5, 5, true);
     TestMapView view(grid, 1.0);
     auto planner = makePlanner();
@@ -348,7 +348,7 @@ TEST(BfsPathSearch, PlanFails_GoalBlocked)
 
 TEST(BfsPathSearch, PlanFails_InvalidStepSize)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 0.0);
     auto planner = makePlanner();
     EXPECT_FALSE(planner.plan(makeCtx(0.5, 0.5, 5.5, 5.5), view).has_value());
@@ -356,7 +356,7 @@ TEST(BfsPathSearch, PlanFails_InvalidStepSize)
 
 TEST(BfsPathSearch, OutputPoses_AreWorldCoordinates)
 {
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
     auto planner = makePlanner();
     auto result = planner.plan(makeCtx(0.5, 0.5, 3.5, 0.5), view);

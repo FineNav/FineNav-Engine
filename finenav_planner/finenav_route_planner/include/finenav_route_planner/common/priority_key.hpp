@@ -7,7 +7,7 @@
 #include <cmath>
 #include <limits>
 
-namespace astar {
+namespace finenav {
 
 // =============================================================
 // Key  —  D* Lite 开放列表使用的双分量优先级键
@@ -62,4 +62,4 @@ struct Key {
     bool operator!=(const Key& o) const noexcept { return !(*this == o); }
 };
 
-}  // namespace astar
+}  // namespace finenav

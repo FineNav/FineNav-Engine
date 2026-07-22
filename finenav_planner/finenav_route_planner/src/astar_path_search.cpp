@@ -20,17 +20,17 @@ namespace finenav {
 void AstarPathSearch::configure(const ConfigType& params)
 {
     // ── 解析连接方式字符串 → Connectivity 枚举 ──
-    if      (params.connectivity == "4")  connectivity_ = astar::Connectivity::N4;
-    else if (params.connectivity == "8")  connectivity_ = astar::Connectivity::N8;
-    else if (params.connectivity == "6")  connectivity_ = astar::Connectivity::N6;
-    else if (params.connectivity == "18") connectivity_ = astar::Connectivity::N18;
-    else                                  connectivity_ = astar::Connectivity::N26;
+    if      (params.connectivity == "4")  connectivity_ = finenav::Connectivity::N4;
+    else if (params.connectivity == "8")  connectivity_ = finenav::Connectivity::N8;
+    else if (params.connectivity == "6")  connectivity_ = finenav::Connectivity::N6;
+    else if (params.connectivity == "18") connectivity_ = finenav::Connectivity::N18;
+    else                                  connectivity_ = finenav::Connectivity::N26;
 
     // ── 解析启发函数字符串 → Heuristic 枚举 ──
-    if      (params.heuristic == "Manhattan") heuristic_ = astar::Heuristic::Manhattan;
-    else if (params.heuristic == "Chebyshev") heuristic_ = astar::Heuristic::Chebyshev;
-    else if (params.heuristic == "Diagonal")  heuristic_ = astar::Heuristic::Diagonal;
-    else                                       heuristic_ = astar::Heuristic::Euclidean;
+    if      (params.heuristic == "Manhattan") heuristic_ = finenav::Heuristic::Manhattan;
+    else if (params.heuristic == "Chebyshev") heuristic_ = finenav::Heuristic::Chebyshev;
+    else if (params.heuristic == "Diagonal")  heuristic_ = finenav::Heuristic::Diagonal;
+    else                                       heuristic_ = finenav::Heuristic::Euclidean;
 
     // ── 读取数值参数 ──
     goal_tolerance_m_  = params.goal_tolerance;
@@ -50,7 +50,7 @@ AstarPathSearch::Result AstarPathSearch::plan(
     const double step = map_view.getStepSize();
 
     // ── 世界坐标 → 栅格坐标转换 ──
-    auto worldToCell = [step](double x, double y, double z) -> astar::Vec3 {
+    auto worldToCell = [step](double x, double y, double z) -> finenav::Vec3 {
         return {
             static_cast<int>(std::floor(x / step)),
             static_cast<int>(std::floor(y / step)),
@@ -59,17 +59,17 @@ AstarPathSearch::Result AstarPathSearch::plan(
     };
 
     // ── 栅格坐标 → 世界坐标（栅格中心）──
-    auto cellCentre = [step](const astar::Vec3& c) -> Position3D {
+    auto cellCentre = [step](const finenav::Vec3& c) -> Position3D {
         return { (c.x + 0.5) * step,
                  (c.y + 0.5) * step,
                  (c.z + 0.5) * step };
     };
 
     // ── 构建回调函数（栅格坐标 → 世界坐标 → 地图查询）──
-    auto is_walkable = [&](const astar::Vec3& c) -> bool {
+    auto is_walkable = [&](const finenav::Vec3& c) -> bool {
         return map_view.isWalkable(cellCentre(c));
     };
-    auto get_cost = [&](const astar::Vec3& c) -> double {
+    auto get_cost = [&](const finenav::Vec3& c) -> double {
         return map_view.getCost(cellCentre(c));
     };
 
@@ -77,8 +77,8 @@ AstarPathSearch::Result AstarPathSearch::plan(
     const auto& sp = ctx.robot_state.position;
     const auto& gp = ctx.goal_pose.position;
 
-    astar::Vec3 start = worldToCell(sp.x(), sp.y(), sp.z());
-    astar::Vec3 goal  = worldToCell(gp.x, gp.y, gp.z);
+    finenav::Vec3 start = worldToCell(sp.x(), sp.y(), sp.z());
+    finenav::Vec3 goal  = worldToCell(gp.x, gp.y, gp.z);
 
     // ── 构建 A* 引擎并配置参数 ──
     // 注意：A* 是无状态的，每次 plan() 创建新引擎

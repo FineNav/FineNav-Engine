@@ -4,7 +4,7 @@
 #pragma once
 #include "finenav_core/math_def.hpp"   // Position3D
 
-namespace astar {
+namespace finenav {
 using finenav::core::Position3D;
 using finenav::core::Region3D;
 

@@ -7,11 +7,26 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
-find_package(ament_cmake_auto REQUIRED)
-find_package(OpenCV REQUIRED)
+# ── Dependencies — explicit find_package, following nav2_mppi_controller ────
+find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
-include_directories(include ${OpenCV_INCLUDE_DIRS})
-ament_auto_find_build_dependencies()
+find_package(OpenCV REQUIRED)
+find_package(generate_parameter_library REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(finenav_core REQUIRED)
+find_package(finenav_util REQUIRED)
+find_package(finenav_interfaces REQUIRED)
+find_package(finenav_map_occ_grid_2d REQUIRED)
+find_package(finenav_collision_model REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+
+include_directories(
+  include
+  ${OpenCV_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
+)
 
 # ── parameter libraries (generated from YAML) ──────────────────────────────
 generate_parameter_library(astar_params  astar.yaml)
@@ -20,7 +35,7 @@ generate_parameter_library(route_params  route.yaml)
 generate_parameter_library(dstarlite_params dstarlite.yaml)
 
 # ── planner library ─────────────────────────────────────────────────────────
-ament_auto_add_library(finenav_route_planner_lib SHARED
+add_library(finenav_route_planner_lib SHARED
     # A* engine
     src/astar/astar_algorithm.cpp
     # D* Lite engine
@@ -34,70 +49,59 @@ ament_auto_add_library(finenav_route_planner_lib SHARED
     src/route/route_graph.cpp
     src/route/route_search.cpp
 )
-target_link_libraries(finenav_route_planner_lib
+target_compile_options(finenav_route_planner_lib PUBLIC -O3)
+target_include_directories(finenav_route_planner_lib
+  PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
+    "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+)
+target_link_libraries(finenav_route_planner_lib PUBLIC
     astar_params
     bfs_params
     route_params
     dstarlite_params
+    finenav_core::finenav_core
     ${OpenCV_LIBS}
     Eigen3::Eigen
 )
 
-# ── unit tests ──────────────────────────────────────────────────────────────
-if (BUILD_TESTING)
-    find_package(ament_cmake_gtest REQUIRED)
-
-    ament_add_gtest(astar_test
-        test/astar_test.cpp
-        src/astar/astar_algorithm.cpp
-        src/astar_path_search.cpp
-    )
-    ament_target_dependencies(astar_test finenav_core finenav_util finenav_interfaces rclcpp)
-    target_include_directories(astar_test PRIVATE test)
-    target_link_libraries(astar_test astar_params)
-
-    ament_add_gtest(bfs_test
-        test/bfs_test.cpp
-        src/astar/astar_algorithm.cpp      # BFS reuses AStarAlgorithm
-        src/bfs_path_search.cpp
-    )
-    ament_target_dependencies(bfs_test finenav_core finenav_util finenav_interfaces)
-    target_include_directories(bfs_test PRIVATE test)
-    target_link_libraries(bfs_test bfs_params)
-
-    ament_add_gtest(route_test
-        test/route_test.cpp
-        src/astar/astar_algorithm.cpp        # used internally for obstacle-aware node snapping
-        src/route_path_search.cpp
-        src/route/route_graph.cpp
-        src/route/route_search.cpp
-    )
-    ament_target_dependencies(route_test finenav_core finenav_util finenav_interfaces geometry_msgs std_msgs)
-    target_include_directories(route_test PRIVATE test)
-    target_link_libraries(route_test route_params)
-
-    ament_add_gtest(dstarlite_test
-        test/dstarlite_test.cpp
-        src/dstarlite/dstarlite_algorithm.cpp
-        src/dstarlite_path_search.cpp
-    )
-    ament_target_dependencies(dstarlite_test finenav_core finenav_util finenav_interfaces rclcpp)
-    target_include_directories(dstarlite_test PRIVATE test)
-    target_link_libraries(dstarlite_test dstarlite_params)
-
-    # ── benchmarks ──────────────────────────────────────────────
-    add_subdirectory(test/benchmark)
-endif ()
-
-# ── standalone eval (always built, no ROS deps) ─────────────────────────
-add_subdirectory(eval)
+# ── install ─────────────────────────────────────────────────────────────────
+install(TARGETS finenav_route_planner_lib
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
 
 install(TARGETS astar_params bfs_params route_params dstarlite_params
-        EXPORT export_${PROJECT_NAME}_params
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
+  EXPORT export_${PROJECT_NAME}_params
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
-ament_export_targets(export_${PROJECT_NAME}_params HAS_LIBRARY_TARGET)
-ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)
 
+install(DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
+)
+
+# ── tests ───────────────────────────────────────────────────────────────────
+if(BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    add_subdirectory(test)
+    add_subdirectory(benchmark)
+endif ()
+
+# ── standalone eval (always built, no ROS deps) ─────────────────────────────
+add_subdirectory(eval)
+
+# ── exports ─────────────────────────────────────────────────────────────────
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_targets(export_${PROJECT_NAME}_params HAS_LIBRARY_TARGET)
+ament_export_dependencies(
+  finenav_core
+  Eigen3
+)
+ament_export_include_directories(include/${PROJECT_NAME})
+
+ament_package()

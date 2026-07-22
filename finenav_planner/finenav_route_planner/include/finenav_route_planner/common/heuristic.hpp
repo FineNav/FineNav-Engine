@@ -8,7 +8,7 @@
 #include <algorithm>
 #include "finenav_route_planner/common/vec3.hpp"
 
-namespace astar {
+namespace finenav {
 
 /// 启发函数类型（作用于 Vec3 栅格坐标）
 enum class Heuristic {

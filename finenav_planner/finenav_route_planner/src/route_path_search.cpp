@@ -194,24 +194,24 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
 {
     const double step = map_view.getStepSize();
 
-    auto toCell = [step](double x, double y) -> astar::Vec3 {
+    auto toCell = [step](double x, double y) -> finenav::Vec3 {
         return {
             static_cast<int>(std::floor(x / step)),
             static_cast<int>(std::floor(y / step)),
             0
         };
     };
-    auto cellCentre = [step](const astar::Vec3& c) -> Position3D {
+    auto cellCentre = [step](const finenav::Vec3& c) -> Position3D {
         return { (c.x + 0.5) * step, (c.y + 0.5) * step, 0.0 };
     };
 
-    const astar::Vec3 origin = toCell(pose.position.x, pose.position.y);
+    const finenav::Vec3 origin = toCell(pose.position.x, pose.position.y);
 
     // 构建 cell → 节点下标 映射
-    std::unordered_map<astar::Vec3, std::vector<size_t>, astar::Vec3Hash> cell_nodes;
+    std::unordered_map<finenav::Vec3, std::vector<size_t>, finenav::Vec3Hash> cell_nodes;
     int max_depth = 0;
     for (size_t i = 0; i < graph.nodes.size(); ++i) {
-        const astar::Vec3 c = toCell(graph.nodes[i].x, graph.nodes[i].y);
+        const finenav::Vec3 c = toCell(graph.nodes[i].x, graph.nodes[i].y);
         cell_nodes[c].push_back(i);
         max_depth = std::max(max_depth,
             std::max(std::abs(c.x - origin.x), std::abs(c.y - origin.y)));
@@ -219,14 +219,14 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
 
     // 由 polyline 中间点构建 cell → 路径点信息 映射。
     // 跳过首点（0）和末点（size-1）— 它们与节点重合。
-    std::unordered_map<astar::Vec3, std::vector<PathPointInfo>, astar::Vec3Hash> cell_path_pts;
+    std::unordered_map<finenav::Vec3, std::vector<PathPointInfo>, finenav::Vec3Hash> cell_path_pts;
     for (size_t fi = 0; fi < graph.adj.size(); ++fi) {
         for (size_t ei = 0; ei < graph.adj[fi].size(); ++ei) {
             const auto& pl = graph.adj[fi][ei].polyline;
             if (pl.size() <= 2) continue;  // 没有中间点
             const size_t to_idx = graph.adj[fi][ei].to_index;
             for (size_t pi = 1; pi + 1 < pl.size(); ++pi) {
-                const astar::Vec3 c = toCell(pl[pi].first, pl[pi].second);
+                const finenav::Vec3 c = toCell(pl[pi].first, pl[pi].second);
                 cell_path_pts[c].push_back({
                     fi, to_idx, ei, pi,
                     {pl[pi].first, pl[pi].second, 0.0}
@@ -238,16 +238,16 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
     }
 
     // 避障 lambda — 使用真实地图数据
-    auto is_walkable = [&](const astar::Vec3& c) {
+    auto is_walkable = [&](const finenav::Vec3& c) {
         return c.z == 0 &&
                std::abs(c.x - origin.x) <= max_depth &&
                std::abs(c.y - origin.y) <= max_depth &&
                map_view.isWalkable(cellCentre(c));
     };
-    auto get_cost = [&](const astar::Vec3& c) {
+    auto get_cost = [&](const finenav::Vec3& c) {
         return map_view.getCost(cellCentre(c));
     };
-    auto is_goal = [&](const astar::Vec3& c) {
+    auto is_goal = [&](const finenav::Vec3& c) {
         return cell_nodes.contains(c) || cell_path_pts.contains(c);
     };
 
@@ -257,7 +257,7 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
     // 节点总是被接受（节点不做角度检查）。
     astar::AStarAlgorithm::GoalFilterFn accept_goal = nullptr;
     if (min_approach_angle_deg_ > 0.0) {
-        accept_goal = [&](const astar::Vec3& c) -> bool {
+        accept_goal = [&](const finenav::Vec3& c) -> bool {
             // 节点总是可接受
             if (cell_nodes.contains(c)) return true;
             // 对路径点单元，检查是否有任一候选通过
@@ -286,8 +286,8 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
     }
 
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setConnectivity(astar::Connectivity::N8);
-    algo.setHeuristic(astar::Heuristic::Zero);
+    algo.setConnectivity(finenav::Connectivity::N8);
+    algo.setHeuristic(finenav::Heuristic::Zero);
     algo.setMaxIterations(-1);
     algo.setMaxPlanningTime(5.0); // TODO: 后面这些应该也成为动态参数
     algo.setTerrainWeight(terrain_weight_);
@@ -295,7 +295,7 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
     const auto path = algo.findPathToAny(origin, is_goal, accept_goal);
     if (!path || path->empty()) return {};
 
-    const astar::Vec3& goal_cell = path->back();
+    const finenav::Vec3& goal_cell = path->back();
 
     SnapResult result;
 

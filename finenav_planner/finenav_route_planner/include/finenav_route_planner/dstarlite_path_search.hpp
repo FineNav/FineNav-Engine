@@ -29,7 +29,7 @@ using finenav::core::Trajectory;
 /**
  * @brief D* Lite 增量路径搜索规划器（FineNav 框架适配层）
  * @details 该类是 D* Lite 算法在 FineNav 框架中的 PlannerConcept 实现，
- *          内部持有 astar::DStarLiteAlgorithm 引擎实例并管理其完整生命周期。
+ *          内部持有 dstarlite::DStarLiteAlgorithm 引擎实例并管理其完整生命周期。
  * @details D* Lite 与 A* 的本质区别：
  *          - A* 是无状态的：每次规划从零开始搜索
  *          - D* Lite 是有状态的：在多次规划之间维护 g/rhs 值和优先队列，
@@ -37,7 +37,7 @@ using finenav::core::Trajectory;
  * @details 工作流程：
  *          1. 首次调用 plan(): 构建引擎 → initialize() → computeShortestPath() → 提取路径
  *          2. 后续调用 plan(): 同步地图变化(syncMap) → 增量重规划(replan) → 提取路径
- * @note 该类定义了专属的 IMapView 内部类，在标准 astar::IMapView 基础上扩展了
+ * @note 该类定义了专属的 IMapView 内部类，在标准 finenav::IMapView 基础上扩展了
  *       rows()/cols()/layers() 栅格维度查询接口，供引擎预分配内部数组使用
  */
 class DStarLitePathSearch {
@@ -68,13 +68,13 @@ public:
 
     /**
      * @brief D* Lite 专用的地图视图接口
-     * @details 在标准 astar::IMapView（isWalkable / getCost / getStepSize）基础上，
+     * @details 在标准 finenav::IMapView（isWalkable / getCost / getStepSize）基础上，
      *          增加了栅格维度查询接口 rows() / cols() / layers()，
      *          用于 D* Lite 引擎预分配 g/rhs/obstacles 等一维状态数组
-     * @note 已有的 AStar / BFS / Route 地图适配器不受影响，它们只需实现 astar::IMapView；
+     * @note 已有的 AStar / BFS / Route 地图适配器不受影响，它们只需实现 finenav::IMapView；
      *       仅当使用 DStarLitePathSearch 时才需要额外提供维度信息
      */
-    class IMapView : public astar::IMapView {
+    class IMapView : public finenav::IMapView {
     public:
         /**
          * @brief 获取栅格行数（y 轴方向）
@@ -129,8 +129,8 @@ public:
 private:
     // ===== 配置参数 =====
 
-    astar::Connectivity connectivity_      = astar::Connectivity::N8;   // 邻域连接方式
-    astar::Heuristic    heuristic_         = astar::Heuristic::Diagonal; // 启发函数类型
+    finenav::Connectivity connectivity_      = finenav::Connectivity::N8;   // 邻域连接方式
+    finenav::Heuristic    heuristic_         = finenav::Heuristic::Diagonal; // 启发函数类型
     double goal_tolerance_m_  = 0.5;        // 目标容忍距离（米）
     int    max_expansions_    = 1'000'000;  // 最大扩展节点数
     int    max_path_steps_    = 10'000;     // 最大路径步数
@@ -141,7 +141,7 @@ private:
 
     // ===== 持久状态 =====
 
-    std::unique_ptr<astar::DStarLiteAlgorithm> engine_;  // D* Lite 搜索引擎实例
+    std::unique_ptr<dstarlite::DStarLiteAlgorithm> engine_;  // D* Lite 搜索引擎实例
     double       step_size_    = 1.0;                     // 栅格步长（米/格）
 
     // ===== 线程安全 =====

@@ -9,6 +9,16 @@
 
 namespace astar {
 
+using finenav::Vec3;
+using finenav::Vec3Hash;
+using finenav::Heuristic;
+using finenav::Connectivity;
+using finenav::calculateHeuristic;
+using finenav::getNeighbors;
+using finenav::calculateStepCost;
+using finenav::cellDistance;
+using finenav::reconstructPathImpl;
+
 // ===== 构造 =====
 
 AStarAlgorithm::AStarAlgorithm(IsWalkableFn is_walkable, GetCostFn get_cost)

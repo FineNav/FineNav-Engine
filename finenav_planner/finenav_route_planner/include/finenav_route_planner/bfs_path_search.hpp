@@ -57,7 +57,7 @@ public:
     };
 
     /// 复用标准地图视图接口（与 AStar / Route 规划器共享）
-    using IMapView = astar::IMapView;
+    using IMapView = finenav::IMapView;
 
     using Context = PlanningContext<BfsPathSearch>;
     using Result  = std::optional<OutputTrajectoryT<BfsPathSearch>>;
@@ -90,7 +90,7 @@ public:
 private:
     // ===== 配置参数 =====
     // 所有字段与 AstarPathSearch 一一对应，唯一区别是启发式恒为 Zero
-    astar::Connectivity connectivity_    = astar::Connectivity::N8;       // 邻域连接方式
+    finenav::Connectivity connectivity_    = finenav::Connectivity::N8;       // 邻域连接方式
     double goal_tolerance_m_  = 0.5;       // 目标容忍距离（米）
     int    max_iterations_    = 1000000;   // 最大迭代次数
     double max_planning_time_ = 5.0;       // 最大规划时间（秒）

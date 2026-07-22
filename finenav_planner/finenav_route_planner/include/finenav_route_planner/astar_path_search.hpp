@@ -35,7 +35,7 @@ using finenav::core::Trajectory;
  *          - 静态地图中的一次性路径规划
  *          - 地图不频繁变化时的路径搜索
  *          - 若地图频繁变化需要反复重规划，考虑使用 D* Lite
- * @note 复用标准的 astar::IMapView 接口（与 BFS / Route 规划器共享）
+ * @note 复用标准的 finenav::IMapView 接口（与 BFS / Route 规划器共享）
  */
 class AstarPathSearch {
 public:
@@ -62,7 +62,7 @@ public:
     };
 
     /// 复用标准地图视图接口（与 BFS / Route 规划器共享）
-    using IMapView = astar::IMapView;
+    using IMapView = finenav::IMapView;
 
     using Context = PlanningContext<AstarPathSearch>;
     using Result  = std::optional<OutputTrajectoryT<AstarPathSearch>>;
@@ -97,8 +97,8 @@ public:
 private:
     // ===== 配置参数 =====
 
-    astar::Connectivity connectivity_    = astar::Connectivity::N8;       // 邻域连接方式
-    astar::Heuristic    heuristic_       = astar::Heuristic::Euclidean;   // 启发函数类型
+    finenav::Connectivity connectivity_    = finenav::Connectivity::N8;       // 邻域连接方式
+    finenav::Heuristic    heuristic_       = finenav::Heuristic::Euclidean;   // 启发函数类型
     double goal_tolerance_m_  = 0.5;       // 目标容忍距离（米）
     int    max_iterations_    = 1000000;   // 最大迭代次数
     double max_planning_time_ = 5.0;       // 最大规划时间（秒）

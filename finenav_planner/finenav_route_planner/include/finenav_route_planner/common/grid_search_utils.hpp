@@ -23,7 +23,7 @@
 
 #include "finenav_route_planner/common/vec3.hpp"
 
-namespace astar {
+namespace finenav {
 
 // =============================================================
 // Connectivity  —  AStarAlgorithm 与 BfsAlgorithm 共享

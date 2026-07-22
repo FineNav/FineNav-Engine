@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cmath>
 
-namespace astar {
+namespace finenav {
 
     /**
      * @brief 整数三维栅格坐标

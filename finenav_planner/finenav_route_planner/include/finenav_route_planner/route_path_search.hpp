@@ -67,7 +67,7 @@ public:
     // 与 AstarPathSearch 和 BfsPathSearch 使用相同的地图接口。
     // isWalkable / getCost 在将位姿吸附到最近路网节点的 BFS 中使用，
     // 以使连接路径能够避开障碍物。
-    using IMapView = astar::IMapView;
+    using IMapView = finenav::IMapView;
 
     using Context = PlanningContext<RoutePathSearch>;
     using Result  = std::optional<OutputTrajectoryT<RoutePathSearch>>;

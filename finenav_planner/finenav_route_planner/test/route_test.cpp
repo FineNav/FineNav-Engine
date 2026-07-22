@@ -212,11 +212,11 @@ private:
 };
 
 // ── Test map view (same adaptor pattern as bfs_test.cpp) ────────────────
-// Wraps the dependency-free astar::GridMap as an astar::IMapView so the
+// Wraps the dependency-free finenav::GridMap as an finenav::IMapView so the
 // obstacle-aware snapping inside RoutePathSearch can be exercised.
-class TestMapView : public astar::IMapView {
+class TestMapView : public finenav::IMapView {
 public:
-    TestMapView(const astar::GridMap& g, double step_size)
+    TestMapView(const finenav::GridMap& g, double step_size)
         : grid_(g), step_(step_size) {}
 
     bool isWalkable(const finenav::Position3D& p) const override {
@@ -232,7 +232,7 @@ public:
     double getStepSize() const override { return step_; }
 
 private:
-    const astar::GridMap& grid_;
+    const finenav::GridMap& grid_;
     double step_;
 };
 
@@ -286,7 +286,7 @@ double pathLength(const std::vector<geometry_msgs::msg::Pose>& poses)
 
 // Surround cell (cx, cy) with obstacles on all 8 neighbours, isolating it
 // from the rest of an otherwise-open N8-connected grid.
-void enclose(astar::GridMap& grid, int cx, int cy)
+void enclose(finenav::GridMap& grid, int cx, int cy)
 {
     for (int dy = -1; dy <= 1; ++dy)
         for (int dx = -1; dx <= 1; ++dx)
@@ -425,7 +425,7 @@ const char* kDiagonalDenseGraph = R"json(
 TEST(RoutePathSearch, ConfigureFails_GracefullyOnMissingFile)
 {
     auto planner = makePlanner("/nonexistent/path/to/graph.geojson");
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
 
     EXPECT_FALSE(planner.plan(makeCtx(0.5, 0.5, 5.5, 0.5), view).has_value());
@@ -435,7 +435,7 @@ TEST(RoutePathSearch, ConfigureFails_GracefullyOnMalformedJson)
 {
     TempFile bad("{ this is not valid GeoJSON ]");
     auto planner = makePlanner(bad.path());
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
 
     EXPECT_FALSE(planner.plan(makeCtx(0.5, 0.5, 5.5, 0.5), view).has_value());
@@ -444,7 +444,7 @@ TEST(RoutePathSearch, ConfigureFails_GracefullyOnMalformedJson)
 TEST(RoutePathSearch, PlanFails_WhenGraphFileEmpty)
 {
     auto planner = makePlanner("");   // default_value of graph_file
-    astar::GridMap grid(10, 10);
+    finenav::GridMap grid(10, 10);
     TestMapView view(grid, 1.0);
 
     EXPECT_FALSE(planner.plan(makeCtx(0.5, 0.5, 5.5, 0.5), view).has_value());
@@ -454,7 +454,7 @@ TEST(RoutePathSearch, ConfigureSucceeds_LoadsValidGraph)
 {
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path());
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     // A loaded, non-empty graph must let plan() proceed past the
@@ -473,7 +473,7 @@ TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
     // First point should be near the robot pose, last near the goal pose.
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
@@ -503,7 +503,7 @@ TEST(RoutePathSearch, PlanFails_DisconnectedGraph_NoRouteBetweenComponents)
 {
     TempFile graph(kDisconnectedGraph);
     auto planner = makePlanner(graph.path());
-    astar::GridMap grid(40, 10);
+    finenav::GridMap grid(40, 10);
     TestMapView view(grid, 1.0);
 
     // Start snaps into the {0,1} component, goal into the {2,3} component —
@@ -515,7 +515,7 @@ TEST(RoutePathSearch, PlanPrefersLowerCost_OverFixedExpensiveDirectEdge)
 {
     TempFile graph(kCostOverrideGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.0);  // node-centres only
-    astar::GridMap grid(20, 20);
+    finenav::GridMap grid(20, 20);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 10.5, 0.5), view);
@@ -552,7 +552,7 @@ TEST(RoutePathSearch, Plan_SingleNodeGraph_StartEqualsGoal_ConnectorsBothSides)
     // connectors on both sides: robot → node → goal.
     TempFile graph(kIsolatedNodeGraph);
     auto planner = makePlanner(graph.path());
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(5.6, 5.6, 5.4, 5.4), view);
@@ -585,7 +585,7 @@ TEST(RoutePathSearch, Plan_Densification_SpacingMatchesPathDensity)
     TempFile graph(kLinearGraph);
     constexpr double kDensity = 1.0;
     auto planner = makePlanner(graph.path(), kDensity);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
@@ -611,7 +611,7 @@ TEST(RoutePathSearch, Plan_ZeroDensity_IncludesNodeCentresAndConnectors)
 {
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.0);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
@@ -642,7 +642,7 @@ TEST(RoutePathSearch, Plan_OutputPoses_HaveValidOrientation)
 {
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), 0.5);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
@@ -660,7 +660,7 @@ TEST(RoutePathSearch, Plan_TotalLength_CoversRobotToGoal)
 {
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), 0.25);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
@@ -689,7 +689,7 @@ TEST(RoutePathSearch, Plan_SnapsToReachableNode_IncludesConnectorPath)
     auto planner = makePlanner(graph.path());
 
     // Open N8-connected grid except node P's cell (2,2), which is walled in.
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     enclose(grid, 2, 2);
     TestMapView view(grid, 1.0);
 
@@ -731,7 +731,7 @@ TEST(RoutePathSearch, PlanFails_WhenNoNodeIsReachableFromRobot)
 
     // Wall the only node's cell off completely — the obstacle-aware search
     // can never find a cell containing a graph node.
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     enclose(grid, 5, 5);
     TestMapView view(grid, 1.0);
 
@@ -743,7 +743,7 @@ TEST(RoutePathSearch, PlanFails_WhenStartCellItselfIsBlocked)
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path());
 
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     grid.setObstacle(0, 0, true);   // robot starts inside an obstacle cell
     TestMapView view(grid, 1.0);
 
@@ -761,7 +761,7 @@ TEST(RoutePathSearch, Plan_SnapsToPathPoint_WhenRobotNearPathMidpoint)
     // edge's polyline and snap there, rather than going all the way to node A or B.
     TempFile graph(kDensePathGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     // Robot at (5, 1), goal at (5.5, 0.5) — both near the path midpoint
@@ -801,7 +801,7 @@ TEST(RoutePathSearch, Plan_ShortConnector_WhenRobotNearDensePathFarFromNodes)
     // With path-snapping, it should enter at the nearest path point (~5,0).
     TempFile graph(kDensePathGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(5.0, 0.5, 9.5, 0.5), view);
@@ -839,7 +839,7 @@ TEST(RoutePathSearch, Plan_ThreeNodeChain_RobotEntersAtMidPath_GoesForward)
     // causing a detour.
     TempFile graph(kThreeNodeChainGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
-    astar::GridMap grid(22, 12);
+    finenav::GridMap grid(22, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(8.0, 2.0, 18.0, 0.5), view);
@@ -893,7 +893,7 @@ TEST(RoutePathSearch, Plan_SnapsToNode_WhenNodeIsCloserThanAnyPathPoint)
     // intermediate path point.  Should still snap to the node (existing behavior).
     TempFile graph(kDensePathGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
@@ -915,7 +915,7 @@ TEST(RoutePathSearch, Plan_DiagonalDenseEdge_SnapsToPathPoint)
     // Path-snapping should enter the graph at the nearest diagonal path point.
     TempFile graph(kDiagonalDenseGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     TestMapView view(grid, 1.0);
 
     auto result = planner.plan(makeCtx(5.5, 4.5, 9.5, 9.5), view);
@@ -948,7 +948,7 @@ TEST(RoutePathSearch, PlanFails_WhenNoGraphPointIsReachable)
     auto planner = makePlanner(graph.path());
 
     // Wall off the entire graph area
-    astar::GridMap grid(12, 12);
+    finenav::GridMap grid(12, 12);
     for (int x = 0; x < 11; ++x)
         for (int y = 0; y < 2; ++y)
             grid.setObstacle(x, y, true);

@@ -8,7 +8,7 @@
 #include <limits>
 #include <cmath>
 
-namespace astar {
+namespace finenav {
 
 // =============================================================
 // GridMap
