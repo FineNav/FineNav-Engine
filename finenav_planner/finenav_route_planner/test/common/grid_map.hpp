@@ -68,5 +68,5 @@ private:
     static constexpr double INF_COST = 1e9;
 };
 
-} // namespace astar
+} // namespace finenav
 

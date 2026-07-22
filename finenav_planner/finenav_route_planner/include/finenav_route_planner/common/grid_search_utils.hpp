@@ -129,5 +129,5 @@ inline std::vector<Vec3> reconstructPathImpl( // TODO： 之后要想一个语�
     return path;
 }
 
-} // namespace astar
+} // namespace finenav
 

@@ -57,5 +57,5 @@ namespace finenav {
         }
     };
 
-} // namespace astar
+} // namespace finenav
 

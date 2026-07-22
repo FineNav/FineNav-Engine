@@ -16,7 +16,7 @@
  * 因此本测试套件的重心放在障碍物变化后的 replan 行为验证上。
  *
  * 被测对象:
- *   - DStarLiteAlgorithm (astar:: 命名空间, 无 ROS 依赖)
+ *   - DStarLiteAlgorithm (dstarlite:: 命名空间, 无 ROS 依赖)
  *   - DStarLitePathSearch (finenav:: 命名空间, PlannerConcept 实现)
  *
  * 测试分层:

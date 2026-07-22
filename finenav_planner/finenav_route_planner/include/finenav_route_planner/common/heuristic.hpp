@@ -71,5 +71,5 @@ inline double calculateHeuristic(
     }
 }
 
-} // namespace astar
+} // namespace finenav
 

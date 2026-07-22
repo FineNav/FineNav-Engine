@@ -43,5 +43,5 @@ public:
     virtual double getStepSize() const = 0;
 };
 
-} // namespace astar
+} // namespace finenav
 
