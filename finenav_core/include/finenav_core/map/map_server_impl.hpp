@@ -72,8 +72,9 @@ template <SpatialContainer MapT>
 MapServer<MapT>::MapServer(
     rclcpp::Node::SharedPtr node,
     const std::string& server_name,
-    RobotStateProvider* state_provider)
-    : node_(node), server_name_(server_name), state_provider_(state_provider) {
+    IRobotStateProvider* state_provider)
+    : IMapResource(server_name),
+      node_(node), server_name_(server_name), state_provider_(state_provider) {
 
     rclcpp::NodeOptions pnode_opts;
     pnode_opts.append_parameter_override(
