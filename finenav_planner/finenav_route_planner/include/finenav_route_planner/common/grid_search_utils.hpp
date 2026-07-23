@@ -99,35 +99,31 @@ inline double cellDistance(const Vec3& a, const Vec3& b) noexcept
 }
 
 // =============================================================
-// reconstructPathImpl
+// 本文件提供的共享基础设施
 //
-// A* 与 BFS 共享的路径回溯辅助函数。
+// 以下组件对 A*、BFS 以及未来新栅格算法均适用：
 //
-//   ParentMapT : unordered_map<Vec3, NodeT, Vec3Hash>
-//   GetParentFn: (const NodeT&) -> Vec3
+//   • Vec3 / Vec3Hash           — 栅格坐标类型（vec3.hpp）
+//   • Connectivity 枚举          — N4/N8/N6/N18/N26
+//   • getNeighbors()            — 按连接方式枚举邻居
+//   • calculateStepCost()       — 几何步长代价（1 / √2 / √3）
+//   • cellDistance()            — 栅格间欧氏距离
 //
-// A* 传入:  came_from_<Vec3, AstarNode>,  [](auto& n){ return n.parent; }
-// BFS 传入: parent_   <Vec3, Vec3>,        [](auto& v){ return v; }
+// 新算法接入时注意事项：
+//
+//   1. 路径回溯各算法自实现 —— A* 沿 parent 链回溯，D* Lite 沿 g 值梯度下降，
+//      RRT* 沿树边回溯，JPS 在跳点间插值。不要试图做"通用回溯"模板——
+//      数据结构和语义各不相同，强行统一只会增加耦合。
+//
+//   2. 只需引入你需要的组件即可：
+//        #include "finenav_route_planner/common/grid_search_utils.hpp"
+//        using finenav::Connectivity;
+//        using finenav::getNeighbors;
+//        using finenav::calculateStepCost;
+//
+//   3. 如果新算法需要额外的通用栅格操作（如射线投射、bresenham 直线等），
+//      优先加在此文件中而非在各算法内重复实现。
 // =============================================================
-
-template<typename NodeT, typename GetParentFn>
-inline std::vector<Vec3> reconstructPathImpl( // TODO： 之后要想一个语义更好的实现
-    const Vec3& goal,
-    const std::unordered_map<Vec3, NodeT, Vec3Hash>& parent_map,
-    GetParentFn get_parent)
-{
-    std::vector<Vec3> path;
-    Vec3 cur = goal;
-    while (true) {
-        path.push_back(cur);
-        const auto& node   = parent_map.at(cur);
-        const Vec3  parent = get_parent(node);
-        if (cur == parent) break;   // 自哨兵（parent == 自身）即为起点
-        cur = parent;
-    }
-    std::reverse(path.begin(), path.end());
-    return path;
-}
 
 } // namespace finenav
 

@@ -15,15 +15,22 @@ namespace finenav {
 
 // ── configure ──────────────────────────────────────────────────────────────
 //
-// 每当动态参数变化时被调用。
-// 仅当 graph_file 实际发生变化时才重新加载路网图。
-// TODO: 上一行描述已过时——当前没有 graph_file 参数，路网图通过 /geojson 话题加载，待确认后修正。
+// 每当动态参数变化时被调用，读取路径密度、接近角阈值和地形权重。
+// 路网图通过 /geojson 话题异步加载（updateGraph），不在此处处理。
 
 void RoutePathSearch::configure(const ConfigType& params)
 {
     path_density_             = params.path_density;
     min_approach_angle_deg_   = params.min_approach_angle_deg;
     terrain_weight_           = params.terrain_weight;
+
+    // ── 解析吸附搜索连接方式（与 BFS/A* 的 connectivity 解析一致）──
+    if      (params.snap_connectivity == "4")  snap_connectivity_ = finenav::Connectivity::N4;
+    else if (params.snap_connectivity == "8")  snap_connectivity_ = finenav::Connectivity::N8;
+    else                                       snap_connectivity_ = finenav::Connectivity::N8;
+
+    snap_max_iterations_    = params.snap_max_iterations;
+    snap_max_planning_time_ = params.snap_max_planning_time;
 }
 
 // ── updateGraph ────────────────────────────────────────────────────────────
@@ -83,8 +90,7 @@ RoutePathSearch::Result RoutePathSearch::plan(
     // 辅助函数：将 SnapResult 转换为 `graph` 中的有效节点下标。
     // 节点吸附时原下标仍然有效（我们只做追加操作）。
     // 路径点吸附时插入虚拟节点并分裂该边。
-    // TODO: 参数 is_start 从未被使用，待确认是删除还是本应参与逻辑。
-    auto resolveSnap = [&](const SnapResult& snap, bool is_start) -> size_t {
+    auto resolveSnap = [&](const SnapResult& snap) -> size_t {
         if (snap.isNode()) {
             return snap.node_index;
         }
@@ -98,8 +104,8 @@ RoutePathSearch::Result RoutePathSearch::plan(
     // 以免先前的分裂使后续下标失效。
     // 最简单的做法：先处理起点，再处理目标。splitEdgeForSnap 按
     // to_index 和 polyline 范围进行查找，因此对下标偏移是稳健的。
-    start_node_idx = resolveSnap(start_snap, true);
-    goal_node_idx  = resolveSnap(goal_snap, false);
+    start_node_idx = resolveSnap(start_snap);
+    goal_node_idx  = resolveSnap(goal_snap);
 
     // ── 在（可能已修改的）拓扑图上运行 Dijkstra ────────────
     auto route_opt = route::findRoute(graph, start_node_idx, goal_node_idx, path_density_);
@@ -286,10 +292,10 @@ RoutePathSearch::SnapResult RoutePathSearch::findNearestGraphPoint(
     }
 
     astar::AStarAlgorithm algo(is_walkable, get_cost);
-    algo.setConnectivity(finenav::Connectivity::N8);
+    algo.setConnectivity(snap_connectivity_);
     algo.setHeuristic(finenav::Heuristic::Zero);
-    algo.setMaxIterations(-1);
-    algo.setMaxPlanningTime(5.0); // TODO: 后面这些应该也成为动态参数
+    algo.setMaxIterations(snap_max_iterations_);
+    algo.setMaxPlanningTime(snap_max_planning_time_);
     algo.setTerrainWeight(terrain_weight_);
 
     const auto path = algo.findPathToAny(origin, is_goal, accept_goal);

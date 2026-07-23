@@ -73,11 +73,10 @@ public:
     using Result  = std::optional<OutputTrajectoryT<RoutePathSearch>>;
 
     /**
-     * @brief 当 graph_file 参数变化时加载（或重新加载）路网图
+     * @brief 根据动态参数配置规划器
      * @param params 参数结构体（由 generate_parameter_library 生成）
-     * @note TODO: 此描述与实现不符——当前没有 graph_file 参数，路网图实际通过 /geojson 话题
-     *       经 updateGraph() 加载，configure() 只读取 path_density / min_approach_angle_deg /
-     *       terrain_weight。待确认后修正注释。
+     * @details 读取 path_density / min_approach_angle_deg / terrain_weight 三个参数。
+     *          路网图不在此处加载——实际通过 /geojson 话题到达时由 updateGraph() 异步更新。
      */
     void configure(const ConfigType& params);
     void reset() {}
@@ -163,11 +162,18 @@ private:
     double path_density_ = 0.05;
     double min_approach_angle_deg_ = 0.0;
     double terrain_weight_ = 1.0;          // 地形代价乘数（吸附搜索用）
+
+    // ── 吸附搜索参数 ────────────────────────────────────────
+    finenav::Connectivity snap_connectivity_ = finenav::Connectivity::N8;
+    int    snap_max_iterations_    = -1;    // -1 表示不限制
+    double snap_max_planning_time_ = 5.0;   // 秒
 };
 
 } // namespace finenav
 
-//TODO: 不用 FINENAV_REGISTER_ALGO_CONFIG(finenav::RoutePathSearch, route_planner) 的做法有待商榷
+// RoutePathSearch 手动特化 AlgoConfigurator 而非使用 FINENAV_REGISTER_ALGO_CONFIG 宏。
+// 原因：宏只生成 ParamListener + setUserCallback，而 RoutePathSearch 除此之外还需要
+// 订阅 /geojson 话题以异步加载路网图。两者生命周期统一由 LifetimeKeeper 管理。
 namespace finenav::core {
 
 template <>

@@ -14,7 +14,7 @@
 #include <cmath>
 
 #include "finenav_route_planner/common/grid_search_utils.hpp"   // Connectivity, getNeighbors, calculateStepCost,
-                                    // cellDistance, reconstructPathImpl
+                                    // cellDistance
 #include "finenav_route_planner/common/heuristic.hpp"
 
 namespace astar {
@@ -28,7 +28,6 @@ using finenav::calculateHeuristic;
 using finenav::getNeighbors;
 using finenav::calculateStepCost;
 using finenav::cellDistance;
-using finenav::reconstructPathImpl;
 
 /**
  * @brief A* 搜索的内部节点结构，统一使用 Vec3 坐标
@@ -36,7 +35,8 @@ using finenav::reconstructPathImpl;
  *          - g: 从起点到当前节点的实际路径代价
  *          - h: 从当前节点到目标的启发式估计代价
  *          - f = g + h: 节点优先级，f 越小越优先扩展
- * @note parent == pos 表示该节点为起点（自哨兵标记）
+ * @note parent 字段在搜索过程中由上一步节点坐标赋值；起点节点的 parent 也设为自身值，
+ *       仅用于初始插入 came_from，路径回溯依赖显式 start 参数终止
  */
 struct AstarNode {
     Vec3   pos;                                // 栅格坐标
@@ -147,11 +147,13 @@ public:
 private:
     /**
      * @brief 路径回溯：从目标节点沿 parent 链回溯到起点
-     * @param goal 目标栅格坐标
-     * @return 从起点到目标的栅格坐标序列
-     * @details 委托给 grid_search_utils.hpp 中的共享模板函数 reconstructPathImpl
+     * @param start 起点栅格坐标（回溯终止条件）
+     * @param goal 目标栅格坐标（回溯起点）
+     * @return 从起点到目标的栅格坐标序列，path[0]==start, path.back()==goal
+     * @details 从 came_from_ 中逐跳取出 parent 字段构建路径，到达 start 时终止。
+     *          回溯完成后 reverse 得到正向序列。
      */
-    std::vector<Vec3> reconstructPath(const Vec3& goal) const;
+    std::vector<Vec3> reconstructPath(const Vec3& start, const Vec3& goal) const;
 
     // ===== 注入的回调函数 =====
 

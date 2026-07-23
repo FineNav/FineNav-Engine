@@ -10,7 +10,14 @@
 #include <vector>
 
 namespace route {
-// TODO: 目前只支持2D，后续应该直接推广成3D版本
+/**
+ * @note 当前路网图仅支持 2D（Node / polyline 仅含 x,y 坐标）。
+ *       推广到 3D 需逐层改动：
+ *       1. Node 增加 z 字段，polyline 增加第三维
+ *       2. loadFromJson 读取 coordinates 中的 z
+ *       3. findRoute (Dijkstra) 的代价计算考虑 z 轴距离
+ *       4. insertVirtualNode / splitEdgeForSnap 处理 z 维度
+ */
 
 // ===== 图数据类型 =====
 

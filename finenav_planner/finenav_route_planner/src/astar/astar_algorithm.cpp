@@ -17,7 +17,6 @@ using finenav::calculateHeuristic;
 using finenav::getNeighbors;
 using finenav::calculateStepCost;
 using finenav::cellDistance;
-using finenav::reconstructPathImpl;
 
 // ===== 构造 =====
 
@@ -48,12 +47,12 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPath(
     std::optional<AstarNode> best_goal_node;
     double best_goal_dist = std::numeric_limits<double>::infinity();
 
-    // 初始化起点节点：g=0, h=启发式估计, parent=self（自哨兵）
+    // 初始化起点节点：g=0, h=启发式估计
     AstarNode start_node(start);
     start_node.g      = 0.0;
     start_node.h      = calculateHeuristic(heuristic_, start, goal);
     start_node.updateF();
-    start_node.parent = start;   // 自哨兵标记
+    start_node.parent = start;
 
     open_set_.push(start_node);
     came_from_[start] = start_node;
@@ -81,7 +80,7 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPath(
 
         // 精确到达目标 → 回溯路径
         if (current.pos == goal)
-            return reconstructPath(goal);
+            return reconstructPath(start, goal);
 
         // 记录容忍范围内的最佳候选
         double goal_dist = cellDistance(current.pos, goal);
@@ -119,19 +118,26 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPath(
 
     // 未精确到达目标，但在容忍范围内有候选 → 使用最佳候选
     if (best_goal_node.has_value() && best_goal_dist <= goal_tolerance_)
-        return reconstructPath(best_goal_node->pos);
+        return reconstructPath(start, best_goal_node->pos);
 
     return std::nullopt;
 }
 
 // ===== 路径回溯 =====
-// 委托给 grid_search_utils.hpp 中的共享模板函数 reconstructPathImpl
+// 从 goal 沿 came_from_ parent 链回溯到 start，reverse 后返回正向序列。
+// 调用方保证 goal 在 came_from_ 中（搜索已成功到达），否则 at() 抛异常。
 
-std::vector<Vec3> AStarAlgorithm::reconstructPath(const Vec3& goal) const
+std::vector<Vec3> AStarAlgorithm::reconstructPath(const Vec3& start, const Vec3& goal) const
 {
-    return reconstructPathImpl(
-        goal, came_from_,
-        [](const AstarNode& n) { return n.parent; });
+    std::vector<Vec3> path;
+    Vec3 cur = goal;
+    while (true) {
+        path.push_back(cur);
+        if (cur == start) break;
+        cur = came_from_.at(cur).parent;
+    }
+    std::reverse(path.begin(), path.end());
+    return path;
 }
 
 // ===== Dijkstra 模式搜索（h=0, 动态目标集）=====
@@ -199,7 +205,7 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPathToAny(
         {
             // 通过过滤器 → 接受该目标，停止搜索
             if (!accept_goal || accept_goal(current.pos))
-                return reconstructPath(current.pos);
+                return reconstructPath(start, current.pos);
 
             // 被拒绝 → 记录为备用（仅保留第一个=最小 g 的，因搜索按 g 递增扩展）
             if (!best_fallback.has_value())
@@ -233,7 +239,7 @@ std::optional<std::vector<Vec3>> AStarAlgorithm::findPathToAny(
 
     // 无目标被接受 → 返回 g 值最小的备用目标
     if (best_fallback.has_value())
-        return reconstructPath(*best_fallback);
+        return reconstructPath(start, *best_fallback);
 
     return std::nullopt;
 }
