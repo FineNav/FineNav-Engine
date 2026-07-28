@@ -468,8 +468,14 @@ TEST(RoutePathSearch, ConfigureSucceeds_LoadsValidGraph)
 
 TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
 {
-    // The output now includes obstacle-aware connector paths:
-    //   robot (0.5,0.5) → node A (0,0) → route → node C (10,0) → goal (9.5,0.5)
+    // With route trimming (snapToRoute), the robot enters the densified route
+    // curve at the nearest reachable point, and the path leaves it at the
+    // point nearest to the goal.  Node centres that lie before the entry
+    // point or after the exit point are dropped — this eliminates the
+    // backtracking that node-level entry/exit would cause.
+    //
+    //   robot (0.5,0.5) → route entry (~0.5,0.0) → ... → route exit (~9.5,0.0) → goal (9.5,0.5)
+    //
     // First point should be near the robot pose, last near the goal pose.
     TempFile graph(kLinearGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
@@ -488,27 +494,31 @@ TEST(RoutePathSearch, PlanSucceeds_LinearGraph_EndpointsNearRobotAndGoal)
     EXPECT_NEAR(result->poses.back().position.x, 9.5, 1e-6);
     EXPECT_NEAR(result->poses.back().position.y, 0.5, 1e-6);
 
-    // The route graph interior still passes through the expected nodes
-    // (verify by checking that node A (0,0) and node C (10,0) appear)
-    bool has_node_a = false, has_node_c = false;
+    // The route still covers the on-network segment (y≈0, x between entry and exit)
+    bool has_on_route = false;
     for (const auto& p : result->poses) {
-        if (std::hypot(p.position.x - 0.0, p.position.y - 0.0) < 0.01) has_node_a = true;
-        if (std::hypot(p.position.x - 10.0, p.position.y - 0.0) < 0.01) has_node_c = true;
+        if (std::abs(p.position.y - 0.0) < 0.01 &&
+            p.position.x > 0.0 && p.position.x < 10.0)
+            has_on_route = true;
     }
-    EXPECT_TRUE(has_node_a);
-    EXPECT_TRUE(has_node_c);
+    EXPECT_TRUE(has_on_route);
 }
 
-TEST(RoutePathSearch, PlanFails_DisconnectedGraph_NoRouteBetweenComponents)
+TEST(RoutePathSearch, Plan_DisconnectedGraph_ReSnapsSmallerComponent)
 {
+    // Two disconnected components (0-1) and (2-3).  The connectivity check
+    // detects this and re-snaps the smaller component's side to the other
+    // component via obstacle-aware Dijkstra on the map.  Since the map is
+    // fully open, this succeeds — the planner finds a route.
     TempFile graph(kDisconnectedGraph);
     auto planner = makePlanner(graph.path());
     finenav::GridMap grid(40, 10);
     TestMapView view(grid, 1.0);
 
-    // Start snaps into the {0,1} component, goal into the {2,3} component —
-    // Dijkstra on the graph must find no path and return nullopt.
-    EXPECT_FALSE(planner.plan(makeCtx(0.5, 0.5, 22.5, 0.5), view).has_value());
+    // Start snaps to component (0,1), goal to component (2,3).
+    // After re-snap, the planner should succeed.
+    auto result = planner.plan(makeCtx(0.5, 0.5, 22.5, 0.5), view);
+    EXPECT_TRUE(result.has_value());
 }
 
 TEST(RoutePathSearch, PlanPrefersLowerCost_OverFixedExpensiveDirectEdge)
@@ -890,7 +900,9 @@ TEST(RoutePathSearch, Plan_ThreeNodeChain_RobotEntersAtMidPath_GoesForward)
 TEST(RoutePathSearch, Plan_SnapsToNode_WhenNodeIsCloserThanAnyPathPoint)
 {
     // Robot at (0.5, 0.5) — geometrically closer to node A(0,0) than to any
-    // intermediate path point.  Should still snap to the node (existing behavior).
+    // intermediate path point.  With route trimming, the robot enters the
+    // route at the nearest reachable route point (≈ 0.5, 0.0), skipping node A
+    // which lies behind the entry point.  This eliminates backtracking.
     TempFile graph(kDensePathGraph);
     auto planner = makePlanner(graph.path(), /*path_density=*/0.5);
     finenav::GridMap grid(12, 12);
@@ -899,13 +911,16 @@ TEST(RoutePathSearch, Plan_SnapsToNode_WhenNodeIsCloserThanAnyPathPoint)
     auto result = planner.plan(makeCtx(0.5, 0.5, 9.5, 0.5), view);
     ASSERT_TRUE(result.has_value());
 
-    // Node A (0, 0) should appear — robot snaps to it
-    bool has_node_a = false;
+    // The robot enters the route at the nearest point (~0.5, 0.0 on route)
+    // Node A (0,0) is behind the entry point and may or may not appear.
+    // Verify the route covers the corridor from ~0.5 to ~9.5.
+    bool has_on_route = false;
     for (const auto& p : result->poses) {
-        if (std::hypot(p.position.x - 0.0, p.position.y - 0.0) < 1e-4)
-            has_node_a = true;
+        if (std::abs(p.position.y - 0.0) < 0.01 &&
+            p.position.x > 0.0 && p.position.x < 10.0)
+            has_on_route = true;
     }
-    EXPECT_TRUE(has_node_a);
+    EXPECT_TRUE(has_on_route);
 }
 
 TEST(RoutePathSearch, Plan_DiagonalDenseEdge_SnapsToPathPoint)

@@ -4,6 +4,7 @@ set(TEST_NAMES
   bfs_test
   route_test
   dstarlite_test
+  detour_test
 )
 
 foreach(name IN LISTS TEST_NAMES)
