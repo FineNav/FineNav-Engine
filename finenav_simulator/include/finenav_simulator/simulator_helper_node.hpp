@@ -6,8 +6,8 @@
 #include "tf2_ros/transform_broadcaster.h"
 
 #include "finenav_simulator/ground_truth_map_localizer.hpp"
-#include "finenav_simulator/keyboard_teleop.hpp"
 #include "finenav_simulator/odom_path_publisher.hpp"
+#include "finenav_simulator/simulator_resetter.hpp"
 
 namespace finenav_2d
 {
@@ -20,9 +20,9 @@ public:
 private:
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  std::unique_ptr<KeyboardTeleop> teleop_;
   std::unique_ptr<OdomPathPublisher> path_publisher_;
   std::unique_ptr<GroundTruthMapPublisher> publisher_;
+  std::unique_ptr<SimulatorResetter> resetter_;
 };
 
 }  // namespace finenav_2d

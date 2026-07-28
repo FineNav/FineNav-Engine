@@ -8,6 +8,8 @@ if (NOT CMAKE_BUILD_TYPE)
 endif ()
 
 find_package(ament_cmake_auto REQUIRED)
+find_package(ignition-transport11 REQUIRED)
+find_package(ignition-msgs8 REQUIRED)
 
 include_directories(include)
 
@@ -19,13 +21,17 @@ ament_auto_add_executable(point_cloud_converter_node
 
 ament_auto_add_executable(simulator_helper_node #TODO: executable
         src/simulator_helper_node.cpp
-        src/keyboard_teleop.cpp
         src/odom_path_publisher.cpp
         src/ground_truth_map_localizer.cpp
+        src/simulator_resetter.cpp
+)
+
+target_link_libraries(simulator_helper_node
+    ignition-transport11::core
+    ignition-msgs8::ignition-msgs8
 )
 
 ament_auto_package(
-  USE_SCOPED_HEADER_INSTALL_DIR
   INSTALL_TO_SHARE
         launch
         resource
