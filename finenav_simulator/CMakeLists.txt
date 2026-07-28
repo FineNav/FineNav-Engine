@@ -8,8 +8,8 @@ if (NOT CMAKE_BUILD_TYPE)
 endif ()
 
 find_package(ament_cmake_auto REQUIRED)
-find_package(ignition-transport11 REQUIRED)
-find_package(ignition-msgs8 REQUIRED)
+find_package(gz-transport13 REQUIRED)
+find_package(gz-msgs10 REQUIRED)
 
 include_directories(include)
 
@@ -27,8 +27,8 @@ ament_auto_add_executable(simulator_helper_node #TODO: executable
 )
 
 target_link_libraries(simulator_helper_node
-    ignition-transport11::core
-    ignition-msgs8::ignition-msgs8
+    gz-transport13::gz-transport13
+    gz-msgs10::gz-msgs10
 )
 
 ament_auto_package(

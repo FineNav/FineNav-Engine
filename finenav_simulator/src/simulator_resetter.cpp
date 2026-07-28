@@ -1,8 +1,8 @@
 #include "finenav_simulator/simulator_resetter.hpp"
 
-#include <ignition/msgs/pose.pb.h>
-#include <ignition/msgs/world_control.pb.h>
-#include <ignition/transport/Node.hh>
+#include <gz/msgs/pose.pb.h>
+#include <gz/msgs/world_control.pb.h>
+#include <gz/transport/Node.hh>
 
 #include <cmath>
 #include <chrono>
@@ -15,7 +15,7 @@ namespace finenav_2d
 
 SimulatorResetter::SimulatorResetter(rclcpp::Node * node)
 : node_(node),
-  ign_node_(std::make_unique<ignition::transport::Node>())
+  ign_node_(std::make_unique<gz::transport::Node>())
 {
   // -- World / robot identity ------------------------------------------------
   // Parameters that identify the Gazebo world and robot for Ignition RPCs.
@@ -86,8 +86,8 @@ void SimulatorResetter::DoReset()
   // Step 1: reset simulation time to zero.
   // On failure the simulation is in an unknown state — abort immediately.
   {
-    ignition::msgs::WorldControl req;
-    ignition::msgs::Boolean rep;
+    gz::msgs::WorldControl req;
+    gz::msgs::Boolean rep;
     req.mutable_reset()->set_all(true);
 
     bool result = false;
@@ -105,7 +105,7 @@ void SimulatorResetter::DoReset()
   // Step 2: teleport the robot back to its spawn pose.
   // If this fails we MUST abort — the robot could be anywhere.
   {
-    ignition::msgs::Pose req;
+    gz::msgs::Pose req;
     req.set_name(robot_name_);
     req.mutable_position()->set_x(spawn_x_);
     req.mutable_position()->set_y(spawn_y_);
@@ -117,7 +117,7 @@ void SimulatorResetter::DoReset()
     req.mutable_orientation()->set_z(std::sin(spawn_yaw_ / 2.0));
     req.mutable_orientation()->set_w(std::cos(spawn_yaw_ / 2.0));
 
-    ignition::msgs::Boolean rep;
+    gz::msgs::Boolean rep;
     bool result = false;
     bool called = ign_node_->Request(
       world_prefix + "/set_pose", req, 5000, rep, result);
@@ -140,8 +140,8 @@ void SimulatorResetter::DoReset()
 
   // Step 4: pause the simulation so the robot stays at the spawn position.
   {
-    ignition::msgs::WorldControl req;
-    ignition::msgs::Boolean rep;
+    gz::msgs::WorldControl req;
+    gz::msgs::Boolean rep;
     req.set_pause(true);
 
     bool result = false;

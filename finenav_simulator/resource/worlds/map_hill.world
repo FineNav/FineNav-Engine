@@ -6,28 +6,28 @@
       <real_time_factor>1.0</real_time_factor>
     </physics>
 
-    <plugin filename="libignition-gazebo-physics-system.so"
-      name="ignition::gazebo::systems::Physics">
+    <plugin filename="libgz-sim-physics-system.so"
+      name="gz::sim::systems::Physics">
     </plugin>
 
-    <plugin filename="libignition-gazebo-scene-broadcaster-system.so"
-      name="ignition::gazebo::systems::SceneBroadcaster">
+    <plugin filename="libgz-sim-scene-broadcaster-system.so"
+      name="gz::sim::systems::SceneBroadcaster">
     </plugin>
 
-    <plugin filename="libignition-gazebo-user-commands-system.so"
-      name="ignition::gazebo::systems::UserCommands">
+    <plugin filename="libgz-sim-user-commands-system.so"
+      name="gz::sim::systems::UserCommands">
     </plugin>
 
-    <plugin filename="libignition-gazebo-sensors-system.so"
-      name="ignition::gazebo::systems::Sensors">
+    <plugin filename="libgz-sim-sensors-system.so"
+      name="gz::sim::systems::Sensors">
     </plugin>
 
-    <plugin filename="libignition-gazebo-imu-system.so"
-      name="ignition::gazebo::systems::Imu">
+    <plugin filename="libgz-sim-imu-system.so"
+      name="gz::sim::systems::Imu">
     </plugin>
 
-    <plugin filename="libignition-gazebo-contact-system.so"
-      name="ignition::gazebo::systems::Contact">
+    <plugin filename="libgz-sim-contact-system.so"
+      name="gz::sim::systems::Contact">
     </plugin>
 
     <include>

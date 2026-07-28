@@ -5,7 +5,7 @@
 #include <string>
 #include <thread>
 
-#include <ignition/transport/Node.hh>
+#include <gz/transport/Node.hh>
 
 #include "geometry_msgs/msg/twist.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -77,7 +77,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr keypress_subscription_;
 
   /// Ignition Transport node — one-shot RPCs to Gazebo's private API.
-  std::unique_ptr<ignition::transport::Node> ign_node_;
+  std::unique_ptr<gz::transport::Node> ign_node_;
 };
 
 }  // namespace finenav_2d
