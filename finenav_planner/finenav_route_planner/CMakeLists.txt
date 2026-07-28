@@ -33,6 +33,7 @@ generate_parameter_library(astar_params  astar.yaml)
 generate_parameter_library(bfs_params    bfs.yaml)
 generate_parameter_library(route_params  route.yaml)
 generate_parameter_library(dstarlite_params dstarlite.yaml)
+generate_parameter_library(detour_params detour.yaml)
 
 # ── planner library ─────────────────────────────────────────────────────────
 add_library(finenav_route_planner_lib SHARED
@@ -45,6 +46,8 @@ add_library(finenav_route_planner_lib SHARED
     src/bfs_path_search.cpp          # BFS = AStarAlgorithm(Heuristic::Zero)
     src/dstarlite_path_search.cpp
     src/route_path_search.cpp
+    # Local detour planner (FineNav PlannerConcept)
+    src/detour_planner.cpp
     # Route internals — graph loading (GeoJSON) + Dijkstra search
     src/route/route_graph.cpp
     src/route/route_search.cpp
@@ -61,6 +64,7 @@ target_link_libraries(finenav_route_planner_lib PUBLIC
     bfs_params
     route_params
     dstarlite_params
+    detour_params
     finenav_core::finenav_core
     ${OpenCV_LIBS}
     Eigen3::Eigen
@@ -74,7 +78,7 @@ install(TARGETS finenav_route_planner_lib
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS astar_params bfs_params route_params dstarlite_params
+install(TARGETS astar_params bfs_params route_params dstarlite_params detour_params
   EXPORT export_${PROJECT_NAME}_params
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

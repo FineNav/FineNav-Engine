@@ -24,3 +24,7 @@ route_planner:
     type: double
     default_value: 5.0
     description: "Maximum planning time (seconds) for the snapping Dijkstra search. If exceeded, the snap fails and plan() returns nullopt."
+  include_connectors:
+    type: bool
+    default_value: true
+    description: "When true, prepend/append the obstacle-aware connector paths (robot pose → route entry, route exit → goal pose) to the output. Set to false in pipelines where a downstream DetourPlanner re-anchors the robot to the reference every cycle — a connector baked into a single-shot plan goes stale and misleads the re-anchoring. NOTE: with false, nothing plans the final leg to a goal that is off the route network; the goal is assumed to lie on it."

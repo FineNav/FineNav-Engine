@@ -15,6 +15,7 @@
 
 #include "finenav_route_planner/astar/astar_algorithm.hpp"
 #include "finenav_route_planner/common/imap_view.hpp"
+#include "finenav_route_planner/common/snap_search_utils.hpp"
 #include "finenav_route_planner/route/route_graph.hpp"
 #include "finenav_route_planner/route/route_search.hpp"
 
@@ -114,6 +115,18 @@ public:
         bool isPath() const { return edge_from != SIZE_MAX; }
     };
 
+    /// @brief Snap-to-route-curve result — used for route end-trimming.
+    ///        Finds the nearest reachable point on the densified route curve
+    ///        (obstacle-aware BFS on the occupancy map).  When valid, the
+    ///        robot or goal connector can be projected to route[index] instead
+    ///        of the node centre, eliminating the backtracking that node-level
+    ///        entry/exit would cause.
+    struct RouteSnap {
+        size_t index{SIZE_MAX};                      ///< index into the route poses
+        std::vector<Position3D> connector_path;     ///< world-frame, pose → route[index]
+        bool valid() const { return index != SIZE_MAX; }
+    };
+
 private:
     /**
      * @brief 避障 BFS（在占据地图上运行 h=0 的 Dijkstra），
@@ -154,6 +167,17 @@ private:
         const SnapResult&     snap,
         size_t                virtual_idx) const;
 
+    /// @brief Obstacle-aware search (Dijkstra h=0 on the occupancy map) for
+    ///        the nearest reachable point on the densified route curve.  Used
+    ///        to trim the route curve at both ends: the robot enters at its
+    ///        nearest reachable route point and the path leaves the route at
+    ///        the point nearest to the goal.
+    RouteSnap snapToRoute(
+        const route::RoutePoses&        route,
+        size_t                          begin_idx,
+        const geometry_msgs::msg::Pose& pose,
+        const IMapView&                 map_view) const;
+
     // ── 缓存路网图与互斥锁 ──────────────────────────────────
     mutable std::unique_ptr<std::mutex> graph_mutex_ = std::make_unique<std::mutex>();
     std::optional<route::Graph> cached_graph_;
@@ -162,6 +186,11 @@ private:
     double path_density_ = 0.05;
     double min_approach_angle_deg_ = 0.0;
     double terrain_weight_ = 1.0;          // 地形代价乘数（吸附搜索用）
+    /// When false, output only the on-network route segment (entry/exit
+    /// trimming still applies).  For pipelines where a downstream
+    /// DetourPlanner re-anchors the robot to the reference every cycle —
+    /// a connector baked into a single-shot plan goes stale.
+    bool   include_connectors_ = true;
 
     // ── 吸附搜索参数 ────────────────────────────────────────
     finenav::Connectivity snap_connectivity_ = finenav::Connectivity::N8;

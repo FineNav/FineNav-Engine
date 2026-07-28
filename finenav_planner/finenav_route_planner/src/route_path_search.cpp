@@ -8,8 +8,11 @@
 #include <limits>
 #include <unordered_map>
 #include <mutex>
+#include <queue>
 
 #include <geometry_msgs/msg/pose.hpp>
+
+#include "finenav_route_planner/common/snap_search_utils.hpp"
 
 namespace finenav {
 
@@ -23,6 +26,7 @@ void RoutePathSearch::configure(const ConfigType& params)
     path_density_             = params.path_density;
     min_approach_angle_deg_   = params.min_approach_angle_deg;
     terrain_weight_           = params.terrain_weight;
+    include_connectors_       = params.include_connectors;
 
     // ── 解析吸附搜索连接方式（与 BFS/A* 的 connectivity 解析一致）──
     if      (params.snap_connectivity == "4")  snap_connectivity_ = finenav::Connectivity::N4;
@@ -60,11 +64,17 @@ RoutePathSearch::Result RoutePathSearch::plan(
 {
     std::lock_guard<std::mutex> lock(*graph_mutex_);
 
-    if (!cached_graph_ || cached_graph_->nodes.empty()) return std::nullopt;
+    static rclcpp::Clock steady_clock(RCL_STEADY_TIME);
+    const auto logger = rclcpp::get_logger("RoutePathSearch");
+
+    if (!cached_graph_ || cached_graph_->nodes.empty()) {
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "plan failed: no route graph loaded (waiting for /geojson).");
+        return std::nullopt;
+    }
     const auto& orig_graph = *cached_graph_;
 
-    // 避障 BFS：将起点和目标吸附到最近可达的图点
-    // （节点或 polyline 中间路径点）。
+    // ── 1. Snap robot & goal to the nearest reachable graph point ─────────
     geometry_msgs::msg::Pose start_pose;
     start_pose.position.x = ctx.robot_state.position.x();
     start_pose.position.y = ctx.robot_state.position.y();
@@ -73,50 +83,189 @@ RoutePathSearch::Result RoutePathSearch::plan(
     start_pose.orientation.x = ctx.robot_state.orientation.x();
     start_pose.orientation.y = ctx.robot_state.orientation.y();
     start_pose.orientation.z = ctx.robot_state.orientation.z();
-    const auto start_snap = findNearestGraphPoint(orig_graph, start_pose, map_view);
-    if (!start_snap.isNode() && !start_snap.isPath()) return std::nullopt;
 
-    const auto goal_snap = findNearestGraphPoint(orig_graph, ctx.goal_pose, map_view);
-    if (!goal_snap.isNode() && !goal_snap.isPath()) return std::nullopt;
+    auto start_snap = findNearestGraphPoint(orig_graph, start_pose, map_view);
+    if (!start_snap.isNode() && !start_snap.isPath()) {
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "plan failed: cannot snap start (%.2f, %.2f) to any graph point.",
+            start_pose.position.x, start_pose.position.y);
+        return std::nullopt;
+    }
 
-    // ── 构建可变工作图 ──────────────────────────────────────
-    // 对于路径点吸附的出入口，可能需要插入虚拟节点并分裂边。
-    // 在副本上操作，使缓存的原图不受影响。
-    route::Graph graph = orig_graph;   // 深拷贝
+    auto goal_snap = findNearestGraphPoint(orig_graph, ctx.goal_pose, map_view);
+    if (!goal_snap.isNode() && !goal_snap.isPath()) {
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "plan failed: cannot snap goal (%.2f, %.2f) to any graph point.",
+            ctx.goal_pose.position.x, ctx.goal_pose.position.y);
+        return std::nullopt;
+    }
+
+    // ── 2. Connectivity check ─────────────────────────────────────────────
+    // For path-point snaps, use the edge's from_node as root.
+    auto componentRoot = [&](const SnapResult& snap) -> size_t {
+        return snap.isNode() ? snap.node_index : snap.edge_from;
+    };
+
+    auto reachable_mask = [&](size_t from) {
+        std::vector<bool> mask(orig_graph.nodes.size());
+        std::queue<size_t> q;
+        mask[from] = true;
+        q.push(from);
+        while (!q.empty()) {
+            size_t u = q.front(); q.pop();
+            for (const auto& nb : orig_graph.adj[u]) {
+                if (!mask[nb.to_index]) {
+                    mask[nb.to_index] = true;
+                    q.push(nb.to_index);
+                }
+            }
+            for (size_t v = 0; v < orig_graph.adj.size(); ++v) {
+                for (const auto& nb : orig_graph.adj[v]) {
+                    if (nb.to_index == u && !mask[v]) {
+                        mask[v] = true;
+                        q.push(v);
+                    }
+                }
+            }
+        }
+        return mask;
+    };
+
+    const auto cc_start = reachable_mask(componentRoot(start_snap));
+    if (!cc_start[componentRoot(goal_snap)]) {
+        const auto cc_goal = reachable_mask(componentRoot(goal_snap));
+        size_t sz_start = 0, sz_goal = 0;
+        for (size_t i = 0; i < cc_start.size(); ++i) {
+            if (cc_start[i]) ++sz_start;
+            if (cc_goal[i])  ++sz_goal;
+        }
+
+        RCLCPP_INFO_THROTTLE(logger, steady_clock, 2000,
+            "plan: snapped points disconnected — start comp %zu nodes, "
+            "goal comp %zu nodes. Re-snapping the smaller side.",
+            sz_start, sz_goal);
+
+        const bool fix_start = (sz_start < sz_goal);
+        const auto& allowed_mask = fix_start ? cc_goal : cc_start;
+        const auto& pose_to_fix = fix_start ? start_pose : ctx.goal_pose;
+
+        const double step = map_view.getStepSize();
+        const snap::CellGrid sn_grid{step};
+        const finenav::Vec3 sn_origin = sn_grid.toCell(
+            pose_to_fix.position.x, pose_to_fix.position.y);
+
+        std::unordered_map<finenav::Vec3, std::vector<size_t>, finenav::Vec3Hash> sn_cell_nodes;
+        int sn_max_depth = 0;
+        for (size_t i = 0; i < orig_graph.nodes.size(); ++i) {
+            if (!allowed_mask[i]) continue;
+            const finenav::Vec3 c = sn_grid.toCell(orig_graph.nodes[i].x, orig_graph.nodes[i].y);
+            sn_cell_nodes[c].push_back(i);
+            sn_max_depth = std::max(sn_max_depth, snap::chebyshev(c, sn_origin));
+        }
+
+        auto sn_algo = snap::makeSnapSearch(map_view, sn_grid, sn_origin,
+                                            sn_max_depth, terrain_weight_,
+                                            snap_max_planning_time_);
+        const auto sn_path = sn_algo.findPathToAny(sn_origin,
+            [&](const finenav::Vec3& c) { return sn_cell_nodes.contains(c); });
+        if (!sn_path || sn_path->empty()) {
+            RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+                "plan failed: re-snap %s side — no node reachable in other component.",
+                fix_start ? "start" : "goal");
+            return std::nullopt;
+        }
+
+        SnapResult corrected;
+        double best = std::numeric_limits<double>::infinity();
+        for (const size_t idx : sn_cell_nodes.at(sn_path->back())) {
+            const double d = std::hypot(orig_graph.nodes[idx].x - pose_to_fix.position.x,
+                                        orig_graph.nodes[idx].y - pose_to_fix.position.y);
+            if (d < best) { best = d; corrected.node_index = idx; }
+        }
+        corrected.connector_path = snap::buildConnector(
+            pose_to_fix, *sn_path, sn_grid,
+            {orig_graph.nodes[corrected.node_index].x,
+             orig_graph.nodes[corrected.node_index].y, 0.0});
+
+        RCLCPP_INFO_THROTTLE(logger, steady_clock, 2000,
+            "plan: re-snap %s side → node id=%u (%.2f, %.2f).",
+            fix_start ? "start" : "goal",
+            orig_graph.nodes[corrected.node_index].id,
+            orig_graph.nodes[corrected.node_index].x,
+            orig_graph.nodes[corrected.node_index].y);
+
+        if (fix_start)
+            start_snap = std::move(corrected);
+        else
+            goal_snap = std::move(corrected);
+    }
+
+    // ── 3. Build mutable working graph ──────────────────────────────────
+    // For path-point snaps, we may need to insert virtual nodes and split
+    // edges.  Operate on a copy to leave the cached graph intact.
+    route::Graph graph = orig_graph;   // deep copy
 
     size_t start_node_idx = SIZE_MAX;
     size_t goal_node_idx  = SIZE_MAX;
 
-    // 辅助函数：将 SnapResult 转换为 `graph` 中的有效节点下标。
-    // 节点吸附时原下标仍然有效（我们只做追加操作）。
-    // 路径点吸附时插入虚拟节点并分裂该边。
     auto resolveSnap = [&](const SnapResult& snap) -> size_t {
         if (snap.isNode()) {
             return snap.node_index;
         }
-        // 路径点吸附 — 插入虚拟节点并分裂该边
         const size_t vi = insertVirtualNode(graph, snap.snap_point);
         splitEdgeForSnap(graph, snap, vi);
         return vi;
     };
 
-    // 当两个吸附点落在同一条边上时，按 pt_idx 递减的顺序处理，
-    // 以免先前的分裂使后续下标失效。
-    // 最简单的做法：先处理起点，再处理目标。splitEdgeForSnap 按
-    // to_index 和 polyline 范围进行查找，因此对下标偏移是稳健的。
     start_node_idx = resolveSnap(start_snap);
     goal_node_idx  = resolveSnap(goal_snap);
 
-    // ── 在（可能已修改的）拓扑图上运行 Dijkstra ────────────
+    // ── 4. Dijkstra on the (possibly modified) route graph ───────────────
     auto route_opt = route::findRoute(graph, start_node_idx, goal_node_idx, path_density_);
-    if (!route_opt || route_opt->empty()) return std::nullopt;
+    if (!route_opt || route_opt->empty()) {
+        const auto& sn = graph.nodes[start_node_idx];
+        const auto& gn = graph.nodes[goal_node_idx];
+        RCLCPP_WARN_THROTTLE(logger, steady_clock, 2000,
+            "plan failed: no directed route from node id=%u (%.2f, %.2f) "
+            "to node id=%u (%.2f, %.2f).",
+            sn.id, sn.x, sn.y, gn.id, gn.x, gn.y);
+        return std::nullopt;
+    }
+    const route::RoutePoses& route = *route_opt;
 
+    // ── 5. Trim the route curve at both ends ─────────────────────────────
+    // Project robot and goal onto the densified route curve via obstacle-
+    // aware BFS.  This eliminates the backtracking that entering/leaving
+    // at node centres would cause, no matter how many nodes the robot has
+    // already passed.  The exit search is restricted to after the entry
+    // point, so entry ≤ exit always holds.
+    size_t begin_idx = 0;
+    size_t end_idx   = route.size();
+    std::vector<Position3D> start_connector = std::move(start_snap.connector_path);
+    std::vector<Position3D> goal_connector  = std::move(goal_snap.connector_path);
+
+    RouteSnap entry = snapToRoute(route, 0, start_pose, map_view);
+    if (entry.valid()) {
+        begin_idx       = entry.index;
+        start_connector = std::move(entry.connector_path);
+    }
+    RouteSnap exit = snapToRoute(route, begin_idx, ctx.goal_pose, map_view);
+    if (exit.valid()) {
+        end_idx        = exit.index + 1;
+        goal_connector = std::move(exit.connector_path);
+    }
+
+    // ── 6. Assemble output ───────────────────────────────────────────────
     OutputTrajectoryT<RoutePathSearch> output;
-    output.poses.reserve(start_snap.connector_path.size()
-                       + goal_snap.connector_path.size()
-                       + route_opt->size());
+    output.poses.reserve(start_connector.size()
+                       + (end_idx - begin_idx)
+                       + goal_connector.size());
 
     auto appendPose = [&](double x, double y) {
+        if (!output.poses.empty() &&
+            std::hypot(output.poses.back().position.x - x,
+                       output.poses.back().position.y - y) < 1e-6)
+            return;
         geometry_msgs::msg::Pose p;
         p.position.x    = x;
         p.position.y    = y;
@@ -124,47 +273,16 @@ RoutePathSearch::Result RoutePathSearch::plan(
         output.poses.push_back(p);
     };
 
-    auto isDegenerate = [](const std::vector<Position3D>& conn) -> bool {
-        if (conn.size() < 2) return true;
-        const double d = (conn.front() - conn.back()).norm();
-        return d < 1e-6;
-    };
-
-    // ── 起点连接段（robot_pose → snap_point）──
-    if (!isDegenerate(start_snap.connector_path)) {
-        for (const auto& pt : start_snap.connector_path)
+    if (include_connectors_) {
+        for (const auto& pt : start_connector)
             appendPose(pt.x(), pt.y());
     }
-
-    // ── 拓扑路线 ──
-    // 若路线首点与连接段末点重合，则跳过路线首点。
-    bool skip_first_route = false;
-    if (!isDegenerate(start_snap.connector_path) && !output.poses.empty()) {
-        const auto& last_conn = output.poses.back().position;
-        const auto& first_route_x = (*route_opt)[0].first;
-        const auto& first_route_y = (*route_opt)[0].second;
-        skip_first_route = (std::hypot(last_conn.x - first_route_x,
-                                        last_conn.y - first_route_y) < 1e-6);
-    }
-
-    for (size_t i = (skip_first_route ? 1 : 0); i < route_opt->size(); ++i)
-        appendPose((*route_opt)[i].first, (*route_opt)[i].second);
-
-    // ── 目标连接段（snap_point → goal_pose），反向遍历 ──
-    if (!isDegenerate(goal_snap.connector_path)) {
-        const auto& route_end = output.poses.back().position;
-        const auto& goal_last = goal_snap.connector_path.back();  // 吸附点
-        const bool route_ends_at_snap =
-            std::hypot(route_end.x - goal_last.x(),
-                       route_end.y - goal_last.y()) < 1e-6;
-
-        const size_t start_i = route_ends_at_snap
-            ? goal_snap.connector_path.size() - 2
-            : goal_snap.connector_path.size() - 1;
-
-        for (size_t i = start_i; i != SIZE_MAX; --i)
-            appendPose(goal_snap.connector_path[i].x(),
-                       goal_snap.connector_path[i].y());
+    for (size_t i = begin_idx; i < end_idx; ++i)
+        appendPose(route[i].first, route[i].second);
+    // Goal connector was built goal_pose → route point; reverse.
+    if (include_connectors_) {
+        for (auto it = goal_connector.rbegin(); it != goal_connector.rend(); ++it)
+            appendPose(it->x(), it->y());
     }
 
     return output;
@@ -517,5 +635,54 @@ void RoutePathSearch::splitEdgeForSnap(
     }
 }
 
-} // namespace finenav
+// ── snapToRoute ─────────────────────────────────────────────────────────────
+//
+// Same obstacle-aware search, but the goal set is the points of
+// route[begin_idx..end).  Used by plan() to trim the route curve: the
+// nearest reachable route point is where the robot enters (begin_idx = 0)
+// or where the path leaves toward the goal (begin_idx = entry index).
 
+RoutePathSearch::RouteSnap RoutePathSearch::snapToRoute(
+    const route::RoutePoses&        route,
+    size_t                          begin_idx,
+    const geometry_msgs::msg::Pose& pose,
+    const IMapView&                 map_view) const
+{
+    const snap::CellGrid grid{map_view.getStepSize()};
+    const finenav::Vec3 origin = grid.toCell(pose.position.x, pose.position.y);
+
+    // cell → route point indices; max_depth bounds the search box.
+    std::unordered_map<finenav::Vec3, std::vector<size_t>, finenav::Vec3Hash> cell_pts;
+    int max_depth = 0;
+    for (size_t i = begin_idx; i < route.size(); ++i) {
+        const finenav::Vec3 c = grid.toCell(route[i].first, route[i].second);
+        cell_pts[c].push_back(i);
+        max_depth = std::max(max_depth, snap::chebyshev(c, origin));
+    }
+    if (cell_pts.empty()) return {};
+
+    auto algo = snap::makeSnapSearch(map_view, grid, origin, max_depth,
+                                     terrain_weight_, snap_max_planning_time_);
+    const auto path = algo.findPathToAny(origin,
+        [&](const finenav::Vec3& c) { return cell_pts.contains(c); });
+    if (!path || path->empty()) return {};
+
+    // Several route points may share the goal cell — pick the closest to
+    // the pose (ties keep the earliest index, i.e. the least route is cut).
+    RouteSnap snap;
+    double best = std::numeric_limits<double>::infinity();
+    for (const size_t idx : cell_pts.at(path->back())) {
+        const double d = std::hypot(route[idx].first - pose.position.x,
+                                    route[idx].second - pose.position.y);
+        if (d < best) {
+            best       = d;
+            snap.index = idx;
+        }
+    }
+
+    snap.connector_path = snap::buildConnector(pose, *path, grid,
+        {route[snap.index].first, route[snap.index].second, 0.0});
+    return snap;
+}
+
+} // namespace finenav
