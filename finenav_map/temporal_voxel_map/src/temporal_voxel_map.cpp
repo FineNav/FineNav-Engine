@@ -160,4 +160,35 @@ void TemporalVoxelMap::pruneExpiredCells(const Eigen::Isometry3d& T_map_body)
     }
 }
 
+// ==============================================================================
+// Public query API
+// ==============================================================================
+
+bool TemporalVoxelMap::isDynamicObstacle(const Position3D& pos) const {
+    if (!grid_.isInside(pos)) return false;
+
+    const Voxel& voxel = grid_.atPosition(pos);
+    if (!std::isfinite(voxel.z_height)) return false;
+    if (voxel.is_static) return false;
+
+    // Also check that the voxel hasn't expired.
+    const auto now = std::chrono::steady_clock::now();
+    const double age_sec =
+        std::chrono::duration<double>(now - voxel.timestamp).count();
+    return age_sec < decay_time_sec_;
+}
+
+bool TemporalVoxelMap::isDynamicObstacleInColumn(
+    double x, double y, double z_min, double z_max) const
+{
+    const double res = grid_.getResolution();
+    for (double z = z_min; z <= z_max; z += res) {
+        Position3D pos(x, y, z);
+        if (isDynamicObstacle(pos)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace finenav

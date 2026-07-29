@@ -87,6 +87,36 @@ public:
      */
     void pruneExpiredCells(const Eigen::Isometry3d& T_map_body);
 
+    // ── Public query API (for MapView adapters) ──────────────────
+
+    /**
+     * @brief Check whether a world-coordinate position has an active
+     *        (non-expired, non-static) dynamic obstacle voxel.
+     *
+     * Used by composite MapViews that fuse static occupancy grids with
+     * temporal dynamic-obstacle data for local planning (MPPI).
+     *
+     * @param pos  World-frame query position (exact 3D match).
+     * @return true if an active dynamic obstacle voxel exists at pos.
+     */
+    bool isDynamicObstacle(const Position3D& pos) const;
+
+    /**
+     * @brief Check whether any voxel in the (x, y) column within [z_min, z_max]
+     *        contains an active dynamic obstacle.
+     *
+     * Designed for 2D planners (MPPI) that query in the ground plane —
+     * this sweeps the robot-height range to catch obstacles at any elevation.
+     *
+     * @param x, y  World-frame horizontal coordinates.
+     * @param z_min Lower bound of the vertical sweep (m).
+     * @param z_max Upper bound of the vertical sweep (m).
+     * @return true if ANY voxel in the column is a dynamic obstacle.
+     */
+    bool isDynamicObstacleInColumn(double x, double y,
+                                   double z_min = 0.0,
+                                   double z_max = 2.0) const;
+
 private:
     /// Single-cone FOV: polar angle from body +Z axis.
     bool isInFrustum(const Position& p_world,
