@@ -89,6 +89,10 @@ public:
 
     // ── Public query API (for MapView adapters) ──────────────────
 
+    /// Read-only access to the underlying 3D voxel grid.
+    /// Needed by algorithms (TerrainAnalyzer) that iterate over voxel columns.
+    const GridMap<Voxel>& grid() const { return grid_; }
+
     /**
      * @brief Check whether a world-coordinate position has an active
      *        (non-expired, non-static) dynamic obstacle voxel.

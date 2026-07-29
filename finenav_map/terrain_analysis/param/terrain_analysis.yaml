@@ -1,0 +1,52 @@
+terrain_analysis:
+  cost_scaling_factor:
+    type: double
+    default_value: 0.5
+    description: "Exponential decay factor for costmap inflation. Higher = steeper falloff."
+    validation:
+      bounds<>: [0.01, 10.0]
+
+  robot_height:
+    type: double
+    default_value: 1.0
+    description: "Robot height in metres — voxel gaps larger than this separate ground layers."
+    validation:
+      bounds<>: [0.1, 5.0]
+
+  max_gradient:
+    type: double
+    default_value: 0.12
+    description: "Max allowed height difference (m) between adjacent ground cells before marking as obstacle."
+    validation:
+      bounds<>: [0.01, 2.0]
+
+  nan_fill_radius:
+    type: double
+    default_value: 1.0
+    description: "Radius (m) around map centre where NaN ground cells are filled with robot_pose_z."
+    validation:
+      bounds<>: [0.0, 10.0]
+
+  ground_z_offset:
+    type: double
+    default_value: 0.125
+    description: "Vertical offset (m) added to detected ground height."
+    validation:
+      bounds<>: [0.0, 1.0]
+
+  use_simple_z_threshold:
+    type: bool
+    default_value: false
+    description: "Use simple max-z threshold instead of gradient-based terrain analysis."
+
+  z_obstacle_threshold:
+    type: double
+    default_value: 0.06
+    description: "In simple mode: voxels with z > robot_pose_z + threshold are obstacles (m)."
+    validation:
+      bounds<>: [0.0, 1.0]
+
+  allow_unknown:
+    type: bool
+    default_value: false
+    description: "Treat positions outside the rolling window as free (true) or lethal (false)."
