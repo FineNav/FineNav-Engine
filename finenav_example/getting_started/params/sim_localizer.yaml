@@ -6,12 +6,10 @@
 #
 #  Usage:
 #    ros2 run finenav_example hello_finenav \
-#      --ros-args --params-file /path/to/sim_localizer.yaml
+#      --ros-args \
+#      --params-file sim_time.yaml \
+#      --params-file sim_localizer.yaml
 # ==============================================================================
-
-/**:
-  ros__parameters:
-    use_sim_time: true
 
 hello_finenav:
   # ── Navigator (BT engine) ─────────────────────────────────────────────────
@@ -58,4 +56,3 @@ hello_finenav:
       odom0_smoothing_steps: 1
       odom0_gate_dist: 28.0
       odom0_covariance_override: [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]  # use msg cov
-

@@ -1,0 +1,16 @@
+# ==============================================================================
+#  FineNav-Engine Getting Started — Simulation Time
+# ==============================================================================
+#  Sets use_sim_time only on the main hello_finenav node.
+#  Sub-nodes inherit via C++ parameter propagation.
+#
+#  Usage:
+#    ros2 run finenav_example hello_finenav \
+#      --ros-args \
+#      --params-file sim_time.yaml \
+#      --params-file sim_localizer.yaml
+# ==============================================================================
+
+hello_finenav:
+  ros__parameters:
+    use_sim_time: true
