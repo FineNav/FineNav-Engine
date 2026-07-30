@@ -33,7 +33,9 @@ ros2 launch finenav_simulator finenav_simulator.launch.py \
 ```bash
 cd ~/FineNav_Engine_ws && source install/setup.bash
 ros2 run finenav_example hello_finenav \
-  --ros-args --params-file src/FineNav-Engine/finenav_example/getting_started/params/sim_localizer.yaml
+  --ros-args \
+  --params-file src/FineNav-Engine/finenav_example/getting_started/params/sim_time.yaml \
+  --params-file src/FineNav-Engine/finenav_example/getting_started/params/sim_localizer.yaml
 ```
 
 ### Terminal 3 — Set Initial Pose
@@ -84,12 +86,20 @@ The behavior tree (`behavior_trees/navigate_to_pose.xml`) wires the example's
 `layer="my_layer"` and `planner_id="dummy_planner"` via TaskChannel IPC.
 Navigator reads feedback from the layer and publishes `/cmd_vel`.
 
-## Key Parameters (`sim_localizer.yaml`)
+## Key Parameters
 
+Parameters are split across two files:
+
+**`sim_time.yaml`**
+| Section | Parameter | Purpose |
+|---|---|---|
+| `hello_finenav` | `use_sim_time: true` | Use simulation clock |
+
+**`sim_localizer.yaml`**
 | Section | Parameter | Purpose |
 |---|---|---|
 | `hello_finenav/finenav_localizer` | `odom0: "/odom"` | Subscribe to simulator ground truth |
-| | `publish_tf: true` | Broadcast `map→base_link` |
+| | `publish_tf: false` | TF provided by simulator |
 | | `force_2d_mode: true` | Planar constraint |
 | `hello_finenav/finenav_navigator` | `behavior_trees` | Load the example's BT XML |
 
