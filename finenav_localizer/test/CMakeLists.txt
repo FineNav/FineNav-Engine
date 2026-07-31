@@ -1,43 +1,14 @@
-# ── filter_model (pure math, no ROS) ──────────────────────────────────────────
-ament_add_gtest(test_filter_model
-        test_filter_model.cpp
-)
-target_include_directories(test_filter_model PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-)
-target_link_libraries(test_filter_model
-        finenav_localizer
-)
+ament_add_gtest(test_pose_anchor test_pose_anchor.cpp)
+target_include_directories(test_pose_anchor PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
+target_link_libraries(test_pose_anchor finenav_localizer)
 
-# ── TimeDelayKalmanFilter standalone ────────────────────────────────────────────
-ament_add_gtest(test_time_delay_kf
-        test_time_delay_kf.cpp
-)
-target_include_directories(test_time_delay_kf PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-)
-target_link_libraries(test_time_delay_kf
-        finenav_localizer
-)
+ament_add_gtest(test_integrator test_integrator.cpp)
+target_include_directories(test_integrator PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
+target_link_libraries(test_integrator finenav_localizer)
 
-# ── ESKF standalone ────────────────────────────────────────────────────────────
-ament_add_gtest(test_eskf
-        test_eskf.cpp
-)
-target_include_directories(test_eskf PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-)
-target_link_libraries(test_eskf
-        finenav_localizer
-)
-
-# ── AgedObservationQueue ────────────────────────────────────────────────────────
-ament_add_gtest(test_observation_queue
-        test_observation_queue.cpp
-)
-target_include_directories(test_observation_queue PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-)
-target_link_libraries(test_observation_queue
-        finenav_localizer
-)
+ament_add_gtest(test_velocity_provider test_velocity_provider.cpp)
+target_include_directories(test_velocity_provider PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
+target_link_libraries(test_velocity_provider finenav_localizer)
