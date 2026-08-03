@@ -5,12 +5,13 @@
 #pragma once
 
 #include <algorithm>
-#include <deque>
 #include <mutex>
 #include <optional>
+#include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Eigen/StdVector>
 #include <rclcpp/time.hpp>
 #include <rclcpp/duration.hpp>
 
@@ -20,6 +21,7 @@ namespace finenav::core {
  *  @brief RobotState — the canonical robot state representation in FineNav-Engine.
  */
 struct RobotState {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Eigen::Vector3d    position{0, 0, 0};                ///< world-frame position (m)
     Eigen::Quaterniond orientation{1, 0, 0, 0};          ///< world ← body rotation
     Eigen::Vector3d    linear_velocity{0, 0, 0};         ///< body-frame linear velocity (m/s)
@@ -127,6 +129,7 @@ protected:
 
 private:
     struct StampedState { // Explicitly use RCL_ROS_TIME to prevent time source mismatch
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         rclcpp::Time stamp{0, 0, RCL_ROS_TIME};
         RobotState   state;
     };
@@ -135,13 +138,17 @@ private:
     void prune(const rclcpp::Time & newest)
     {
         if (history_duration_sec_ <= 0.0) {
-            while (history_.size() > 1) history_.pop_front();
+            if (history_.size() > 1) history_.erase(history_.begin(), history_.end() - 1);
             return;
         }
         const rclcpp::Time cutoff = newest - rclcpp::Duration::from_seconds(history_duration_sec_);
-        while (history_.size() > 1 && history_.front().stamp < cutoff) {
-            history_.pop_front();
-        }
+        // First entry with stamp >= cutoff.
+        auto first_valid = std::lower_bound(
+            history_.begin(), history_.end(), cutoff,
+            [](const StampedState & s, const rclcpp::Time & q) { return s.stamp < q; });
+        // Keep at least the newest sample.
+        if (first_valid == history_.end()) first_valid = history_.end() - 1;
+        history_.erase(history_.begin(), first_valid);
     }
 
     static RobotState interpolate(const RobotState & a, const RobotState & b, double alpha)
@@ -154,9 +161,9 @@ private:
         return out;
     }
 
-    double                   history_duration_sec_;
-    mutable std::mutex       history_mutex_;
-    std::deque<StampedState> history_;
+    double                                                                    history_duration_sec_;
+    mutable std::mutex                                                        history_mutex_;
+    std::vector<StampedState, Eigen::aligned_allocator<StampedState>> history_;
 };
 
 }  // namespace finenav::core
