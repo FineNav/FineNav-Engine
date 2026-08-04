@@ -37,10 +37,10 @@ def generate_launch_description():
         description='Enable publishing map to odom TF transform'
     )
 
-    # Gazebo simulation and point-cloud pipeline
-    simulator_infrastructure = IncludeLaunchDescription(
+    # Gazebo world with embedded robot, bridges, and point-cloud pipeline
+    gazebo_world = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(launch_dir, 'simulator_infrastructure.launch.py')
+            os.path.join(launch_dir, 'gazebo_world.launch.py')
         ),
         launch_arguments={
             'use_sim_time': LaunchConfiguration('use_sim_time'),
@@ -66,7 +66,7 @@ def generate_launch_description():
     ld.add_action(declare_lio_type)
     ld.add_action(declare_world_name)
     ld.add_action(declare_publish_map_tf)
-    ld.add_action(simulator_infrastructure)
+    ld.add_action(gazebo_world)
     ld.add_action(slam_and_localization)
 
     return ld
