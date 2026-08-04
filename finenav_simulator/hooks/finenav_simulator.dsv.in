@@ -1,0 +1,2 @@
+prepend-non-duplicate;GZ_SIM_RESOURCE_PATH;share/finenav_simulator/resource/model;@CMAKE_INSTALL_PREFIX@/share/finenav_simulator/resource/model
+prepend-non-duplicate;GZ_SIM_RESOURCE_PATH;share/finenav_simulator/models;@CMAKE_INSTALL_PREFIX@/share/finenav_simulator/models

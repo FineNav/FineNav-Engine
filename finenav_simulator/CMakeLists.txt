@@ -31,6 +31,11 @@ target_link_libraries(simulator_helper_node
     gz-msgs10::gz-msgs10
 )
 
+ament_environment_hooks(
+  "${CMAKE_CURRENT_SOURCE_DIR}/hooks/${PROJECT_NAME}.dsv.in"
+  "${CMAKE_CURRENT_SOURCE_DIR}/hooks/${PROJECT_NAME}.sh.in"
+)
+
 ament_auto_package(
   INSTALL_TO_SHARE
         launch

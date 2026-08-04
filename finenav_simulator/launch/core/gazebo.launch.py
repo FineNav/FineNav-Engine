@@ -3,7 +3,6 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
-    AppendEnvironmentVariable,
     DeclareLaunchArgument,
     IncludeLaunchDescription,
 )
@@ -28,21 +27,6 @@ def generate_launch_description():
         description="Path to the Ignition Gazebo GUI configuration file",
     )
 
-    append_enviroment_worlds = AppendEnvironmentVariable(
-        name="GAZEBO_PLUGIN_PATH",
-        value=os.path.join(pkg, "resource", "worlds"),
-    )
-
-    append_enviroment_models = AppendEnvironmentVariable(
-        name="GZ_SIM_RESOURCE_PATH",
-        value=os.path.join(pkg, "resource", "model"),
-    )
-
-    append_enviroment_models_gz = AppendEnvironmentVariable(
-        name="GZ_SIM_RESOURCE_PATH",
-        value=os.path.join(pkg, "resource", "model"),
-    )
-
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -50,7 +34,7 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
-            "gz_version": "8",
+            "gz_version": "6",
             "gz_args": [
                 world_sdf_path,
                 TextSubstitution(text=" --gui-config "),
@@ -70,9 +54,6 @@ def generate_launch_description():
     ld = LaunchDescription()
     ld.add_action(declare_world_sdf_path)
     ld.add_action(declare_ign_config_path)
-    ld.add_action(append_enviroment_worlds)
-    ld.add_action(append_enviroment_models)
-    ld.add_action(append_enviroment_models_gz)
     ld.add_action(gazebo)
     ld.add_action(robot_ign_bridge)
 
