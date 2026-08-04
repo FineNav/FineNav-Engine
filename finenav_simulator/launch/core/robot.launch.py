@@ -82,11 +82,6 @@ def _launch_setup(context):
             "path_base_frame": "base_link",
             "teleop_output_topic": "/cmd_vel",
             "world_name": "default",
-            "robot_name": robot_name,
-            "spawn_x": x_pose,
-            "spawn_y": y_pose,
-            "spawn_z": z_pose,
-            "spawn_yaw": yaw,
             "enable_path_publisher": True,
             "enable_identity_map_to_odom": PythonExpression([
                 "'False' if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else 'True'"
