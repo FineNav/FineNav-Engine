@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<sdf version="1.7">
+<sdf version="1.9">
   <world name="default">
     <physics name="1ms" type="ode">
       <max_step_size>0.001</max_step_size>
@@ -36,5 +36,14 @@
     <include>
       <uri>model://map_hill</uri>
     </include>
+
+    <!-- FineNav robot (embedded in world so reset restores its pose) -->
+    <model name="fine_robot">
+      <self_collide>true</self_collide>
+      <pose>0.760 -2.115 1.986 0 0 0</pose>
+      <include merge="true">
+        <uri>model://fine_robot</uri>
+      </include>
+    </model>
   </world>
 </sdf>

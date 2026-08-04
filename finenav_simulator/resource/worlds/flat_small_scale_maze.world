@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<sdf version='1.7'>
+<sdf version='1.9'>
   <world name='default'>
     <physics name="1ms" type="ode">
       <max_step_size>0.001</max_step_size>
@@ -82,5 +82,14 @@
       <uri>model://smaze2d</uri>
       <pose>0 0 0 0 0 0</pose>
     </include>
+
+    <!-- FineNav robot (embedded in world so reset restores its pose) -->
+    <model name="fine_robot">
+      <self_collide>true</self_collide>
+      <pose>2.0 2.0 0.8 0 0 0</pose>
+      <include merge="true">
+        <uri>model://fine_robot</uri>
+      </include>
+    </model>
   </world>
 </sdf>

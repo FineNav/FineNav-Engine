@@ -1,6 +1,5 @@
 import os
 import sys
-import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
@@ -22,44 +21,15 @@ from sdf_launch_utils import (
 )
 
 
-def _load_spawn_pose(config_path, world_name):
-    with open(config_path, "r", encoding="utf-8") as config_file:
-        config = yaml.safe_load(config_file) or {}
-
-    poses = config.get("world_spawn_poses", config)
-    pose = poses.get(world_name)
-    if pose is None:
-        pose = poses.get(os.path.splitext(world_name)[0])
-
-    if pose is None:
-        available = ", ".join(sorted(poses.keys()))
-        raise RuntimeError(
-            f"No spawn pose configured for world '{world_name}'. Available entries: {available}"
-        )
-
-    return {
-        "x": str(float(pose["x"])),
-        "y": str(float(pose["y"])),
-        "z": str(float(pose["z"])),
-        "yaw": str(float(pose.get("yaw", 0.0))),
-    }
-
-
 def _launch_setup(context):
     pkg = get_package_share_directory("finenav_simulator")
 
     sdf_xmacro_path = os.path.join(pkg, "resource", "robot", "model.sdf.xmacro")
     lidar_support_mesh_uri = f"file://{os.path.join(pkg, 'resource', 'robot', 'meshes', 'lidar_support_tri_prism.obj')}"
     bridge_config = os.path.join(pkg, "config", "ros_gz_bridge.yaml")
-    spawn_pose_config = os.path.join(pkg, "config", "world_spawn_poses.yaml")
 
     robot_name = "fine_robot"
     world_name = LaunchConfiguration("world_name").perform(context)
-    spawn_pose = _load_spawn_pose(spawn_pose_config, world_name)
-    x_pose = spawn_pose["x"]
-    y_pose = spawn_pose["y"]
-    z_pose = spawn_pose["z"]
-    yaw = spawn_pose["yaw"]
 
     remappings = [("/tf", "tf"), ("/tf_static", "tf_static")]
 
@@ -69,19 +39,6 @@ def _launch_setup(context):
     )
     robot_urdf_xml = normalize_robot_urdf_for_rviz(generate_robot_urdf_from_sdf(robot_xml))
     sdf_config = load_robot_sdf_config_from_string(robot_xml)
-
-    spawn_robot = Node(
-        package="ros_gz_sim",
-        executable="create",
-        arguments=[
-            "-string", robot_xml,
-            "-name", robot_name,
-            "-x", x_pose,
-            "-y", y_pose,
-            "-z", z_pose,
-            "-Y", yaw,
-        ],
-    )
 
     robot_ign_bridge = Node(
         package="ros_gz_bridge",
@@ -138,7 +95,6 @@ def _launch_setup(context):
     )
 
     return [
-        spawn_robot,
         robot_ign_bridge,
         robot_state_publisher,
         imu_sensor_alias,
