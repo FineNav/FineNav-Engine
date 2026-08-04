@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
-<sdf version="1.4">
-  <model name="map_hill">
+<sdf version="1.7">
+  <model name="map_vocano">
     <static>true</static>
     <link name="map_link">
       <pose>0 0 0 0 0 0</pose>
       <collision name="collision">
         <geometry>
           <mesh>
-            <uri>model://map_hill/meshes/map_hill.dae</uri>
+            <uri>model://map_vocano/meshes/map_vocano.dae</uri>
             <scale>2.0 2.0 2.0</scale>
           </mesh>
         </geometry>
@@ -15,15 +15,15 @@
       <visual name="visual">
         <geometry>
           <mesh>
-            <uri>model://map_hill/meshes/map_hill.dae</uri>
+            <uri>model://map_vocano/meshes/map_vocano.dae</uri>
             <scale>2.0 2.0 2.0</scale>
           </mesh>
         </geometry>
         <material>
           <script>
-            <uri>model://map_hill/materials/scripts/map.material</uri>
-            <uri>model://map_hill/materials/textures/texture.jpg</uri>
-            <name>map_hill/Image</name>
+            <uri>model://map_vocano/materials/scripts/map.material</uri>
+            <uri>model://map_vocano/materials/textures/texture.png</uri>
+            <name>map_vocano/Image</name>
           </script>
         </material>
       </visual>
