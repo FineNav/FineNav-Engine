@@ -20,11 +20,12 @@
           </mesh>
         </geometry>
         <material>
-          <script>
-            <uri>model://map_desert/materials/scripts/map.material</uri>
-            <uri>model://map_desert/materials/textures/texture.jpg</uri>
-            <name>map_desert/Image</name>
-          </script>
+          <diffuse>1.0 1.0 1.0</diffuse>
+          <pbr>
+            <metal>
+              <albedo_map>model://map_desert/materials/textures/texture.jpg</albedo_map>
+            </metal>
+          </pbr>
         </material>
       </visual>
       <surface> 

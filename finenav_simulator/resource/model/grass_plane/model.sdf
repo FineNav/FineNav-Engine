@@ -18,11 +18,12 @@
           </box>
         </geometry>
         <material>
-          <script>
-            <uri>model://grass_plane/materials/scripts</uri>
-            <uri>model://grass_plane/materials/textures</uri>
-            <name>vrc/grass_plane</name>
-          </script>
+          <diffuse>1.0 1.0 1.0</diffuse>
+          <pbr>
+            <metal>
+              <albedo_map>model://grass_plane/materials/textures/grass_dry.png</albedo_map>
+            </metal>
+          </pbr>
         </material>
       </visual>
     </link>

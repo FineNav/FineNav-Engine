@@ -19,11 +19,12 @@
           </box>
         </geometry>
         <material>
-          <script>
-            <uri>model://smaze_wall/materials/scripts</uri>
-            <uri>model://smaze_wall/materials/textures</uri>
-            <name>vrc/smaze_wall</name>
-          </script>
+          <diffuse>1.0 1.0 1.0</diffuse>
+          <pbr>
+            <metal>
+              <albedo_map>model://smaze_wall/materials/textures/bush.jpg</albedo_map>
+            </metal>
+          </pbr>
         </material>
       </visual>
     </link>
