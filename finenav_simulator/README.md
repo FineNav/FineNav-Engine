@@ -28,27 +28,8 @@ map_vocano.world
 https://ieeexplore.ieee.org/abstract/document/9636611 //小迷宫地图
 flat_small_scale_maze.world
 
-# 遥控操作指南
-W
-前进，线速度设为 +linear_speed
-S
-后退，线速度设为 -linear_speed
-A
-左转，角速度设为 +angular_speed
-D
-右转，角速度设为 -angular_speed
-X
-线速度和角速度都清零
-Z
-增大线速度档位，默认每次 +0.1
-C
-减小角速度档位，默认每次 -0.1
-Q
-增大角速度档位，默认每次 +0.1
-E
-减小角速度档位，默认每次 -0.1
-
-
-
-
-
+# 遥控操作指南（Gazebo 原生 Teleop 面板）
+点击 Play 运行仿真后，在右侧 Teleop 面板中有三个 Tab：
+  Button   — 点击方向按钮控制移动
+  Keyboard — 键盘 WASD 控制移动（最常用）
+  Sliders  — 拖动滑块调节线速度 / 角速度
