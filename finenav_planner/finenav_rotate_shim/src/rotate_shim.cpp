@@ -35,34 +35,34 @@ std::optional<DataPacket<RotateShim::OutputProfile>> RotateShim::plan(
     const Context& ctx,
     const IMapView& /*map_view*/)
 {
-  const auto& ref_traj  = ctx.ref_traj;
-  const auto& robot_pos = ctx.robot_state.pose.position;
-  const auto& goal_pos  = ctx.goal_pose.position;
+  const auto& ref_traj   = ctx.ref_traj;
+  const auto& robot_pose = ctx.robot_state.pose;
 
-  // 计算到 goal 的距离
-  const double dist_to_goal = std::hypot(goal_pos.x - robot_pos.x,
-                                         goal_pos.y - robot_pos.y);
+  const double current_yaw = yawFromQuat(robot_pose.orientation);
 
-  const double current_yaw = yawFromQuat(ctx.robot_state.pose.orientation);
+  // 到 goal 的平面距离
+  const double dist_to_goal = std::hypot(
+      ctx.goal_pose.position.x - robot_pose.position.x,
+      ctx.goal_pose.position.y - robot_pose.position.y);
+
+  // 决定旋转目标朝向：
+  //  - 近距离（阶段2，位置已到达）或参考轨迹退化时，对齐 goal 的期望朝向；
+  //  - 否则（阶段1，远离 goal），对齐参考路径上前方采样点方向。
   double target_yaw;
-
-  // ── 分支 1: 足够靠近 goal → 直接对齐 goal_pose 的朝向 ──
-  if (dist_to_goal <= close_to_goal_threshold_) {
+  if (dist_to_goal < close_to_goal_threshold_ || ref_traj.poses.empty()) {
     target_yaw = yawFromQuat(ctx.goal_pose.orientation);
-  }
-  // ── 分支 2: 离 goal 还远 → 对齐路径前瞻点（原有逻辑） ──
-  else {
-    if (ref_traj.poses.empty()) {
-      return std::nullopt;
-    }
-    const auto sampled_pt = getSampledPathPt(ref_traj.poses, forward_sampling_distance_);
-    const double dx = sampled_pt.x - robot_pos.x;
-    const double dy = sampled_pt.y - robot_pos.y;
+  } else {
+    const auto sampled_pt =
+        getSampledPathPt(ref_traj.poses, forward_sampling_distance_);
+    const double dx = sampled_pt.x - robot_pose.position.x;
+    const double dy = sampled_pt.y - robot_pose.position.y;
     target_yaw = std::atan2(dy, dx);
   }
 
-  // 计算 angular distance 并判断是否已对齐
+  // 计算 angular distance：目标朝向 — 当前朝向
   const double angular_distance = normalizeAngle(target_yaw - current_yaw);
+
+  // 已对齐 → 返回 nullopt，触发 TrackingPolicy 终止
   if (std::abs(angular_distance) < angular_dist_threshold_) {
     return std::nullopt;
   }
@@ -71,7 +71,8 @@ std::optional<DataPacket<RotateShim::OutputProfile>> RotateShim::plan(
   DataPacket<RotateShim::OutputProfile> output;
   const double sign = (angular_distance > 0.0) ? 1.0 : -1.0;
 
-  output.poses.push_back(ctx.robot_state.pose);
+  // 仅输出一个点（当前位姿 + 旋转 twist）
+  output.poses.push_back(robot_pose);
 
   geometry_msgs::msg::Twist twist;
   twist.linear.x   = 0.0;

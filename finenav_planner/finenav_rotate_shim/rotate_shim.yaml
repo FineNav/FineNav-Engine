@@ -15,4 +15,4 @@ finenav_rotate_shim:
   close_to_goal_threshold:
     type: double
     default_value: 0.5
-    description: "Distance to goal within which the planner aligns to goal_pose orientation instead of path sampling [m]"
+    description: "Distance to goal below which the goal orientation is used as the rotation target instead of the sampled path point [m]"

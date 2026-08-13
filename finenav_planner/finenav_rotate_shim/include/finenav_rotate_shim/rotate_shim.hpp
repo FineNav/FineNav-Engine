@@ -20,10 +20,13 @@
 namespace finenav {
 
 /**
- * @brief RotateShim — 原地旋转规划器，使机器人朝向对准参考路径上的前方采样点。
+ * @brief RotateShim — 原地旋转规划器，使机器人朝向对准参考路径上的前方采样点，
+ *        或在靠近 goal 时对准 goal 的期望朝向。
  *
- * 在 MPPI 追踪之前使用，采样参考路径上 forward_sampling_distance 远处的点
- * 作为旋转目标方向，匀速旋转直到 heading error < angular_dist_threshold。
+ * 在 MPPI 追踪之前（阶段1）采样参考路径上 forward_sampling_distance 远处的点
+ * 作为旋转目标方向；当机器人距离 goal < close_to_goal_threshold（阶段2，位置
+ * 已到达）或参考轨迹退化时，直接对齐 goal 的朝向，匀速旋转直到
+ * heading error < angular_dist_threshold。
  *
  * 对齐后 plan() 返回 nullopt，由 TrackingPolicy 终止循环，
  * BT 通过 ForceSuccess 转换后进入 MPPI ComputePlan。
@@ -44,7 +47,7 @@ public:
 
   /**
    * @brief 执行一次旋转规划。
-   * @param ctx 包含 robot_state 和 ref_traj
+   * @param ctx 包含 robot_state、goal_pose 和 ref_traj
    * @param map_view 忽略（旋转不查地图）
    * @return 若已对齐返回 nullopt；否则返回纯旋转角速度的轨迹
    */
@@ -75,7 +78,7 @@ private:
   double forward_sampling_distance_ = 0.5;
   double angular_speed_             = 0.8;
   double angular_dist_threshold_    = 0.1;
-  double close_to_goal_threshold_   = 0.5;  ///< 在此距离内直接对齐 goal_pose 朝向
+  double close_to_goal_threshold_   = 0.5;
 };
 
 }  // namespace finenav
