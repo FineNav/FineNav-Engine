@@ -7,11 +7,19 @@ finenav_rotate_shim:
   angular_speed:
     type: double
     default_value: 0.8
-    description: "Constant angular speed for pure rotation [rad/s]"
+    description: "Maximum angular speed for pure rotation (flat-top of the deceleration profile) [rad/s]"
+  angular_min_speed:
+    type: double
+    default_value: 0.1
+    description: "Minimum angular speed floor to overcome static friction; must be < angular_speed [rad/s]"
   angular_dist_threshold:
     type: double
     default_value: 0.1
-    description: "Heading error below which rotation is considered complete [rad]"
+    description: "Heading error below which rotation is considered complete (deadband) [rad]"
+  angular_decel_threshold:
+    type: double
+    default_value: 0.5
+    description: "Heading error at which deceleration begins; must be > angular_dist_threshold [rad]"
   close_to_goal_threshold:
     type: double
     default_value: 0.5

@@ -16,7 +16,9 @@ void RotateShim::configure(const ConfigType& params)
 {
   forward_sampling_distance_ = params.forward_sampling_distance;
   angular_speed_             = params.angular_speed;
+  angular_min_speed_         = params.angular_min_speed;
   angular_dist_threshold_    = params.angular_dist_threshold;
+  angular_decel_threshold_   = params.angular_decel_threshold;
   close_to_goal_threshold_   = params.close_to_goal_threshold;
 }
 
@@ -61,17 +63,28 @@ std::optional<DataPacket<RotateShim::OutputProfile>> RotateShim::plan(
 
   // 计算 angular distance：目标朝向 — 当前朝向
   const double angular_distance = normalizeAngle(target_yaw - current_yaw);
+  const double err_abs          = std::abs(angular_distance);
 
-  // 已对齐 → 返回 nullopt，触发 TrackingPolicy 终止
-  if (std::abs(angular_distance) < angular_dist_threshold_) {
+  // 死区：已对齐 → 返回 nullopt，触发 TrackingPolicy 终止
+  if (err_abs < angular_dist_threshold_) {
     return std::nullopt;
   }
 
-  // 未对齐 — 生成纯旋转轨迹
-  DataPacket<RotateShim::OutputProfile> output;
+  // 减速段速度曲线（e 域梯形，无加速段）：
+  //  - |e| >= angular_decel_threshold_：满速 angular_speed_
+  //  - angular_dist_threshold_ < |e| < angular_decel_threshold_：
+  //    从 angular_speed_ 线性降到 angular_min_speed_（最小速度地板，克服静摩擦）
   const double sign = (angular_distance > 0.0) ? 1.0 : -1.0;
+  double angular_vel = angular_speed_;
+  if (err_abs < angular_decel_threshold_) {
+    const double span = angular_decel_threshold_ - angular_dist_threshold_;
+    const double t    = (span > 1e-9) ? (err_abs - angular_dist_threshold_) / span : 0.0;
+    angular_vel = angular_min_speed_ + (angular_speed_ - angular_min_speed_) * t;
+  }
+  angular_vel *= sign;
 
-  // 仅输出一个点（当前位姿 + 旋转 twist）
+  // 生成纯旋转轨迹（仅输出一个点：当前位姿 + 旋转 twist）
+  DataPacket<RotateShim::OutputProfile> output;
   output.poses.push_back(robot_pose);
 
   geometry_msgs::msg::Twist twist;
@@ -80,7 +93,7 @@ std::optional<DataPacket<RotateShim::OutputProfile>> RotateShim::plan(
   twist.linear.z   = 0.0;
   twist.angular.x  = 0.0;
   twist.angular.y  = 0.0;
-  twist.angular.z  = sign * angular_speed_;
+  twist.angular.z  = angular_vel;
   output.twists.push_back(twist);
 
   return output;

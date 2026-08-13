@@ -25,8 +25,11 @@ namespace finenav {
  *
  * 在 MPPI 追踪之前（阶段1）采样参考路径上 forward_sampling_distance 远处的点
  * 作为旋转目标方向；当机器人距离 goal < close_to_goal_threshold（阶段2，位置
- * 已到达）或参考轨迹退化时，直接对齐 goal 的朝向，匀速旋转直到
- * heading error < angular_dist_threshold。
+ * 已到达）或参考轨迹退化时，直接对齐 goal 的朝向。
+ *
+ * 角速度采用 e 域梯形（无加速段）：误差大时满速 angular_speed，进入减速段
+ * （|e| < angular_decel_threshold）后线性降到 angular_min_speed，
+ * 误差 < angular_dist_threshold 时停止。
  *
  * 对齐后 plan() 返回 nullopt，由 TrackingPolicy 终止循环，
  * BT 通过 ForceSuccess 转换后进入 MPPI ComputePlan。
@@ -77,7 +80,9 @@ private:
   // ── Parameters ────────────────────────────────────────
   double forward_sampling_distance_ = 0.5;
   double angular_speed_             = 0.8;
+  double angular_min_speed_         = 0.1;
   double angular_dist_threshold_    = 0.1;
+  double angular_decel_threshold_   = 0.5;
   double close_to_goal_threshold_   = 0.5;
 };
 
