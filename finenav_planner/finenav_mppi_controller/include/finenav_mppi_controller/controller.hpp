@@ -123,7 +123,7 @@ public:
         twist.angular.z = robot_state.angular_velocity.z();
 
         const auto t_optimize_start= Clock::now();
-        computeVelocityCommands(
+        auto optimization_result = computeVelocityCommands(
             start_pose_stamped,
             twist,
             map_view
@@ -133,8 +133,8 @@ public:
         // 装填输出轨迹
 
     // 获取最优轨迹
-    auto optimized_trajectory = optimizer_.getOptimizedTrajectory();
-    auto control_seq = optimizer_.getControlSequence();
+    const auto & optimized_trajectory = optimization_result.trajectory;
+    const auto & control_seq = optimization_result.controls;
     // 填充轨迹点 (pose + twist)
     const size_t n = optimized_trajectory.shape(0);
     traj.poses.reserve(n);
@@ -239,7 +239,7 @@ protected:
     * @param goal_checker Pointer to the goal checker for awareness if completed task
     */
 	// geometry_msgs::msg::TwistStamped computeVelocityCommands(
-    void computeVelocityCommands(
+    OptimizationResult computeVelocityCommands(
     	const geometry_msgs::msg::PoseStamped & robot_pose,
   		const geometry_msgs::msg::Twist & robot_speed,
     	const IMapView& map_view)
@@ -256,8 +256,8 @@ protected:
 //  	std::lock_guard<std::mutex> param_lock(*parameters_handler_->getLock());
 //
 
-  	// geometry_msgs::msg::TwistStamped cmd =
-    optimizer_.evalControl(robot_pose, robot_speed, path_ ,map_view);
+	// geometry_msgs::msg::TwistStamped cmd =
+    auto result = optimizer_.evalControl(robot_pose, robot_speed, path_ ,map_view);
 
 	#ifdef BENCHMARK_TESTING
   	auto end = std::chrono::system_clock::now();
@@ -278,7 +278,7 @@ protected:
 //    	}
 //    	visualize(std::move(path_, cmd.header.stamp, z_height);
 //  	}
-  	// return cmd;
+    return result;
 }
 
 //  std::string name_;
