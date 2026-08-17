@@ -40,7 +40,7 @@
     <!-- FineNav robot (embedded in world so reset restores its pose) -->
     <model name="fine_robot">
       <self_collide>true</self_collide>
-      <pose>0.760 -2.115 1.986 0 0 0</pose>
+      <pose>-27.571 -26.102 0.750 0 0 0.345</pose>
       <include merge="true">
         <uri>model://fine_robot</uri>
       </include>
