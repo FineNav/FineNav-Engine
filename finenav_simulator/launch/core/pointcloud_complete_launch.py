@@ -14,16 +14,16 @@ if scripts_dir not in sys.path:
 
 from sdf_launch_utils import (
     build_tf_args,
-    generate_robot_sdf_from_xmacro,
+    generate_robot_sdf,
     load_robot_sdf_config_from_string,
 )
 
 
 def generate_launch_description():
     pkg = get_package_share_directory("finenav_simulator")
-    sdf_xmacro_path = os.path.join(pkg, "resource", "robot", "model.sdf.xmacro")
+    sdf_xmacro_path = os.path.join(pkg, "resource", "robot", "model.sdf.xacro")
     lidar_support_mesh_uri = f"file://{os.path.join(pkg, 'resource', 'robot', 'meshes', 'lidar_support_tri_prism.obj')}"
-    robot_xml = generate_robot_sdf_from_xmacro(
+    robot_xml = generate_robot_sdf(
         sdf_xmacro_path,
         mappings={"lidar_support_mesh_uri": lidar_support_mesh_uri},
     )

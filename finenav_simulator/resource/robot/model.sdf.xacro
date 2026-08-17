@@ -17,7 +17,7 @@
     <xacro:property name="base_mass" value="6.0"/>
     <xacro:property name="lidar_mount_x" value="0.16"/>
     <xacro:property name="lidar_mount_y" value="0.0"/>
-    <xacro:property name="lidar_mount_z" value="-0.27"/>
+    <xacro:property name="lidar_mount_z" value="0.48"/>
     <xacro:property name="lidar_mount_pitch" value="0.78539816339"/>
     <xacro:property name="lidar_mount_slide_along_slope" value="0.045"/>
     <xacro:property name="lidar_visual_z" value="0.04"/>
@@ -63,17 +63,15 @@
          wheel's geometry, mass or contact parameters once and all four follow.
 
          `flip` is +1 on the left and -1 on the right, mirroring the cylinder
-         about the x axis.  The wheel links parent to `base_origin` because that
-         is where the chassis inertia lives; keep it that way or the physics
-         changes.  z = -0.6 is base_origin -> base_link (-0.75) plus the wheel
-         radius, i.e. axles sit one radius above base_link. -->
+         about the x axis.  The wheel links parent to `base_link`, which sits at
+         ground level, so axles are positioned at exactly ${wheel_radius}. -->
     <xacro:macro name="wheel" params="name x y flip">
         <frame name="${name}_frame" attached_to="base_link">
             <pose>${x} ${y} ${wheel_radius} ${flip * 1.57} 0 0</pose>
         </frame>
         <frame name="${name}_wheel" attached_to="${name}_frame"/>
         <link name="${name}_link">
-            <pose relative_to="base_origin">${x} ${y} -0.6 ${flip * 1.57} 0 0</pose>
+            <pose relative_to="base_link">${x} ${y} ${wheel_radius} ${flip * 1.57} 0 0</pose>
             <inertial>
                 <mass>0.75</mass>
                 <inertia>
@@ -128,7 +126,7 @@
             </collision>
         </link>
         <joint name="${name}_joint" type="revolute">
-            <parent>base_origin</parent>
+            <parent>base_link</parent>
             <child>${name}_link</child>
             <axis>
                 <xyz expressed_in="__model__">0 1 0</xyz>
@@ -147,9 +145,9 @@
     </xacro:macro>
 
     <model name="robot">
-        <link name="base_origin">
+        <link name="base_link">
             <inertial>
-                <pose>0 0 -0.56 0 0 0</pose>
+                <pose>0 0 0.19 0 0 0</pose>
                 <mass>${base_mass}</mass>
                 <inertia>
                     <ixx>0.125</ixx>
@@ -161,15 +159,15 @@
                 </inertia>
             </inertial>
             <collision name="base_collision">
-                <pose>0 0 -0.5 0 0 0</pose>
+                <pose>0 0 0.25 0 0 0</pose>
                 <geometry>
                     <box>
                         <size>${base_length} ${base_width} ${base_height}</size>
                     </box>
                 </geometry>
             </collision>
-            <visual name="base_origin_fixed_joint_lump__base_link_visual_1">
-                <pose>0 0 -0.5 0 0 0</pose>
+            <visual name="base_visual">
+                <pose>0 0 0.25 0 0 0</pose>
                 <geometry>
                     <box>
                         <size>${base_length} ${base_width} ${base_height}</size>
@@ -190,7 +188,7 @@
             </sensor>
         </link>
         <link name="base_lidar">
-            <pose relative_to="base_origin">${lidar_mount_x + lidar_mount_slide_along_slope * cos(lidar_mount_pitch)} ${lidar_mount_y} ${lidar_mount_z - lidar_mount_slide_along_slope * sin(lidar_mount_pitch)} 0 ${lidar_mount_pitch} 0</pose>
+            <pose relative_to="base_link">${lidar_mount_x + lidar_mount_slide_along_slope * cos(lidar_mount_pitch)} ${lidar_mount_y} ${lidar_mount_z - lidar_mount_slide_along_slope * sin(lidar_mount_pitch)} 0 ${lidar_mount_pitch} 0</pose>
             <inertial>
                 <pose>0 0 ${lidar_visual_z} 0 0 0</pose>
                 <mass>0.15</mass>
@@ -218,7 +216,7 @@
                 </material>
             </visual>
             <visual name="base_lidar_support_visual">
-                <pose>${((lidar_visual_z - lidar_length / 2.0 - lidar_support_lidar_clearance - lidar_support_height / sqrt(2.0) - lidar_support_body_clearance) - (((-0.5 + base_height / 2.0) - (lidar_mount_z - lidar_mount_slide_along_slope * sin(lidar_mount_pitch))) / cos(lidar_mount_pitch))) / tan(lidar_mount_pitch) + lidar_support_x_offset} ${lidar_support_y} ${lidar_visual_z - lidar_length / 2.0 - lidar_support_lidar_clearance + lidar_support_z_offset} 0 ${lidar_support_pitch} 0</pose>
+                <pose>${((lidar_visual_z - lidar_length / 2.0 - lidar_support_lidar_clearance - lidar_support_height / sqrt(2.0) - lidar_support_body_clearance) - (((0.25 + base_height / 2.0) - (lidar_mount_z - lidar_mount_slide_along_slope * sin(lidar_mount_pitch))) / cos(lidar_mount_pitch))) / tan(lidar_mount_pitch) + lidar_support_x_offset} ${lidar_support_y} ${lidar_visual_z - lidar_length / 2.0 - lidar_support_lidar_clearance + lidar_support_z_offset} 0 ${lidar_support_pitch} 0</pose>
                 <geometry>
                     <mesh>
                         <uri>${lidar_support_mesh_uri}</uri>
@@ -274,27 +272,9 @@
             </sensor>
         </link>
         <joint name="base_lidar_joint" type="fixed">
-            <parent>base_origin</parent>
+            <parent>base_link</parent>
             <child>base_lidar</child>
             <pose>${lidar_mount_x + lidar_mount_slide_along_slope * cos(lidar_mount_pitch)} ${lidar_mount_y} ${lidar_mount_z - lidar_mount_slide_along_slope * sin(lidar_mount_pitch)} 0 ${lidar_mount_pitch} 0</pose>
-        </joint>
-        <link name="base_link">
-            <inertial>
-                <mass>0.001</mass>
-                <inertia>
-                    <ixx>0.000001</ixx>
-                    <iyy>0.000001</iyy>
-                    <izz>0.000001</izz>
-                    <ixy>0</ixy>
-                    <ixz>0</ixz>
-                    <iyz>0</iyz>
-                </inertia>
-            </inertial>
-        </link>
-        <joint name="base_origin_to_base_link" type="fixed">
-            <parent>base_origin</parent>
-            <child>base_link</child>
-            <pose>0 0 -0.75 0 0 0</pose>
         </joint>
         <link name="imu">
             <inertial>

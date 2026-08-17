@@ -248,45 +248,19 @@ def _ensure_origin(parent_elem):
 
 
 def normalize_robot_urdf_for_rviz(urdf_xml):
-    root = ET.fromstring(urdf_xml)
+    """Fix wheel link origins for RViz compatibility.
 
+    The SDF-to-URDF converter places wheel pose in <link><origin>, but URDF
+    semantics require it in <joint><origin>.  Move the transform and adjust
+    child geometry accordingly."""
+    import xml.etree.ElementTree as ET
+    import copy
+
+    root = ET.fromstring(urdf_xml)
     links = {link.get("name"): link for link in root.findall("link")}
     joints = {joint.get("name"): joint for joint in root.findall("joint")}
 
-    base_origin_link = links.get("base_origin")
-    base_link = links.get("base_link")
-    base_origin_to_base_link = joints.get("base_origin_to_base_link")
-    if base_origin_link is None or base_link is None or base_origin_to_base_link is None:
-        return urdf_xml
-
-    base_shift_xyz = _parse_urdf_vector(base_origin_to_base_link.find("origin"), "xyz")
-    # Shift content from the Gazebo body link into base_link so RViz keeps a valid TF tree.
-    base_shift = tuple(-value for value in base_shift_xyz)
-
-    for child in list(base_link):
-        base_link.remove(child)
-
-    for child_tag in ("inertial", "collision", "visual"):
-        child_elem = base_origin_link.find(child_tag)
-        if child_elem is None:
-            continue
-        child_copy = copy.deepcopy(child_elem)
-        origin = _ensure_origin(child_copy)
-        xyz = _parse_urdf_vector(origin, "xyz")
-        _set_urdf_origin(origin, xyz=(xyz[0] + base_shift[0], xyz[1] + base_shift[1], xyz[2] + base_shift[2]))
-        base_link.append(child_copy)
-
-    base_lidar_link = links.get("base_lidar")
-    base_lidar_joint = joints.get("base_lidar_joint")
-    if base_lidar_link is not None and base_lidar_joint is not None:
-        link_origin = base_lidar_link.find("origin")
-        if link_origin is not None:
-            base_lidar_link.remove(link_origin)
-        base_lidar_joint.find("parent").set("link", "base_link")
-        joint_origin = _ensure_origin(base_lidar_joint)
-        xyz = _parse_urdf_vector(joint_origin, "xyz")
-        _set_urdf_origin(joint_origin, xyz=(xyz[0] + base_shift[0], xyz[1] + base_shift[1], xyz[2] + base_shift[2]))
-
+    # Fix all four wheel links
     for joint_name, link_name in (
         ("left_front_joint", "left_front_link"),
         ("left_rear_joint", "left_rear_link"),
@@ -302,10 +276,12 @@ def normalize_robot_urdf_for_rviz(urdf_xml):
         if link_origin is None:
             continue
 
+        # Extract link's xyz and rpy
         xyz = _parse_urdf_vector(link_origin, "xyz")
         rpy = _parse_urdf_vector(link_origin, "rpy")
         link.remove(link_origin)
 
+        # Move rotation into visual/collision origins so geometry is oriented correctly
         for child_tag in ("inertial", "visual", "collision"):
             child_elem = link.find(child_tag)
             if child_elem is None:
@@ -313,16 +289,9 @@ def normalize_robot_urdf_for_rviz(urdf_xml):
             child_origin = _ensure_origin(child_elem)
             _set_urdf_origin(child_origin, xyz=(0.0, 0.0, 0.0), rpy=rpy)
 
-        joint.find("parent").set("link", "base_link")
+        # Set joint origin to the link's xyz (translation only)
         joint_origin = _ensure_origin(joint)
-        _set_urdf_origin(
-            joint_origin,
-            xyz=(xyz[0] + base_shift[0], xyz[1] + base_shift[1], xyz[2] + base_shift[2]),
-            rpy=(0.0, 0.0, 0.0),
-        )
-
-    root.remove(base_origin_link)
-    root.remove(base_origin_to_base_link)
+        _set_urdf_origin(joint_origin, xyz=xyz, rpy=(0.0, 0.0, 0.0))
 
     return ET.tostring(root, encoding="unicode")
 
