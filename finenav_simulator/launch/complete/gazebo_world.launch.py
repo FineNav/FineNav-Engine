@@ -8,6 +8,12 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     pkg = get_package_share_directory('finenav_simulator')
 
+    declare_use_sim_time = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='true',
+        description='Use simulation (Gazebo) clock if true'
+    )
+
     declare_lio_type = DeclareLaunchArgument(
         'lio_type',
         default_value='fast_lio',
@@ -43,6 +49,7 @@ def generate_launch_description():
             os.path.join(pkg, "launch", "core", "robot.launch.py")
         ),
         launch_arguments={
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
             'lio_type': LaunchConfiguration('lio_type'),
             'world_name': LaunchConfiguration('world_name'),
         }.items(),
@@ -64,6 +71,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        declare_use_sim_time,
         declare_lio_type,
         declare_world_name,
         gazebo_launch,

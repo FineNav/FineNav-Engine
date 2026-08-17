@@ -31,8 +31,6 @@ def _launch_setup(context):
     robot_name = "fine_robot"
     world_name = LaunchConfiguration("world_name").perform(context)
 
-    remappings = [("/tf", "tf"), ("/tf_static", "tf_static")]
-
     robot_xml = generate_robot_sdf(
         sdf_xmacro_path,
         mappings={"lidar_support_mesh_uri": lidar_support_mesh_uri},
@@ -50,9 +48,8 @@ def _launch_setup(context):
     robot_state_publisher = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
-        remappings=remappings,
         parameters=[{
-            "use_sim_time": True,
+            "use_sim_time": LaunchConfiguration("use_sim_time"),
             "robot_description": robot_urdf_xml,
         }],
     )
@@ -66,14 +63,14 @@ def _launch_setup(context):
             f"{robot_name}/{sdf_config['imu_parent_link']}/{sdf_config['imu_sensor_name']}",
             (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
         ),
-        parameters=[{"use_sim_time": True}],
+        parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
     )
 
     simulator_helper = Node(
         package="finenav_simulator",
         executable="simulator_helper_node",
         parameters=[{
-            "use_sim_time": True,
+            "use_sim_time": LaunchConfiguration("use_sim_time"),
             "input_odom_topic": PythonExpression(["'/Odometry' if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else '/odom'"]),
             "path_topic": "/path",
             "max_path_points": 2000,
@@ -99,6 +96,13 @@ def _launch_setup(context):
 
 def generate_launch_description():
     ld = LaunchDescription()
+    ld.add_action(
+        DeclareLaunchArgument(
+            "use_sim_time",
+            default_value="true",
+            description="Use simulation (Gazebo) clock if true",
+        )
+    )
     ld.add_action(
         DeclareLaunchArgument(
             "lio_type",
