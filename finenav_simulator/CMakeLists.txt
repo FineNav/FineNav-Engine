@@ -23,8 +23,8 @@ ament_auto_add_executable(simulator_helper_node #TODO: executable
         src/ground_truth_map_localizer.cpp
 )
 
-# -- Build-time xmacro processing -------------------------------------------
-# Process the robot xmacro template into a plain SDF model at build time so it
+# -- Build-time xacro processing ---------------------------------------------
+# Process the robot xacro template into a plain SDF model at build time so it
 # can be installed as a standard Gazebo model (discoverable via model:// URI).
 find_package(Python3 REQUIRED)
 
@@ -35,14 +35,14 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E make_directory "${GENERATED_MODEL_DIR}"
   COMMAND Python3::Interpreter
     "${CMAKE_CURRENT_SOURCE_DIR}/scripts/build_robot_model.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/resource/robot/model.sdf.xmacro"
+    "${CMAKE_CURRENT_SOURCE_DIR}/resource/robot/model.sdf.xacro"
     "${GENERATED_MODEL_DIR}/model.sdf"
     "model://fine_robot/meshes/lidar_support_tri_prism.obj"
   DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/resource/robot/model.sdf.xmacro"
+    "${CMAKE_CURRENT_SOURCE_DIR}/resource/robot/model.sdf.xacro"
     "${CMAKE_CURRENT_SOURCE_DIR}/scripts/build_robot_model.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sdf_launch_utils.py"
-  COMMENT "Generating robot model.sdf from xmacro template"
+  COMMENT "Generating robot model.sdf from xacro template"
 )
 
 add_custom_target(generate_robot_model ALL

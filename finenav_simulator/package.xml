@@ -6,6 +6,10 @@
     <maintainer email="021424216@sues.edu.cn">Chenghao Wang</maintainer>
     <license>MPL-2.0</license>
     <buildtool_depend>ament_cmake_auto</buildtool_depend>
+    <!-- xacro expands resource/robot/model.sdf.xacro: at build time via CMake,
+         and again in the launch files to derive the URDF and sensor config. -->
+    <buildtool_depend>xacro</buildtool_depend>
+    <exec_depend>xacro</exec_depend>
     <exec_depend>ament_index_python</exec_depend>
     <exec_depend>launch_ros</exec_depend>
     <exec_depend>robot_state_publisher</exec_depend>

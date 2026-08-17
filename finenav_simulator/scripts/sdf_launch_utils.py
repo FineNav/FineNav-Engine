@@ -8,7 +8,6 @@ import xml.etree.ElementTree as ET
 
 import xacro
 from thirdparty.sdformat_tools.urdf_generator import UrdfGenerator
-from thirdparty.xmacro.xmacro4sdf import XMLMacro4sdf
 
 
 def _identity_pose():
@@ -201,16 +200,22 @@ def build_tf_args(parent_frame, child_frame, pose):
     return _pose_to_tf_args(parent_frame, child_frame, pose)
 
 
+_sdf_cache = {}
+
+
 def generate_robot_sdf(xacro_path, mappings=None):
-    doc = xacro.process_file(xacro_path, mappings=mappings or {})
-    return doc.toxml()
+    """Expand a ``.sdf.xacro`` template into plain SDF XML.
 
-
-def generate_robot_sdf_from_xmacro(xmacro_path, mappings=None):
-    xmacro_generator = XMLMacro4sdf()
-    xmacro_generator.set_xml_file(xmacro_path)
-    xmacro_generator.generate(mappings or {})
-    return xmacro_generator.to_string()
+    Cached because a launch file typically needs the same expansion two or
+    three times (spawn XML, URDF for RViz, sensor config) and expanding is
+    real work.  Values in ``mappings`` are matched against the template's
+    ``xacro:arg`` declarations.
+    """
+    mappings = mappings or {}
+    cache_key = (xacro_path, tuple(sorted(mappings.items())))
+    if cache_key not in _sdf_cache:
+        _sdf_cache[cache_key] = xacro.process_file(xacro_path, mappings=mappings).toxml()
+    return _sdf_cache[cache_key]
 
 
 def generate_robot_urdf_from_sdf(sdf_xml):
@@ -239,6 +244,7 @@ def _ensure_origin(parent_elem):
         origin = ET.Element("origin")
         parent_elem.insert(0, origin)
     return origin
+
 
 
 def normalize_robot_urdf_for_rviz(urdf_xml):
@@ -345,7 +351,7 @@ def load_robot_sdf_config_from_string(sdf_xml):
     update_rate = float(lidar_sensor.findtext("update_rate", default="0") or 0.0)
     scan_period = 1.0 / update_rate if update_rate > 0.0 else 0.1
 
-    return {
+    config = {
         "base_link_to_lidar": _relative_pose(base_link_pose, lidar_frame_pose),
         "lidar_parent_link": lidar_parent_link.get("name"),
         "lidar_sensor_name": lidar_sensor.get("name"),
@@ -361,3 +367,4 @@ def load_robot_sdf_config_from_string(sdf_xml):
         "lidar_max_range": float(lidar_range.findtext("max", default="0.0")),
         "lidar_scan_period": scan_period,
     }
+    return config
