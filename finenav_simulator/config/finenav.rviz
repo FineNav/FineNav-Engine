@@ -44,7 +44,28 @@ Visualization Manager:
         Z: 0
       Plane: XY
       Plane Cell Count: 20
-      Reference Frame: odom
+      # The grid is the only ground reference in this scene: the worlds load their
+      # terrain from an external model (map_vocano.world -> model://map_vocano), which
+      # Gazebo renders but rviz never sees, so apart from one 7 m frame of lidar the
+      # robot would hang in empty space.
+      #
+      # It hangs on base_footprint rather than odom because these worlds spawn the robot
+      # far out and high up: map_vocano starts 64 m from the origin and climbs to ~19 m,
+      # where a 20 m wide grid pinned to odom is off screen at startup and metres
+      # underfoot after the climb.  base_link would follow the robot but carries its
+      # roll and pitch, so the grid would tilt with the body and cut into the terrain --
+      # destroying the one thing a grid is for.  base_footprint follows the robot with
+      # the tilt stripped (see BaseFootprintPublisher), so the grid stays under the
+      # wheels and stays level, and a slope reads as the robot pitching against it.
+      #
+      # Note the .rviz files shipped with ROS all use <Fixed Frame> here.  They are flat
+      # indoor scenes with the robot at the origin, where that is simply correct; none
+      # covers a robot spawned 64 m out on terrain rviz cannot draw.
+      #
+      # The cost: a grid that follows the robot is no longer a ruler for how far it has
+      # driven.  Read /path for absolute displacement, or set the view's Target Frame
+      # back to <Fixed Frame>.
+      Reference Frame: base_footprint
       Value: true
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
@@ -76,7 +97,12 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
-        All Enabled: false
+        # With this false, frames that appear after startup are listed in the tree but
+        # get no axes drawn -- which is why the TF display looked half empty, and would
+        # have hidden base_footprint entirely.  The shipped examples
+        # (ros_gz_sim_demos/rviz/tf_bridge.rviz, joint_states.rviz) use true; this robot
+        # has ~13 frames, so there is nothing to flood.
+        All Enabled: true
       Marker Scale: 0.30000001192092896
       Name: TF
       Show Arrows: true
