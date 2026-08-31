@@ -2,22 +2,10 @@
 
 #include <string>
 
+#include "finenav_simulator/parameter_helper.hpp"
+
 namespace finenav_2d
 {
-
-namespace
-{
-
-template<typename T>
-T DeclareOrGetParameter(rclcpp::Node * node, const std::string & name, const T & default_value)
-{
-  if (node->has_parameter(name)) {
-    return node->get_parameter(name).get_value<T>();
-  }
-  return node->declare_parameter<T>(name, default_value);
-}
-
-}  // namespace
 
 GroundTruthMapPublisher::GroundTruthMapPublisher(rclcpp::Node * node)
 : node_(node),
