@@ -21,6 +21,7 @@ ament_auto_add_executable(simulator_helper_node #TODO: executable
         src/simulator_helper_node.cpp
         src/odom_path_publisher.cpp
         src/ground_truth_map_localizer.cpp
+        src/base_footprint_publisher.cpp
 )
 
 # -- Build-time xacro processing ---------------------------------------------

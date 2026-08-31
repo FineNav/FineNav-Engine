@@ -9,6 +9,9 @@ SimulatorHelper::SimulatorHelper(std::shared_ptr<rclcpp::Node> node)
 {
   path_publisher_ = std::make_unique<OdomPathPublisher>(node_.get(), tf_broadcaster_);
   publisher_ = std::make_unique<GroundTruthMapPublisher>(node_.get());
+  // Shares the dynamic broadcaster above: base_footprint's rotation changes with the
+  // body tilt, so it cannot go on a static broadcaster.
+  base_footprint_publisher_ = std::make_unique<BaseFootprintPublisher>(node_.get(), tf_broadcaster_);
 }
 
 }  // namespace finenav_2d
