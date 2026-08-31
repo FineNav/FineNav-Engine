@@ -229,12 +229,20 @@ Visualization Manager:
       Name: Current View
       Near Clip Distance: 0.009999999776482582
       Pitch: 0.7853981852531433
-      # Camera stays anchored to the Fixed Frame (odom) rather than tracking
-      # base_link, so the path unrolls against a static world and you can see
-      # how far the robot has travelled.  Set this to base_link in the Views
-      # panel at runtime if you want the camera to follow the robot instead;
-      # note Target Frame tracks only position, not heading.
-      Target Frame: <Fixed Frame>
+      # The camera tracks base_link so the robot is in view from startup and
+      # stays there, which matters because worlds spawn the robot far from the
+      # world origin (map_vocano starts 64 m out) -- an origin-anchored camera
+      # would open onto empty ground.
+      #
+      # Fixed Frame stays odom, so the world itself does not move or tilt with
+      # the robot: the grid stays level and a slope shows as the robot pitching
+      # against it.  Target Frame tracks position only, not heading, so the
+      # scene never spins with the robot either.
+      #
+      # Set this back to <Fixed Frame> in the Views panel to pin the camera to
+      # the world instead -- useful for watching how far the robot has driven,
+      # or for checking cloud-to-wall alignment at one fixed spot.
+      Target Frame: base_link
       Value: Orbit (rviz)
       Yaw: 0.7853981852531433
     Saved: ~
