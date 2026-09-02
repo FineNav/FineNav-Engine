@@ -7,9 +7,10 @@
 namespace finenav_2d
 {
 
-GroundTruthMapPublisher::GroundTruthMapPublisher(rclcpp::Node * node)
+GroundTruthMapPublisher::GroundTruthMapPublisher(
+  rclcpp::Node * node, std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster)
 : node_(node),
-  static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(node))
+  static_tf_broadcaster_(static_tf_broadcaster)
 {
   enable_identity_map_to_odom_ =
     DeclareOrGetParameter<bool>(node_, "enable_identity_map_to_odom", false);

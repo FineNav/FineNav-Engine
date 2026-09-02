@@ -8,7 +8,6 @@ from launch.actions import (
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, TextSubstitution
-from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -43,18 +42,11 @@ def generate_launch_description():
         }.items(),
     )
 
-    robot_ign_bridge = Node(
-        package="ros_gz_bridge",
-        executable="parameter_bridge",
-        arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
-        ],
-    )
-
+    # The sensor/clock bridge lives in robot.launch.py; this file starts the
+    # simulation only.
     ld = LaunchDescription()
     ld.add_action(declare_world_sdf_path)
     ld.add_action(declare_ign_config_path)
     ld.add_action(gazebo)
-    ld.add_action(robot_ign_bridge)
 
     return ld

@@ -39,6 +39,12 @@ def generate_launch_description():
         description='Enable publishing map to odom TF transform'
     )
 
+    declare_navigation_mode = DeclareLaunchArgument(
+        'navigation_mode',
+        default_value='dynamic',
+        description='Choose the mode of navigation: dynamic or static'
+    )
+
     declare_enable_rviz = DeclareLaunchArgument(
         'enable_rviz',
         default_value='false',
@@ -69,6 +75,8 @@ def generate_launch_description():
             'use_sim_time': LaunchConfiguration('use_sim_time'),
             'lio_type': LaunchConfiguration('lio_type'),
             'world_name': LaunchConfiguration('world_name'),
+            'publish_map_tf': LaunchConfiguration('publish_map_tf'),
+            'navigation_mode': LaunchConfiguration('navigation_mode'),
         }.items()
     )
 
@@ -80,7 +88,6 @@ def generate_launch_description():
         launch_arguments={
             'use_sim_time': LaunchConfiguration('use_sim_time'),
             'lio_type': LaunchConfiguration('lio_type'),
-            'publish_map_tf': LaunchConfiguration('publish_map_tf'),
         }.items()
     )
 
@@ -89,6 +96,7 @@ def generate_launch_description():
     ld.add_action(declare_lio_type)
     ld.add_action(declare_world_name)
     ld.add_action(declare_publish_map_tf)
+    ld.add_action(declare_navigation_mode)
     ld.add_action(declare_enable_rviz)
     ld.add_action(gazebo_world)
     ld.add_action(slam_and_localization)

@@ -13,7 +13,6 @@ if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
 from sdf_launch_utils import (
-    build_tf_args,
     generate_robot_sdf,
     generate_robot_urdf_from_sdf,
     load_robot_sdf_config_from_string,
@@ -29,7 +28,6 @@ def _launch_setup(context):
     bridge_config = os.path.join(pkg, "config", "ros_gz_bridge.yaml")
 
     robot_name = "fine_robot"
-    world_name = LaunchConfiguration("world_name").perform(context)
 
     robot_xml = generate_robot_sdf(
         sdf_xmacro_path,
@@ -38,10 +36,12 @@ def _launch_setup(context):
     robot_urdf_xml = normalize_robot_urdf_for_rviz(generate_robot_urdf_from_sdf(robot_xml))
     sdf_config = load_robot_sdf_config_from_string(robot_xml)
 
+    # The one bridge for the whole simulation: /clock plus the robot sensor and
+    # control rules.  All ROS topic names in the config file are absolute, so no
+    # namespace is needed.
     robot_ign_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
-        namespace=robot_name,
         parameters=[{"config_file": bridge_config}],
     )
 
@@ -54,17 +54,9 @@ def _launch_setup(context):
         }],
     )
 
-    imu_sensor_alias = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        name="imu_sensor_frame_alias",
-        arguments=build_tf_args(
-            "imu",
-            f"{robot_name}/{sdf_config['imu_parent_link']}/{sdf_config['imu_sensor_name']}",
-            (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        ),
-        parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
-    )
+    lio_type = LaunchConfiguration("lio_type").perform(context)
+    publish_map_tf = LaunchConfiguration("publish_map_tf").perform(context)
+    navigation_mode = LaunchConfiguration("navigation_mode").perform(context)
 
     simulator_helper = Node(
         package="finenav_simulator",
@@ -83,16 +75,21 @@ def _launch_setup(context):
             "teleop_output_topic": "/cmd_vel",
             "world_name": "default",
             "enable_path_publisher": True,
-            "enable_identity_map_to_odom": PythonExpression([
-                "'False' if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else 'True'"
-            ]),
+            # map->odom identity: ground-truth modes always publish it; fast_lio
+            # only when the caller explicitly asks for a map frame in dynamic mode.
+            "enable_identity_map_to_odom":
+                lio_type != "fast_lio" or (publish_map_tf == "true" and navigation_mode == "dynamic"),
+            # Sensor frames arrive from Gazebo under SDF-scoped names; the
+            # aliases connect them to the plain URDF link names the ROS
+            # ecosystem uses (see SensorFrameAliasPublisher).
+            "imu_alias_child_frame": f"{robot_name}/{sdf_config['imu_parent_link']}/{sdf_config['imu_sensor_name']}",
+            "lidar_alias_child_frame": f"{robot_name}/{sdf_config['lidar_parent_link']}/{sdf_config['lidar_sensor_name']}",
         }],
     )
 
     return [
         robot_ign_bridge,
         robot_state_publisher,
-        imu_sensor_alias,
         simulator_helper,
     ]
 
@@ -118,6 +115,20 @@ def generate_launch_description():
             "world_name",
             default_value="flat_small_scale_maze.world",
             description="World file name under finenav_simulator/resource/worlds",
+        )
+    )
+    ld.add_action(
+        DeclareLaunchArgument(
+            "publish_map_tf",
+            default_value="false",
+            description="Enable publishing map to odom TF transform",
+        )
+    )
+    ld.add_action(
+        DeclareLaunchArgument(
+            "navigation_mode",
+            default_value="dynamic",
+            description="Choose the mode of navigation: dynamic or static",
         )
     )
     ld.add_action(OpaqueFunction(function=_launch_setup))

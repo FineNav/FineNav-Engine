@@ -13,7 +13,8 @@ namespace finenav_2d
 class GroundTruthMapPublisher
 {
 public:
-  explicit GroundTruthMapPublisher(rclcpp::Node * node);
+  GroundTruthMapPublisher(
+    rclcpp::Node * node, std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster);
 
 private:
   void PublishIdentityMapToOdom() const;

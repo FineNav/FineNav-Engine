@@ -26,6 +26,18 @@ def generate_launch_description():
         description='World file name under finenav_simulator/resource/worlds'
     )
 
+    declare_publish_map_tf = DeclareLaunchArgument(
+        'publish_map_tf',
+        default_value='false',
+        description='Enable publishing map to odom TF transform'
+    )
+
+    declare_navigation_mode = DeclareLaunchArgument(
+        'navigation_mode',
+        default_value='dynamic',
+        description='Choose the mode of navigation: dynamic or static'
+    )
+
     world_sdf_path = PathJoinSubstitution([
         pkg,
         'resource',
@@ -52,6 +64,8 @@ def generate_launch_description():
             'use_sim_time': LaunchConfiguration('use_sim_time'),
             'lio_type': LaunchConfiguration('lio_type'),
             'world_name': LaunchConfiguration('world_name'),
+            'publish_map_tf': LaunchConfiguration('publish_map_tf'),
+            'navigation_mode': LaunchConfiguration('navigation_mode'),
         }.items(),
     )
 
@@ -74,6 +88,8 @@ def generate_launch_description():
         declare_use_sim_time,
         declare_lio_type,
         declare_world_name,
+        declare_publish_map_tf,
+        declare_navigation_mode,
         gazebo_launch,
         include_robot_launch,
         pointcloud_launch

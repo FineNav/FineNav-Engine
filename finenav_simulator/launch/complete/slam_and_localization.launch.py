@@ -16,9 +16,6 @@ def generate_launch_description():
     config_dir = os.path.join(get_package_share_directory('finenav_simulator'), 'config')
 
     fast_lio_condition = LaunchConfigurationEquals('lio_type', 'fast_lio')
-    
-    # static 模式下不需要 map 到 odom 的静态 TF
-    dynamic_mode_condition = LaunchConfigurationEquals('navigation_mode', 'dynamic')
 
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time',
@@ -30,12 +27,6 @@ def generate_launch_description():
         'lio_type',
         default_value='fast_lio',
         description='Choose localization chain: fast_lio or gazebo_odom (legacy aliases ground_truth/static now fall back to gazebo_odom)'
-    )
-
-    declare_nav_mode = DeclareLaunchArgument(
-        'navigation_mode',
-        default_value='dynamic',
-        description='Choose the mode of navigation: dynamic or static'
     )
 
     declare_map_save = DeclareLaunchArgument(
@@ -54,12 +45,6 @@ def generate_launch_description():
         'enable_octomap',
         default_value='true',
         description='Enable octomap server when running the fast_lio pipeline'
-    )
-
-    declare_publish_map_tf = DeclareLaunchArgument(
-        'publish_map_tf',
-        default_value='false',
-        description='Enable publishing map to odom TF transform'
     )
 
     fast_lio_config = os.path.join(config_dir, 'fastlio_gazebo_config.yaml')
@@ -119,34 +104,12 @@ def generate_launch_description():
         ),
     )
 
-    map_to_odom_static_node = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='map_to_odom',
-        arguments=[
-            '--x', '0.0', '--y', '0.0', '--z', '0.0',
-            '--roll', '0.0', '--pitch', '0.0', '--yaw', '0.0',
-            '--frame-id', 'map', '--child-frame-id', 'odom',
-        ],
-        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
-        condition=IfCondition(
-            PythonExpression([
-                "'", LaunchConfiguration('lio_type'), "' == 'fast_lio' and '",
-                LaunchConfiguration('navigation_mode'), "' == 'dynamic' and '",
-                LaunchConfiguration('publish_map_tf'), "' == 'true'"
-            ])
-        ),
-    )
-
     ld = LaunchDescription()
     ld.add_action(declare_use_sim_time)
     ld.add_action(declare_lio_type)
     ld.add_action(declare_map_save)
     ld.add_action(declare_map_load)
     ld.add_action(declare_enable_octomap)
-    ld.add_action(declare_publish_map_tf)
-    ld.add_action(declare_nav_mode)
-    ld.add_action(map_to_odom_static_node)
     ld.add_action(fast_lio_node)
     ld.add_action(octomap_server_node)
 

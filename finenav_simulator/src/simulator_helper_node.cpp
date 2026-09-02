@@ -5,13 +5,16 @@ namespace finenav_2d
 
 SimulatorHelper::SimulatorHelper(std::shared_ptr<rclcpp::Node> node)
 : node_(node),
-  tf_broadcaster_(std::make_shared<tf2_ros::TransformBroadcaster>(*node_))
+  tf_broadcaster_(std::make_shared<tf2_ros::TransformBroadcaster>(*node_)),
+  static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(*node_))
 {
   path_publisher_ = std::make_unique<OdomPathPublisher>(node_.get(), tf_broadcaster_);
-  publisher_ = std::make_unique<GroundTruthMapPublisher>(node_.get());
+  publisher_ = std::make_unique<GroundTruthMapPublisher>(node_.get(), static_tf_broadcaster_);
   // Shares the dynamic broadcaster above: base_footprint's rotation changes with the
   // body tilt, so it cannot go on a static broadcaster.
   base_footprint_publisher_ = std::make_unique<BaseFootprintPublisher>(node_.get(), tf_broadcaster_);
+  sensor_frame_alias_publisher_ =
+    std::make_unique<SensorFrameAliasPublisher>(node_.get(), static_tf_broadcaster_);
 }
 
 }  // namespace finenav_2d

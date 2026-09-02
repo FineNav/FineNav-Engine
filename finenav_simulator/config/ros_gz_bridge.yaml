@@ -1,3 +1,10 @@
+# Simulation clock, consumed by every node running with use_sim_time
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: "GZ_TO_ROS"
+
 # LiDAR point cloud
 - ros_topic_name: "/livox/lidar"
   gz_topic_name: "/lidar/points"

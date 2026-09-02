@@ -13,7 +13,6 @@ if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
 from sdf_launch_utils import (
-    build_tf_args,
     generate_robot_sdf,
     load_robot_sdf_config_from_string,
 )
@@ -28,7 +27,6 @@ def generate_launch_description():
         mappings={"lidar_support_mesh_uri": lidar_support_mesh_uri},
     )
     sdf_config = load_robot_sdf_config_from_string(robot_xml)
-    robot_name = "fine_robot"
 
     declare_lio_type = DeclareLaunchArgument(
         "lio_type",
@@ -42,18 +40,8 @@ def generate_launch_description():
         description="Use simulation (Gazebo) clock if true",
     )
 
-    gpu_lidar_frame_alias = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='gpu_lidar_frame_alias',
-        arguments=build_tf_args(
-            'lidar_frame',
-            f"{robot_name}/{sdf_config['lidar_parent_link']}/{sdf_config['lidar_sensor_name']}",
-            (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        ),
-        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
-    )
-
+    # The lidar_frame -> SDF-scoped sensor frame alias used to be published
+    # here; it now comes from simulator_helper_node (SensorFrameAliasPublisher).
     converter_node = Node(
         package='finenav_simulator',
         executable='point_cloud_converter_node',
@@ -89,6 +77,5 @@ def generate_launch_description():
     return LaunchDescription([
         declare_lio_type,
         declare_use_sim_time,
-        gpu_lidar_frame_alias,
         converter_node,
     ])
