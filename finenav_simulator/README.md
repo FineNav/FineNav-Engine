@@ -10,14 +10,10 @@ source install/setup.bash
 export DISPLAY=:0
 
 ros2 launch finenav_simulator finenav_simulator.launch.py \
-  lio_type:=static \
   use_sim_time:=true \
-  world_name:=flat_small_scale_maze.world \
-  publish_map_tf:=true
+  world_name:=flat_small_scale_maze.world
 
-# lio_type
-lio_type:=static 纯传感器模式
-lio_type:=fast_lio fast_lio模式
+# 定位链:仿真器统一使用 Gazebo 真值里程计(/odom),无模式切换。
 
 # 以下是可选的world，将参数替换为world_name，添加额外的world记得调整导航车出生点
 https://github.com/ZJU-FAST-Lab/uneven_planner //不平坦地形
