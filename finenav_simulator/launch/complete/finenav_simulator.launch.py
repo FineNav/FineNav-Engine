@@ -21,28 +21,10 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true'
     )
 
-    declare_lio_type = DeclareLaunchArgument(
-        'lio_type',
-        default_value='fast_lio',
-        description='Choose localization chain: fast_lio or gazebo_odom (legacy aliases ground_truth/static now fall back to gazebo_odom)'
-    )
-
     declare_world_name = DeclareLaunchArgument(
         'world_name',
         default_value='flat_small_scale_maze.world',
         description='World file name under finenav_simulator/resource/worlds'
-    )
-
-    declare_publish_map_tf = DeclareLaunchArgument(
-        'publish_map_tf',
-        default_value='false',
-        description='Enable publishing map to odom TF transform'
-    )
-
-    declare_navigation_mode = DeclareLaunchArgument(
-        'navigation_mode',
-        default_value='dynamic',
-        description='Choose the mode of navigation: dynamic or static'
     )
 
     declare_enable_rviz = DeclareLaunchArgument(
@@ -73,33 +55,15 @@ def generate_launch_description():
         ),
         launch_arguments={
             'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'lio_type': LaunchConfiguration('lio_type'),
             'world_name': LaunchConfiguration('world_name'),
-            'publish_map_tf': LaunchConfiguration('publish_map_tf'),
-            'navigation_mode': LaunchConfiguration('navigation_mode'),
-        }.items()
-    )
-
-    # FAST-LIO and Gazebo odometry support
-    slam_and_localization = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(launch_dir, 'slam_and_localization.launch.py')
-        ),
-        launch_arguments={
-            'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'lio_type': LaunchConfiguration('lio_type'),
         }.items()
     )
 
     ld = LaunchDescription()
     ld.add_action(declare_use_sim_time)
-    ld.add_action(declare_lio_type)
     ld.add_action(declare_world_name)
-    ld.add_action(declare_publish_map_tf)
-    ld.add_action(declare_navigation_mode)
     ld.add_action(declare_enable_rviz)
     ld.add_action(gazebo_world)
-    ld.add_action(slam_and_localization)
     ld.add_action(rviz_node)
 
     return ld

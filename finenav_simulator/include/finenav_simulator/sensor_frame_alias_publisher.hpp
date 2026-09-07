@@ -14,10 +14,10 @@ namespace finenav_2d
 /// Gazebo scopes sensor frames under the model and link names, so bridged
 /// messages carry frame ids like `fine_robot/imu/imu_sensor`, while the ROS
 /// ecosystem refers to the plain URDF link names (`imu`, `lidar_frame`).  These
-/// aliases make both names resolve to the same frame in the TF tree.  fast_lio
-/// relies on the lidar alias in particular: the point-cloud converter relabels
-/// its output to `lidar_frame` without transforming the points, which is only
-/// correct because this alias says `lidar_frame` *is* the sensor frame.
+/// aliases make both names resolve to the same frame in the TF tree.  They are
+/// what keeps the sensor outputs usable: the lidar alias lets the
+/// point-cloud converter and rviz place the cloud in the robot's frame chain,
+/// and the imu alias makes /imu's frame resolvable for any external consumer.
 ///
 /// Two aliases are configured by four parameters, one (parent, child) pair
 /// each; an empty child frame disables that alias.

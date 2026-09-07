@@ -14,28 +14,10 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true'
     )
 
-    declare_lio_type = DeclareLaunchArgument(
-        'lio_type',
-        default_value='fast_lio',
-        description='Choose localization chain: fast_lio or gazebo_odom (legacy aliases ground_truth/static now fall back to gazebo_odom)'
-    )
-
     declare_world_name = DeclareLaunchArgument(
         'world_name',
         default_value='flat_small_scale_maze.world',
         description='World file name under finenav_simulator/resource/worlds'
-    )
-
-    declare_publish_map_tf = DeclareLaunchArgument(
-        'publish_map_tf',
-        default_value='false',
-        description='Enable publishing map to odom TF transform'
-    )
-
-    declare_navigation_mode = DeclareLaunchArgument(
-        'navigation_mode',
-        default_value='dynamic',
-        description='Choose the mode of navigation: dynamic or static'
     )
 
     world_sdf_path = PathJoinSubstitution([
@@ -62,10 +44,7 @@ def generate_launch_description():
         ),
         launch_arguments={
             'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'lio_type': LaunchConfiguration('lio_type'),
             'world_name': LaunchConfiguration('world_name'),
-            'publish_map_tf': LaunchConfiguration('publish_map_tf'),
-            'navigation_mode': LaunchConfiguration('navigation_mode'),
         }.items(),
     )
 
@@ -77,7 +56,6 @@ def generate_launch_description():
                     os.path.join(pkg, "launch", "core", "pointcloud_complete_launch.py")
                 ),
                 launch_arguments={
-                    'lio_type': LaunchConfiguration('lio_type'),
                     'use_sim_time': LaunchConfiguration('use_sim_time'),
                 }.items(),
             )
@@ -86,10 +64,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_sim_time,
-        declare_lio_type,
         declare_world_name,
-        declare_publish_map_tf,
-        declare_navigation_mode,
         gazebo_launch,
         include_robot_launch,
         pointcloud_launch

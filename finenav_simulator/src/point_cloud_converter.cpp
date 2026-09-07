@@ -147,7 +147,7 @@ PointCloudConverter::PointCloudConverter(const rclcpp::NodeOptions & options)
   this->declare_parameter<int>("horizon_scan", 0);
   this->declare_parameter<float>("scan_period", 0.1F);
   this->declare_parameter<bool>("synthesize_time", true);
-  this->declare_parameter<std::string>("output_topic", "/cloud_for_lio");
+  this->declare_parameter<std::string>("output_topic", "/lidar/points_filtered");
   this->declare_parameter<std::string>("output_frame_id", "");
   this->declare_parameter<bool>("transform_output_to_frame", false);
   // Self-filter box in lidar_frame, sized from the current robot body + wheels.

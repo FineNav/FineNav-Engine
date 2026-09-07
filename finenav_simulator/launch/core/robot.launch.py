@@ -4,7 +4,6 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
-from launch.substitutions import PythonExpression
 from launch_ros.actions import Node
 
 pkg_share_dir = get_package_share_directory("finenav_simulator")
@@ -54,19 +53,16 @@ def _launch_setup(context):
         }],
     )
 
-    lio_type = LaunchConfiguration("lio_type").perform(context)
-    publish_map_tf = LaunchConfiguration("publish_map_tf").perform(context)
-    navigation_mode = LaunchConfiguration("navigation_mode").perform(context)
-
     simulator_helper = Node(
         package="finenav_simulator",
         executable="simulator_helper_node",
         parameters=[{
             "use_sim_time": LaunchConfiguration("use_sim_time"),
-            "input_odom_topic": PythonExpression(["'/Odometry' if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else '/odom'"]),
+            # Ground-truth odometry is the only localization source now, so the
+            # topic defaults in the helper components (/odom, publish_tf=true)
+            # are used as-is and only the explicit switches stay here.
             "path_topic": "/path",
             "max_path_points": 2000,
-            "publish_tf": PythonExpression(["'False' if '", LaunchConfiguration("lio_type"), "' == 'fast_lio' else 'True'"]),
             "path_odom_frame": "odom",
             "path_base_frame": "base_link",
             "enable_base_footprint": True,
@@ -75,10 +71,9 @@ def _launch_setup(context):
             "teleop_output_topic": "/cmd_vel",
             "world_name": "default",
             "enable_path_publisher": True,
-            # map->odom identity: ground-truth modes always publish it; fast_lio
-            # only when the caller explicitly asks for a map frame in dynamic mode.
-            "enable_identity_map_to_odom":
-                lio_type != "fast_lio" or (publish_map_tf == "true" and navigation_mode == "dynamic"),
+            # map->odom identity: with ground-truth localization there is no
+            # drift to correct, so map is always odom.
+            "enable_identity_map_to_odom": True,
             # Sensor frames arrive from Gazebo under SDF-scoped names; the
             # aliases connect them to the plain URDF link names the ROS
             # ecosystem uses (see SensorFrameAliasPublisher).
@@ -105,30 +100,9 @@ def generate_launch_description():
     )
     ld.add_action(
         DeclareLaunchArgument(
-            "lio_type",
-            default_value="fast_lio",
-            description="Choose localization chain: fast_lio or gazebo_odom",
-        )
-    )
-    ld.add_action(
-        DeclareLaunchArgument(
             "world_name",
             default_value="flat_small_scale_maze.world",
             description="World file name under finenav_simulator/resource/worlds",
-        )
-    )
-    ld.add_action(
-        DeclareLaunchArgument(
-            "publish_map_tf",
-            default_value="false",
-            description="Enable publishing map to odom TF transform",
-        )
-    )
-    ld.add_action(
-        DeclareLaunchArgument(
-            "navigation_mode",
-            default_value="dynamic",
-            description="Choose the mode of navigation: dynamic or static",
         )
     )
     ld.add_action(OpaqueFunction(function=_launch_setup))

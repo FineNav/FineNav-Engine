@@ -4,7 +4,7 @@ import sys
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 pkg_share_dir = get_package_share_directory("finenav_simulator")
@@ -28,12 +28,6 @@ def generate_launch_description():
     )
     sdf_config = load_robot_sdf_config_from_string(robot_xml)
 
-    declare_lio_type = DeclareLaunchArgument(
-        "lio_type",
-        default_value="fast_lio",
-        description="Choose localization chain: fast_lio or gazebo_odom",
-    )
-
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time",
         default_value="true",
@@ -50,19 +44,11 @@ def generate_launch_description():
         parameters=[
             {'use_sim_time': LaunchConfiguration('use_sim_time')},
             {'pcd_topic': '/livox/lidar'},
-            {'output_topic': '/cloud_for_lio'},
-            {
-                'output_frame_id': PythonExpression([
-                    "'lidar_frame' if '", LaunchConfiguration('lio_type'),
-                    "' == 'fast_lio' else 'base_link'"
-                ])
-            },
-            {
-                'transform_output_to_frame': PythonExpression([
-                    "'False' if '", LaunchConfiguration('lio_type'),
-                    "' == 'fast_lio' else 'True'"
-                ])
-            },
+            # Realistic-lidar output for external localization algorithms
+            # (ring, per-point time, self-filter), transformed to base_link.
+            {'output_topic': '/lidar/points_filtered'},
+            {'output_frame_id': 'base_link'},
+            {'transform_output_to_frame': True},
             {'vertical_samples': sdf_config['lidar_vertical_samples']},
             {'horizontal_samples': sdf_config['lidar_horizontal_samples']},
             {'vertical_min_angle': sdf_config['lidar_vertical_min_angle']},
@@ -75,7 +61,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        declare_lio_type,
         declare_use_sim_time,
         converter_node,
     ])
