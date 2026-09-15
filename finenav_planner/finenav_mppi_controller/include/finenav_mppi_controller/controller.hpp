@@ -15,8 +15,9 @@
 #ifndef NAV2_MPPI_CONTROLLER__CONTROLLER_HPP_
 #define NAV2_MPPI_CONTROLLER__CONTROLLER_HPP_
 
-#include <string>
+#include <chrono>
 #include <memory>
+#include <string>
 
 //#include "finenav_mppi_controller/tools/path_handler.hpp"
 //#include "finenav_mppi_controller/tools/trajectory_visualizer.hpp"
@@ -151,15 +152,11 @@ public:
     }
 
     const double ms_total = Ms(Clock::now() - t_plan_start).count();
-    {
-        static rclcpp::Clock throttle_clk{RCL_STEADY_TIME};
-        RCLCPP_INFO_THROTTLE(
-            rclcpp::get_logger("MPPIController"), throttle_clk, 2000,
-            "\n[MPPIController] plan() timing\n"
-            "  evalControl (optimize) : %7.2f ms\n"
-            "  total plan()           : %7.2f ms",
-            ms_optimize, ms_total);
-    }
+    // Log every planning cycle. Do not throttle this measurement.
+    RCLCPP_INFO(
+        rclcpp::get_logger("MPPIController"),
+        "[MPPIController] single plan time: %.3f ms (optimizer: %.3f ms)",
+        ms_total, ms_optimize);
 
     return traj;
 }
@@ -261,7 +258,7 @@ protected:
 	#ifdef BENCHMARK_TESTING
   	auto end = std::chrono::system_clock::now();
   	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-  	RCLCPP_INFO(logger_, "Control loop execution time: %ld [ms]", duration);
+    // RCLCPP_INFO(logger_, "Control loop execution time: %ld [ms]", duration);
 	#endif
 
 //  	if (visualize_) {

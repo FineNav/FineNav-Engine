@@ -113,15 +113,15 @@ void MapServer<MapT>::runUpdateCycle(const rclcpp::Time& now) {
     const double ms_post   = Ms(t3 - t2).count();
     const double ms_total  = Ms(t3 - t0).count();
 
-    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
-        "\n[MapServer: %s] update cycle timing\n"
-        "  preUpdateHook  : %7.2f ms\n"
-        "  applyBuffered  : %7.2f ms\n"
-        "  postUpdateHook : %7.2f ms\n"
-        "  ─────────────────────────\n"
-        "  Total          : %7.2f ms",
-        server_name_.c_str(),
-        ms_pre, ms_fuse, ms_post, ms_total);
+    // RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+    //     "\n[MapServer: %s] update cycle timing\n"
+    //     "  preUpdateHook  : %7.2f ms\n"
+    //     "  applyBuffered  : %7.2f ms\n"
+    //     "  postUpdateHook : %7.2f ms\n"
+    //     "  ─────────────────────────\n"
+    //     "  Total          : %7.2f ms",
+    //     server_name_.c_str(),
+    //     ms_pre, ms_fuse, ms_post, ms_total);
 }
 template <MapConcept MapT>
 void MapServer<MapT>::runShiftCycle(const rclcpp::Time& now) {
