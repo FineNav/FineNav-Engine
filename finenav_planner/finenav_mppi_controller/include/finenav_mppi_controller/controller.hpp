@@ -35,6 +35,7 @@
 #include "finenav_mppi_controller/finenav_mppi_controller_params.hpp"
 #include "finenav_mppi_controller/optimizer.hpp"
 #include "finenav_mppi_controller/map_view_def.hpp"
+#include "finenav_mppi_controller/timing_statistics.hpp"
 
 namespace nav2_mppi_controller
 {
@@ -72,19 +73,20 @@ public:
     using Context = finenav::PlanningContext<MPPIController>;
     using ConfigType = finenav_mppi_controller::Params;
     void configure(const ConfigType& params) {              //应该传入参数 因测试先去除
+        timingStatistics().setEnabled(params.timing_statistics_enabled);
 
-        registerCritic(std::make_unique<critics::ConstraintCritic>());
-        registerCritic(std::make_unique<critics::CostCritic>());
-        registerCritic(std::make_unique<critics::GoalAngleCritic>());
-        registerCritic(std::make_unique<critics::GoalCritic>());
-        // registerCritic(std::make_unique<critics::ObstaclesCritic>());
-        registerCritic(std::make_unique<critics::PathAlignCritic>());
-        registerCritic(std::make_unique<critics::PathAlignLegacyCritic>());
-        registerCritic(std::make_unique<critics::PathAngleCritic>());
-        registerCritic(std::make_unique<critics::PathFollowCritic>());
-        registerCritic(std::make_unique<critics::PreferForwardCritic>());
-        registerCritic(std::make_unique<critics::TwirlingCritic>());
-        registerCritic(std::make_unique<critics::VelocityDeadbandCritic>());
+        registerCritic("ConstraintCritic", std::make_unique<critics::ConstraintCritic>());
+        registerCritic("CostCritic", std::make_unique<critics::CostCritic>());
+        registerCritic("GoalAngleCritic", std::make_unique<critics::GoalAngleCritic>());
+        registerCritic("GoalCritic", std::make_unique<critics::GoalCritic>());
+        // registerCritic("ObstaclesCritic", std::make_unique<critics::ObstaclesCritic>());
+        registerCritic("PathAlignCritic", std::make_unique<critics::PathAlignCritic>());
+        registerCritic("PathAlignLegacyCritic", std::make_unique<critics::PathAlignLegacyCritic>());
+        registerCritic("PathAngleCritic", std::make_unique<critics::PathAngleCritic>());
+        registerCritic("PathFollowCritic", std::make_unique<critics::PathFollowCritic>());
+        registerCritic("PreferForwardCritic", std::make_unique<critics::PreferForwardCritic>());
+        registerCritic("TwirlingCritic", std::make_unique<critics::TwirlingCritic>());
+        registerCritic("VelocityDeadbandCritic", std::make_unique<critics::VelocityDeadbandCritic>());
 
         std::cout<<"[nav2_mppi_controller] Critics registered. Initializing optimizer..."<<std::endl;
         std::cout<<"[nav2_mppi_controller] Number of critics: "<<critics_.size()<<std::endl;
@@ -185,7 +187,10 @@ public:
       optimizer_.reset();
   }
 
-    void registerCritic (std::unique_ptr<critics::CriticFunction> critic) {
+    void registerCritic (
+      std::string name, std::unique_ptr<critics::CriticFunction> critic)
+    {
+        critic->setName(std::move(name));
         critics_.push_back(std::move(critic));        //TODO:在初始化的时候要换成注册
     }
 

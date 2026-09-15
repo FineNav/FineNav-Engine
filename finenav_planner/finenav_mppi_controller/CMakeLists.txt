@@ -88,6 +88,7 @@ add_library(mppi_controller SHARED
   src/controller.cpp
   src/critic_manager.cpp
   src/noise_generator.cpp
+  src/timing_statistics.cpp
 )
 
 add_library(mppi_critics SHARED
@@ -150,6 +151,12 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+  ament_add_gtest(
+    timing_statistics_test
+    test/timing_statistics_test.cpp
+    src/timing_statistics.cpp
+  )
+  target_include_directories(timing_statistics_test PRIVATE include)
 #  add_subdirectory(test)
   # add_subdirectory(benchmark)
 endif()

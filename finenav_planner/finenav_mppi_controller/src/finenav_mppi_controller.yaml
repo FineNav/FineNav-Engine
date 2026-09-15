@@ -34,6 +34,10 @@ finenav_mppi_controller:
     type: double
     default_value: 0.015
     description: "Control cost regularization coefficient"
+  timing_statistics_enabled:
+    type: bool
+    default_value: false
+    description: "Collect MPPI plan and critic timings and write a report at process exit"
   motion_model:
     type: string
     default_value: "DiffDrive"
@@ -371,4 +375,3 @@ finenav_mppi_controller:
       type: double_array
       default_value: [0.05, 0.05, 0.05]
       description: "Deadband thresholds [vx, vy, wz]; velocities below are penalized"
-

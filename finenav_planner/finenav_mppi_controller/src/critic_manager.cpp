@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <chrono>
+
 #include "finenav_mppi_controller/critic_manager.hpp"
 #include "finenav_mppi_controller/finenav_mppi_controller_params.hpp"
+#include "finenav_mppi_controller/timing_statistics.hpp"
 
 namespace mppi
 {
@@ -51,7 +54,14 @@ void CriticManager::evalTrajectoriesScores(
         if (data.fail_flag) {
             break;
         }
+        const auto score_start = std::chrono::steady_clock::now();
         critics_[q]->score(data,map_view);
+        const double score_time_ms = std::chrono::duration<double, std::milli>(
+          std::chrono::steady_clock::now() - score_start).count();
+        timingStatistics().addSample(critics_[q]->getName(), score_time_ms);
+        RCLCPP_INFO(
+          logger_, "[MPPIController] %s score time: %.3f ms",
+          critics_[q]->getName().c_str(), score_time_ms);
     }
 }
 

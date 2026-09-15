@@ -17,6 +17,7 @@
 
 #include <string>
 #include <memory>
+#include <utility>
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
@@ -91,9 +92,14 @@ public:
   /**
     * @brief Get name of critic#include "finenav_control_layers/local_layer.hpp"
     */
-  std::string getName()
+  const std::string & getName() const
   {
     return name_;
+  }
+
+  void setName(std::string name)
+  {
+    name_ = std::move(name);
   }
 
 protected:
