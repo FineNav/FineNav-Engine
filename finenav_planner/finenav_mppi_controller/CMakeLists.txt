@@ -1,19 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(finenav_mppi_controller)
 
-add_definitions(-DXTENSOR_ENABLE_XSIMD)
-add_definitions(-DXTENSOR_USE_XSIMD)
-
-set(XTENSOR_USE_TBB 0)
-set(XTENSOR_USE_OPENMP 0)
-set(XTENSOR_USE_XSIMD 1)
-
-# set(XTENSOR_DEFAULT_LAYOUT column_major)  # row_major, column_major
-# set(XTENSOR_DEFAULT_TRAVERSAL row_major)  # row_major, column_major
-
 find_package(ament_cmake REQUIRED)
-find_package(xtensor REQUIRED)
-find_package(xsimd REQUIRED)
+find_package(eigen3_cmake_module REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(OpenMP REQUIRED)
 include_directories(
   include
 )
@@ -21,17 +12,17 @@ include_directories(
 
 set(dependencies_pkgs
   rclcpp
+  builtin_interfaces
   tf2
   geometry_msgs
   visualization_msgs
   nav_msgs
+  std_msgs
   tf2_geometry_msgs
   tf2_eigen
   tf2_ros
   angles
   OpenCV
-        finenav_collision_model
-        finenav_interface
         finenav_util
         finenav_core
         generate_parameter_library
@@ -84,20 +75,25 @@ endif()
 # If building one the same hardware to be deployed on, try `-march=native`!
 add_compile_options(-O3 -finline-limit=10000000 -ffp-contract=fast -ffast-math -mtune=generic)
 
+option(ENABLE_COVERAGE "Enable GCC/Clang coverage instrumentation" OFF)
+if(ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  add_compile_options(--coverage -O0 -g)
+  add_link_options(--coverage)
+endif()
+
 add_library(mppi_controller SHARED
   src/controller.cpp
   src/critic_manager.cpp
   src/noise_generator.cpp
   src/timing_statistics.cpp
+  src/trajectory_visualizer.cpp
 )
 
 add_library(mppi_critics SHARED
-  src/critics/obstacles_critic.cpp
   src/critics/cost_critic.cpp
   src/critics/goal_critic.cpp
   src/critics/goal_angle_critic.cpp
   src/critics/path_align_critic.cpp
-  src/critics/path_align_legacy_critic.cpp
   src/critics/path_follow_critic.cpp
   src/critics/path_angle_critic.cpp
   src/critics/prefer_forward_critic.cpp
@@ -109,14 +105,22 @@ add_library(mppi_critics SHARED
 set(libraries mppi_controller mppi_critics)
 
 foreach(lib IN LISTS libraries)
+  target_compile_definitions(${lib} PUBLIC EIGEN_MAX_ALIGN_BYTES=16)
   target_compile_options(${lib} PUBLIC -fconcepts)
-  target_include_directories(${lib} PUBLIC ${xsimd_INCLUDE_DIRS})  #  ${OpenMP_INCLUDE_DIRS}
-  target_link_libraries(${lib} xtensor xtensor::optimize xtensor::use_xsimd finenav_mppi_controller_params )
+  target_link_libraries(${lib} Eigen3::Eigen finenav_mppi_controller_params)
+  target_include_directories(${lib} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  )
   ament_target_dependencies(${lib} ${dependencies_pkgs})
 endforeach()
 
+target_link_libraries(mppi_controller mppi_critics)
+target_compile_options(mppi_critics PRIVATE ${OpenMP_CXX_FLAGS})
+set_property(TARGET mppi_critics APPEND_STRING PROPERTY LINK_FLAGS " ${OpenMP_CXX_FLAGS}")
+
 install(
-  TARGETS ${libraries}
+  TARGETS ${libraries} finenav_mppi_controller_params
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -126,24 +130,8 @@ install(
 
 
 
-find_package(pcl_conversions REQUIRED)
-find_package(pcl_msgs REQUIRED)
-find_package(PCL REQUIRED COMPONENTS common filters)
-
-
-set(test_dependencies
-        ${dependencies_pkgs}
-        pcl_conversions
-        pcl_msgs
-)
-
-
-
-
-
-
 install(DIRECTORY include/
-  DESTINATION include/
+  DESTINATION include/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
@@ -151,19 +139,31 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
-  ament_add_gtest(
-    timing_statistics_test
+
+  ament_add_gtest(timing_statistics_test
     test/timing_statistics_test.cpp
     src/timing_statistics.cpp
   )
   target_include_directories(timing_statistics_test PRIVATE include)
-#  add_subdirectory(test)
-  # add_subdirectory(benchmark)
+
+  ament_add_gtest(framework_api_contract_test
+    test/framework_api_contract_test.cpp
+  )
+  ament_target_dependencies(framework_api_contract_test ${dependencies_pkgs})
+  target_include_directories(framework_api_contract_test PRIVATE include)
+  target_link_libraries(
+    framework_api_contract_test
+    mppi_controller
+    mppi_critics
+    finenav_mppi_controller_params
+  )
 endif()
 
-
 ament_export_libraries(${libraries})
-ament_export_dependencies(${dependencies_pkgs})
+ament_export_dependencies(${dependencies_pkgs} eigen3_cmake_module Eigen3)
 ament_export_include_directories(include)
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_dependencies(${dependencies_pkgs})
+ament_export_include_directories(include/${PROJECT_NAME})
 
 ament_package()

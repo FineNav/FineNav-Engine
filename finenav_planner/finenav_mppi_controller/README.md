@@ -33,6 +33,48 @@ This process is then repeated a number of times and returns a converged solution
 
 ## Configuration
 
+### CostCritic 并行调度
+
+CostCritic 固定使用 OpenMP dynamic 调度评估轨迹。`num_threads: 1` 保持串行执行，
+用于确定性基线和低负载场景；大于 1 时使用
+`schedule(dynamic, chunk_size)`，将重负载轨迹继续分发给先完成的线程。所有模式共享
+同一评分逻辑。
+
+可配置的调度参数只有：
+
+- `CostCritic.num_threads`：OpenMP worker 数；设为 `1` 时串行。
+- `CostCritic.chunk_size`：每次动态领取的轨迹数；不均匀碰撞负载建议保持 `1`。
+
+### 可视化崩溃排查后的构建要求
+
+可视化诊断数据使用纯 STL `float` 容器保存 critic 贡献，避免 Eigen 动态数组在共享库
+版本不一致时参与释放。修改头文件后必须同时重编译 MPPI 库和 demo，并保证运行时使用
+同一个 install 空间。推荐始终从目标工作区执行：
+
+```bash
+cd /home/fins/Desktop/ws_weineng
+source /opt/ros/humble/setup.bash
+source /home/fins/Desktop/local_libs/BehaviorTreeCpp_v4.7.0/install/setup.bash
+source /home/fins/Desktop/generate_parameter_library/install/setup.bash
+source /home/fins/Desktop/tl_expected/expected/install/setup.bash
+colcon build --packages-up-to finenav_demo --symlink-install
+source install/setup.bash
+```
+
+不要只编译单个测试目标或混用两套 `install`；这会让新头文件与旧共享库的
+`CriticCostBreakdown` 布局不一致，表现为 reset 阶段的 `double free or corruption`。
+
+### Ackermann 约束与参数更新同步
+
+Ackermann `ConstraintCritic` 对角速度使用 `max(abs(wz), 1e-6)`，避免静止轨迹
+出现 `0/0` 并污染 MPPI 代价。控制序列约束遵循 Nav2 `#6072` 的顺序：先应用
+Ackermann 转弯半径，再按反馈速度和加速度限制逐点投影，最后再次应用专用运动学
+约束；当两类约束冲突时，以车辆运动学可行性优先。
+
+MPPI 控制器内部的 `configure()`、`reset()` 和 `plan()` 共用一把互斥锁。动态参数
+回调重建 Critic、Optimizer 或 Visualizer 时会等待当前规划完成，规划期间不会访问
+已被重建的对象；CostCritic 自身的 OpenMP dynamic 并行不受影响。
+
 ### Controller
  | Parameter                  | Type   | Definition                                                                                                                                                                                                                                                                                                           |
  | ---------------------      | ------ | -------------------------------------------------------------------------------------------------------- |
@@ -49,18 +91,31 @@ This process is then repeated a number of times and returns a converged solution
  | vy_max                     | double | Default 0.5. Max VY in either direction, if holonomic. (m/s)                                             |
  | vx_min                     | double | Default -0.35. Min VX (m/s)                                                                              |
  | wz_max                     | double | Default 1.9. Max WZ (rad/s)                                                                              |
+ | ax_min                     | double | Default -1.0. Minimum longitudinal acceleration (m/s^2), must be <= 0.                              |
+ | ax_max                     | double | Default 1.0. Maximum longitudinal acceleration (m/s^2), must be >= 0.                               |
+ | ay_min                     | double | Default -1.0. Minimum lateral acceleration (m/s^2), used by Omni.                                    |
+ | ay_max                     | double | Default 1.0. Maximum lateral acceleration (m/s^2), used by Omni.                                     |
+ | az_max                     | double | Default 3.0. Symmetric yaw acceleration limit (rad/s^2).                                             |
  | temperature                | double | Default: 0.3. Selectiveness of trajectories by their costs (The closer this value to 0, the "more" we take in consideration controls with less cost), 0 mean use control with best cost, huge value will lead to just taking mean of all trajectories without cost consideration                                                   |
  | gamma                      | double | Default: 0.015. A trade-off between smoothness (high) and low energy (low). This is a complex parameter that likely won't need to be changed from the default of `0.1` which works well for a broad range of cases. See Section 3D-2 in "Information Theoretic Model Predictive Control: Theory and Applications to Autonomous Driving" for detailed information.       |
  | visualize                  | bool   | Default: false. Publish visualization of trajectories, which can slow down the controller significantly. Use only for debugging.                                                                                                                                       |
  | retry_attempt_limit        | int    | Default 1. Number of attempts to find feasible trajectory on failure for soft-resets before reporting failure.                                                                                                                                                                                                       |
 | reset_period            | double    | Default 1.0. required time of inactivity to reset optimizer  (only in Humble due to backport ABI policies)            |
- | regenerate_noises          | bool   | Default false. Whether to regenerate noises each iteration or use single noise distribution computed on initialization and reset. Practically, this is found to work fine since the trajectories are being sampled stochastically from a normal distribution and reduces compute jittering at run-time due to thread wake-ups to resample normal distribution. |
+ | regenerate_noises          | bool   | Default true. Whether to regenerate noises asynchronously for each optimization iteration or use a single noise distribution computed on initialization and reset. |
 
 #### Trajectory Visualizer
- | Parameter             | Type   | Definition                                                                                                  |
- | ---------------       | ------ | ----------------------------------------------------------------------------------------------------------- |
- | trajectory_step       | int    | Default: 5. The step between trajectories to visualize to downsample candidate trajectory pool.             |
- | time_step             | int    | Default: 3. The step between points on trajectories to visualize to downsample trajectory density.          |
+ | Parameter                       | Type   | Definition                                                                                                      |
+ | ------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------- |
+ | visualize                      | bool   | Default: false. Enable the optional publisher-only MPPI visualizer.                                            |
+ | visualizer_node_name           | string | Default: finenav_mppi_visualizer. Private ROS node name owned by MPPI.                                         |
+ | visualizer_frame_id            | string | Default: map. Frame assigned to all visualization messages.                                                    |
+ | visualizer_trajectory_topic    | string | Default: /mppi_debug/trajectories. Candidate MarkerArray topic.                                                |
+ | visualizer_optimal_path_topic  | string | Default: /mppi_debug/optimal_trajectory. Optimized nav_msgs/Path topic.                                        |
+ | visualizer_reference_path_topic| string | Default: /mppi_debug/reference_path. Reference nav_msgs/Path topic.                                            |
+ | visualizer_trajectory_step     | int    | Default: 5. Batch stride used to downsample candidate trajectories.                                            |
+ | visualizer_time_step           | int    | Default: 3. Horizon stride used to downsample points in each candidate trajectory.                             |
+ | visualizer_max_trajectories    | int    | Default: 500. Maximum candidate trajectories retained in one visualization frame.                            |
+ | visualizer_publish_rate        | double | Default: 10.0. Maximum visualization frame publication rate in Hz.                                          |
 
 #### Path Handler
  | Parameter                  | Type   | Definition                                                                                                  |
@@ -98,22 +153,6 @@ This process is then repeated a number of times and returns a converged solution
  | threshold_to_consider      | double | Default 1.4. Distance between robot and goal above which goal cost starts being considered                                    |
 
 
-#### Obstacles Critic
-
-Uses estimated distances from obstacles using cost and inflation parameters to avoid obstacles
-
- | Parameter            | Type   | Definition                                                                                                  |
- | ---------------      | ------ | ----------------------------------------------------------------------------------------------------------- |
- | consider_footprint   | bool   | Default: False. Whether to use point cost (if robot is circular or low compute power) or compute SE2 footprint cost. |
- | critical_weight          | double | Default 20.0. Weight to apply to critic for near collisions closer than `collision_margin_distance` to prevent near collisions **only** as a method of virtually inflating the footprint. This should not be used to generally influence obstacle avoidance away from critical collisions.                                                                |
- | repulsion_weight          | double | Default 1.5. Weight to apply to critic for generally preferring routes in lower cost space. This is separated from the critical term to allow for fine tuning of obstacle behaviors with path alignment for dynamic scenes without impacting actions which may directly lead to near-collisions. This is applied within the `inflation_radius` distance from obstacles.                                                                |
- | cost_power           | int    | Default 1. Power order to apply to term.                                                                    |
- | collision_cost       | double | Default 10000.0. Cost to apply to a true collision in a trajectory.                                          |
- | collision_margin_distance   | double    | Default 0.10. Margin distance from collision to apply severe penalty, similar to footprint inflation. Between 0.05-0.2 is reasonable. |
- | near_goal_distance          | double    | Default 0.5. Distance near goal to stop applying preferential obstacle term to allow robot to smoothly converge to goal pose in close proximity to obstacles.   
- | cost_scaling_factor       | double    | Default 10.0. Exponential decay factor across inflation radius. This should be the same as for your inflation layer (Humble only)
- | inflation_radius          | double    | Default 0.55. Radius to inflate costmap around lethal obstacles. This should be the same as for your inflation layer (Humble only)
-
 #### Cost Critic
 
 Uses inflated costmap cost directly to avoid obstacles
@@ -138,8 +177,6 @@ Uses inflated costmap cost directly to avoid obstacles
  | trajectory_point_step      | double | Default 4. Step of trajectory points to evaluate for path distance to reduce compute time. Between 1-10 is typically reasonable.   |
  | max_path_occupancy_ratio   | double | Default 0.07 (7%). Maximum proportion of the path that can be occupied before this critic is not considered to allow the obstacle and path follow critics to avoid obstacles while following the path's intent in presence of dynamic objects in the scene.  |
  | use_path_orientations   | bool | Default false. Whether to consider path's orientations in path alignment, which can be useful when paired with feasible smac planners to incentivize directional changes only where/when the smac planner requests them. If you want the robot to deviate and invert directions where the controller sees fit, keep as false. If your plans do not contain orientation information (e.g. navfn), keep as false.  |
-
-Note: There is a "Legacy" version of this critic also available with the same parameters of an old formulation pre-October 2023.
 
 #### Path Angle Critic
  | Parameter                 | Type   | Definition                                                                                                  |
@@ -232,15 +269,6 @@ controller_server:
         cost_power: 1
         cost_weight: 5.0
         threshold_to_consider: 0.5
-      # ObstaclesCritic:
-      #   enabled: true
-      #   cost_power: 1
-      #   repulsion_weight: 1.5
-      #   critical_weight: 20.0
-      #   consider_footprint: false
-      #   collision_cost: 10000.0
-      #   collision_margin_distance: 0.1
-      #   near_goal_distance: 0.5
       CostCritic:
         enabled: true
         cost_power: 1
@@ -249,7 +277,6 @@ controller_server:
         consider_footprint: true
         collision_cost: 1000000.0
         near_goal_distance: 1.0
-      PathAlignCritic:
       PathAlignCritic:
         enabled: true
         cost_power: 1
@@ -287,22 +314,61 @@ controller_server:
 
 | Topic                     | Type                             | Description                                                           |
 |---------------------------|----------------------------------|-----------------------------------------------------------------------|
-| `trajectories`            | `visualization_msgs/MarkerArray` | Randomly generated trajectories, including resulting control sequence |
-| `transformed_global_plan` | `nav_msgs/Path`                  | Part of global plan considered by local planner                       |
+| `/mppi_debug/trajectories`       | `visualization_msgs/MarkerArray` | Downsampled candidate trajectories; the first marker is `DELETEALL` and the final marker is the orange optimal trajectory. |
+| `/mppi_debug/optimal_trajectory` | `nav_msgs/Path`                  | The optimized trajectory returned by MPPI.                             |
+| `/mppi_debug/reference_path`     | `nav_msgs/Path`                  | The current reference path in the configured visualization frame.      |
+| `/mppi_path`                     | `nav_msgs/Path`                  | Existing demo bridge output; retained separately from MPPI diagnostics. |
+
+### RViz manual check
+
+The demo configuration keeps `visualize: false` by default. For an RViz debugging run, set it
+to `true` in `finenav_demo/stvl_with_mppi/config/mppi_params.yaml`, then launch
+`stvl_with_mppi.launch.py` and add these RViz displays:
+
+1. `MarkerArray` on `/mppi_debug/trajectories`.
+2. `Path` on `/mppi_debug/optimal_trajectory`.
+3. `Path` on `/mppi_debug/reference_path`.
+
+Set RViz's fixed frame to `map`. Candidate markers are downsampled and colored by the dominant
+Critic contribution; the orange line is the optimal trajectory. MPPI builds an immutable
+downsampled frame and a capacity-one publisher queue keeps only the newest frame, so RViz
+publication never reads Optimizer-owned Eigen buffers. All three diagnostic streams use zero
+message timestamps intentionally, so they do not require `/clock`. Set `visualize: false`
+for normal deployment to avoid frame construction, the publisher thread, and Critic snapshots.
 
 ## Notes to Users
 
 ### General Words of Wisdom
 
-The `model_dt` parameter generally should be set to the duration of your control frequency. So if your control frequency is 20hz, this should be `0.05`. However, you may also set it lower **but not larger**.
+The `model_dt` parameter is the duration between prediction knots and the
+feedback-to-first-command interval. Set it to the inverse of the execution
+frequency; in the demo, `TrackingPolicy{20.0}` requires `model_dt=0.05` s.
 
-Visualization of the trajectories using `visualize` uses compute resources to back out trajectories for visualization and therefore slows compute time. It is not suggested that this parameter is set to `true` during a deployed use, but is a useful debug instrument while tuning the system, but use sparingly. Visualizing 2000 batches @ 56 points at 30 hz is _a lot_.
+The first rollout knot is the first sampled control projected from measured
+feedback, and `controls[0]` is the command for the current execution cycle.
+The optimizer shifts only its internal warm-start sequence after returning the
+result; it does not skip `controls[0]` with an output offset.
 
-The most common parameters you might want to start off changing are the velocity profiles (`vx_max`, `vx_min`, `wz_max`, and `vy_max` if holonomic) and the `motion_model` to correspond to your vehicle. Its wise to consider the `prune_distance` of the path plan in proportion to your maximum velocity and prediction horizon. The only deeper parameter that will likely need to be adjusted for your particular settings is the Obstacle critics' `repulsion_weight` since the tuning of this is proportional to your inflation layer's radius. Higher radii should correspond to reduced `repulsion_weight` due to the penalty formation (e.g. `inflation_radius - min_dist_to_obstacle`). If this penalty is too high, the robot will slow significantly when entering cost-space from non-cost space or jitter in narrow corridors. It is noteworthy, but likely not necessary to be changed, that the Obstacle critic may use the full footprint information if `consider_footprint = true`, though comes at an increased compute cost.
+If measured linear or angular velocity is already outside its configured
+absolute limit, the projection preserves the acceleration-reachable interval
+first when the two constraints do not overlap. This avoids an instantaneous
+velocity jump; the command returns to the absolute limit over subsequent
+cycles.
+
+Ackermann additionally intersects the yaw-acceleration interval with its
+minimum-turning-radius interval. If those intervals are temporarily disjoint,
+the kinematic turning-radius constraint takes priority and the closest feasible
+yaw rate to the previous command is selected.
+
+Visualization of the trajectories using `visualize` adds per-Critic cost snapshots and publishes a
+downsampled candidate batch, so it can slow compute time. It is not suggested that this parameter
+is set to `true` during deployed use; it is a debug instrument for tuning and RViz inspection.
+
+The most common parameters you might want to start off changing are the velocity profiles (`vx_max`, `vx_min`, `wz_max`, and `vy_max` if holonomic) and the `motion_model` to correspond to your vehicle. Its wise to consider the `prune_distance` of the path plan in proportion to your maximum velocity and prediction horizon. The deeper parameters to tune first are the `CostCritic` weights and `critical_cost`, together with the costmap inflation settings. If the obstacle penalty is too high, the robot will slow significantly or jitter in narrow corridors.
 
 If you don't require path following behavior (e.g. just want to follow a goal pose and let the model predictive elements decide the best way to accomplish that), you may easily remove the PathAlign, PathFollow and PathAngle critics. 
 
-By default, the controller is tuned and has the capabilities established in the PathAlign/Obstacle critics to generally follow the path closely when no obstacles prevent it, but able to deviate from the path when blocked. See `PathAlignCritic::score()` for details, but it is disabled when the local path is blocked so the obstacle critic takes over in that state.
+By default, the controller is tuned to follow the path closely when no obstacles prevent it, while allowing the `CostCritic` and path-following critics to score safe deviations when the local path is blocked. See `PathAlignCritic::score()` for details.
 
 ### Prediction Horizon, Costmap Sizing, and Offsets
 
@@ -314,10 +380,45 @@ The Path Follow critic cannot drive velocities greater than the projectable dist
 
 ### Obstacle, Inflation Layer, and Path Following
 
-There also exists a relationship between the costmap configurations and the Obstacle critic configurations. If the Obstacle critic is not well tuned with the costmap parameters (inflation radius, scale) it can cause the robot to wobble significantly as it attempts to take finitely lower-cost trajectories with a slightly lower cost in exchange for jerky motion. The default behavior was tuned for small AMRs (e.g. turtlebots or similar), so if using a larger robot, you may want to reduce the `repulsion_weight` in kind. It may also perform awkward maneuvers when in free-space to try to maximize time in a small pocket of 0-cost over a more natural motion which involves moving into some low-costed region. Finally, it may generally refuse to go into costed space at all when starting in a free 0-cost space if the gain is set disproportionately higher than the Path Follow scoring to encourage the robot to move along the path. This is due to the critic cost of staying in free space becoming more attractive than entering even lightly costed space in exchange for progression along the task. 
+There also exists a relationship between the costmap configuration and the `CostCritic` weights. If the cost penalty is not well tuned with the inflation radius and scale, it can cause the robot to wobble as it selects trajectories with slightly lower cost in exchange for jerky motion. The default behavior was tuned for small AMRs, so larger robots may need lower obstacle penalties.
 
-Thus, care should be taken to select weights of the obstacle critic in conjunction with the costmap inflation radius and scale so that a robot does not have such issues. How I (Steve, your friendly neighborhood navigator) tuned this was to first create the appropriate obstacle critic behavior desirable in conjunction with the inflation layer parameters. Its worth noting that the Obstacle critic converts the cost into a distance from obstacles, so the nature of the distribution of costs in the inflation isn't overly significant. However, the inflation radius and the scale will define the cost at the end of the distribution where free-space meets the lowest cost value within the radius. So testing for quality behavior when going over that threshold should be considered.
+Select `CostCritic` weights together with the costmap inflation radius and scale. Test behavior at the boundary between free space and inflated cost space, where a mismatch can otherwise cause hesitation or oscillation.
 
-As you increase or decrease your weights on the Obstacle, you may notice the aforementioned behaviors (e.g. won't overcome free to non-free threshold). To overcome them, increase the FollowPath critic cost to increase the desire for the trajectory planner to continue moving towards the goal. Make sure to not overshoot this though, keep them balanced. A desirable outcome is smooth motion roughly in the center of spaces without significant close interactions with obstacles. It shouldn't be perfectly following a path yet nor should the output velocity be wobbling jaggedly.
+As you increase or decrease the `CostCritic` weights, you may notice the controller hesitate at the free-to-inflated-space threshold. To overcome this, increase the `PathFollowCritic` cost carefully so the trajectory planner continues toward the goal. Keep the terms balanced for smooth motion without close obstacle interactions or jagged velocities.
 
-Once you have your obstacle avoidance behavior tuned and matched with an appropriate path following penalty, tune the Path Align critic to align with the path. If you design exact-path-alignment behavior, its possible to skip the obstacle critic step as highly tuning the system to follow the path will give it less ability to deviate to avoid obstacles (though it'll slow and stop). Tuning the critic weight for the Obstacle critic high will do the job to avoid near-collisions but the repulsion weight is largely unnecessary to you. For others wanting more dynamic behavior, it _can_ be beneficial to slowly lower the weight on the obstacle critic to give the path alignment critic some more room to work. If your path was generated with a cost-aware planner (like all provided by Nav2) and providing paths sufficiently far from obstacles for your satisfaction, the impact of a slightly reduced Obstacle critic with a Path Alignment critic will do you well. Not over-weighting the path align critic will allow the robot to  deviate from the path to get around dynamic obstacles in the scene or other obstacles not previous considered during path planning. It is subjective as to the best behavior for your application, but it has been shown that MPPI can be an exact path tracker and/or avoid dynamic obstacles very fluidly and everywhere in between. The defaults provided are in the generally right regime for a balanced initial trade-off. 
+Once obstacle avoidance is tuned with an appropriate path-following penalty, tune `PathAlignCritic` to align with the path. Avoid over-weighting path alignment so the controller can still deviate around dynamic obstacles. The best balance is application-dependent; the defaults provide a practical starting point.
+
+## FineNav Engine Maintenance
+
+This branch removes obsolete Nav2 migration residue while preserving controller behavior. The active
+collision critic is `CostCritic`; the legacy obstacle and path-align critic implementations and
+benchmarks are no longer part of the package.
+
+### Local build environment
+
+The package uses locally built dependencies. Source these overlays in order before configuring or
+building:
+
+```bash
+source /opt/ros/humble/setup.bash
+source /home/fins/Desktop/local_libs/BehaviorTreeCpp_v4.7.0/install/setup.bash
+source /home/fins/Desktop/generate_parameter_library/install/setup.bash
+source /home/fins/Desktop/tl_expected/expected/install/setup.bash
+```
+
+The desktop `generate_parameter_library` overlay currently provides version 0.7.1 and is required
+because its generated `ParamListener` exposes `setUserCallback()`; the generator bundled with the
+system ROS Humble installation does not provide that API. Keep the desktop `local_libs` and
+`tl_expected` overlays in the same source sequence so configure and compilation resolve one
+consistent dependency set.
+
+### Build and baseline tests
+
+```bash
+cd /home/fins/Desktop/ws_weineng
+colcon build --packages-select finenav_mppi_controller --symlink-install
+colcon test --packages-select finenav_mppi_controller
+colcon test-result --verbose
+```
+
+The focused tests cover the target FineNav framework API contract and timing-statistics API.
