@@ -54,6 +54,9 @@ const char * criticName(const mppi::critics::CriticFunction & critic)
   if (dynamic_cast<const mppi::critics::PathFollowCritic *>(&critic)) {
     return "PathFollowCritic";
   }
+  if (dynamic_cast<const mppi::critics::PathRotationCritic *>(&critic)) {
+    return "PathRotationCritic";
+  }
   if (dynamic_cast<const mppi::critics::PreferForwardCritic *>(&critic)) {
     return "PreferForwardCritic";
   }

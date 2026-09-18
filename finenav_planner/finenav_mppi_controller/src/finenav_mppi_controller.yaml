@@ -354,6 +354,20 @@ finenav_mppi_controller:
       default_value: 1.0
       description: "Maximum allowed yaw error to furthest path point (rad)"
 
+  PathRotationCritic:
+    enabled:
+      type: bool
+      default_value: true
+      description: "Enable direction scoring for in-place rotation trajectories"
+    cost_power:
+      type: int
+      default_value: 1
+      description: "Power exponent applied to cost"
+    cost_weight:
+      type: double
+      default_value: 10.0
+      description: "Weight for rotating opposite to the nearest path heading"
+
   TwirlingCritic:
     enabled:
       type: bool

@@ -96,6 +96,7 @@ add_library(mppi_critics SHARED
   src/critics/path_align_critic.cpp
   src/critics/path_follow_critic.cpp
   src/critics/path_angle_critic.cpp
+  src/critics/path_rotation_critic.cpp
   src/critics/prefer_forward_critic.cpp
   src/critics/twirling_critic.cpp
   src/critics/constraint_critic.cpp
@@ -154,6 +155,17 @@ if(BUILD_TESTING)
   target_link_libraries(
     framework_api_contract_test
     mppi_controller
+    mppi_critics
+    finenav_mppi_controller_params
+  )
+
+  ament_add_gtest(path_rotation_critic_test
+    test/path_rotation_critic_test.cpp
+  )
+  ament_target_dependencies(path_rotation_critic_test ${dependencies_pkgs})
+  target_include_directories(path_rotation_critic_test PRIVATE include)
+  target_link_libraries(
+    path_rotation_critic_test
     mppi_critics
     finenav_mppi_controller_params
   )

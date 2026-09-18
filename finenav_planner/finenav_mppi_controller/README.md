@@ -188,6 +188,19 @@ Uses inflated costmap cost directly to avoid obstacles
  | max_angle_to_furthest     | double | Default 1.2. Angular distance between robot and goal above which path angle cost starts being considered           |
  | forward_preference     | bool | Default true. Whether or not your robot has a preference for which way is forward in motion. Different from if reversing is generally allowed, but if you robot contains *no* particular preference one way or another.           |
 
+#### Path Rotation Critic
+
+Scores only candidate trajectories whose `vx` and `vy` are exactly zero for the full prediction
+horizon. It finds the global-path point nearest to the current robot position and adds cost for
+angular-velocity samples whose sign turns away from that point's heading. The penalty depends on
+the fraction of opposite-direction samples, not their angular-speed magnitude.
+
+ | Parameter             | Type   | Definition                                                                                                  |
+ | ---------------       | ------ | ----------------------------------------------------------------------------------------------------------- |
+ | enabled               | bool   | Default true. Enable direction scoring for in-place rotation trajectories.                                  |
+ | cost_weight           | double | Default 10.0. Weight applied to the fraction of opposite-direction angular-velocity samples.                |
+ | cost_power            | int    | Default 1. Power order applied to the weighted critic term.                                                 |
+
 
 #### Path Follow Critic
  | Parameter             | Type   | Definition                                                                                                  |
@@ -300,6 +313,10 @@ controller_server:
         threshold_to_consider: 0.5
         max_angle_to_furthest: 1.0
         forward_preference: true
+      PathRotationCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 10.0
       # VelocityDeadbandCritic:
       #   enabled: true
       #   cost_power: 1

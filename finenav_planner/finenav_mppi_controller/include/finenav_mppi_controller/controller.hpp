@@ -114,6 +114,7 @@ public:
         registerCritic(std::make_unique<critics::PathAlignCritic>());
         registerCritic(std::make_unique<critics::PathAngleCritic>());
         registerCritic(std::make_unique<critics::PathFollowCritic>());
+        registerCritic(std::make_unique<critics::PathRotationCritic>());
         registerCritic(std::make_unique<critics::PreferForwardCritic>());
         registerCritic(std::make_unique<critics::TwirlingCritic>());
         registerCritic(std::make_unique<critics::VelocityDeadbandCritic>());
