@@ -1,19 +1,11 @@
 # ==============================================================================
 #  FineNav-Engine Getting Started — Simulation Configuration
 # ==============================================================================
-#  This file configures both the FineNavLocalizer (odometry input) and the
-#  BtNavigator (behavior tree registration) for the getting-started example.
-#
-#  Usage:
-#    ros2 run finenav_example hello_finenav \
-#      --ros-args --params-file /path/to/sim_localizer.yaml
-# ==============================================================================
 
-/**:
+hello_finenav:
   ros__parameters:
     use_sim_time: true
 
-hello_finenav:
   # ── Navigator (BT engine) ─────────────────────────────────────────────────
   finenav_navigator:
     ros__parameters:
