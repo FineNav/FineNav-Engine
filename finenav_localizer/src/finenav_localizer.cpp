@@ -156,7 +156,8 @@ void FineNavLocalizer::onPose(const PoseMsg& msg) {
         Eigen::Vector3d    odom_p_at_obs = odom_cache_.position();
         Eigen::Quaterniond odom_q_at_obs = odom_cache_.orientation();
 
-        if (world_anchor_.isReady()) {
+        // With no odom/twist integration source the odom frame is identity — nothing to resolve.
+        if (world_anchor_.isReady() && routing_.integration != Routing::IntegSrc::None) {
             auto state_at_obs = getRobotState(stamp);
             if (!state_at_obs.has_value()) {
                 const auto newest = newestStamp();
