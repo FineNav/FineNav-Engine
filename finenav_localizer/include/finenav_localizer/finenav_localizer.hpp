@@ -66,7 +66,7 @@ private:
     };
 
     /// Build routing table from params + validate.  Throws on conflict.
-    static Routing buildRouting(const Params& p);
+    static Routing buildRouting(const Params& p, const rclcpp::Logger& logger);
 
     // ── ROS callbacks ────────────────────────────────────────────────────
 
