@@ -41,6 +41,11 @@ public:
     [[nodiscard]] virtual std::optional<RobotState> getRobotState() const;
     [[nodiscard]] virtual std::optional<RobotState> getRobotState(const rclcpp::Time & t) const;
 
+    /// @brief Stamp of the oldest retained state; nullopt when the history is empty.
+    [[nodiscard]] std::optional<rclcpp::Time> oldestStamp() const;
+    /// @brief Stamp of the newest retained state; nullopt when the history is empty.
+    [[nodiscard]] std::optional<rclcpp::Time> newestStamp() const;
+
 protected:
     void pushState(const RobotState & s);
     void resetHistory();

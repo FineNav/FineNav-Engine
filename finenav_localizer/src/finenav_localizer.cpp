@@ -159,14 +159,21 @@ void FineNavLocalizer::onPose(const PoseMsg& msg) {
         if (world_anchor_.isReady()) {
             auto state_at_obs = getRobotState(stamp);
             if (!state_at_obs.has_value()) {
-                // The stamp is older than the oldest retained sample or newer than the newest one
-                const double age_s = (pnode_->now() - stamp).seconds();
-                FINENAV_LOG_WARN_THROTTLE(pnode_->get_logger(), 5000,
-                    "FineNavLocalizer: pose stamp {:.3f} s ({:+.2f} s vs. node clock) is outside "
-                    "the {:.1f} s retained state history — odometry cannot be resolved at the "
-                    "observation time; falling back to the latest odometry. "
-                    "Check the pose source's latency, or raise 'state_history_duration'.",
-                    stamp.seconds(), age_s, params_.state_history_duration);
+                const auto newest = newestStamp();
+                if (newest && stamp > *newest) {
+                    FINENAV_LOG_WARN_THROTTLE(pnode_->get_logger(), 5000,
+                        "FineNavLocalizer: pose timestamp is {:.3f} s ahead of the newest "
+                        "recorded time — using the latest available estimate.",
+                        (stamp - *newest).seconds());
+                } else {
+                    const auto oldest = oldestStamp();
+                    const double older_s = oldest ? (*oldest - stamp).seconds() : 0.0;
+                    FINENAV_LOG_WARN_THROTTLE(pnode_->get_logger(), 5000,
+                        "FineNavLocalizer: pose timestamp is {:.3f} s older than the {:.1f} s "
+                        "history window — using the latest available estimate. "
+                        "Consider raising 'state_history_duration'.",
+                        older_s, params_.state_history_duration);
+                }
             } else {
                 Eigen::Vector3d    state_pos_at_obs;
                 Eigen::Quaterniond state_ori_at_obs;
