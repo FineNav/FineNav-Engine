@@ -28,7 +28,12 @@ class RobotStateProvider {
 public:
     /// @param history_duration_sec  Length of the retained history window [s]
     ///                              (≤ 0 keeps only the latest sample).
-    explicit RobotStateProvider(double history_duration_sec = 2.0)
+    /// @note The window must cover the latency between a consumer's measurement
+    ///       stamp and its query (scan + processing + transport) plus the period
+    ///       of the slowest back-dated source — a 0.5 Hz pose channel spends 2 s
+    ///       per period alone.  A concrete provider sizes it for its own inputs
+    ///       via setHistoryDuration().
+    explicit RobotStateProvider(double history_duration_sec = 5.0)
         : history_duration_sec_(history_duration_sec) {}
 
     virtual ~RobotStateProvider() = default;
