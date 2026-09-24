@@ -282,24 +282,25 @@ void FineNavLocalizer::onOdometry(const OdomMsg& msg) {
 }
 
 void FineNavLocalizer::timerCallback() {
-    // ── Refresh dynamic parameters ───────────────────────────────────────
-    if (param_listener_->is_old(params_)) {
-        const auto old_smoothing = params_.pose_smoothing_time;
-        const auto old_history   = params_.state_history_duration;
-        params_ = param_listener_->get_params();
-        if (params_.pose_smoothing_time != old_smoothing) {
-            world_anchor_.configure(params_.pose_smoothing_time, kInternalTickRateHz);
-        }
-        if (params_.state_history_duration != old_history) {
-            // Growing only helps samples pushed from now on — samples already pruned are gone.
-            setHistoryDuration(params_.state_history_duration);
-        }
-    }
-
     const rclcpp::Time now = pnode_->now();
 
     {
         std::lock_guard<std::mutex> lk(state_mutex_);
+
+        // ── Refresh dynamic parameters ───────────────────────────────────
+        if (param_listener_->is_old(params_)) {
+            const auto old_smoothing = params_.pose_smoothing_time;
+            const auto old_history   = params_.state_history_duration;
+            params_ = param_listener_->get_params();
+
+            if (params_.pose_smoothing_time != old_smoothing) {
+                world_anchor_.configure(params_.pose_smoothing_time, kInternalTickRateHz);
+            }
+            if (params_.state_history_duration != old_history) {
+                // Growing only helps samples pushed from now on — samples already pruned are gone.
+                setHistoryDuration(params_.state_history_duration);
+            }
+        }
 
         // ── EMA smoothing tick ──────────────────────────────────────────
         if (world_anchor_.isReady()) {

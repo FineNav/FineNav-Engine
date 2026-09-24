@@ -5,6 +5,7 @@ finenav_localizer:
   pose_topic: {
     type: string,
     default_value: "",
+    read_only: true,
     description: "PoseWithCovarianceStamped topic (absolute pose; empty = disabled)"
   }
   pose_smoothing_time: {
@@ -16,6 +17,7 @@ finenav_localizer:
   initial_pose_topic: {
     type: string,
     default_value: "/initialpose",
+    read_only: true,
     description: "One-shot topic to set initial pose (feeds Pose channel once, then unsubscribes)"
   }
 
@@ -24,6 +26,7 @@ finenav_localizer:
   twist_topic: {
     type: string,
     default_value: "",
+    read_only: true,
     description: "TwistWithCovarianceStamped topic (integrates position + sets velocity; empty = disabled)"
   }
 
@@ -38,11 +41,13 @@ finenav_localizer:
   odom_topic: {
     type: string,
     default_value: "",
+    read_only: true,
     description: "Odometry topic (empty = disabled)"
   }
   odom_use_twist: {
     type: bool,
     default_value: false,
+    read_only: true,
     description: "Whether to use odometry twist data to set state velocity"
   }
 
@@ -70,15 +75,17 @@ finenav_localizer:
   force_2d_mode: {
     type: bool,
     default_value: false,
-    description: "Constrain z, roll, and pitch to zero in output state"
+    description: "Constrain z, roll, and pitch to zero in output state (reloadable)"
   }
   publish_tf: {
     type: bool,
     default_value: false,
+    read_only: true,
     description: "Broadcast map->base_link TF transform"
   }
   publish_odom: {
     type: bool,
     default_value: false,
+    read_only: true,
     description: "Publish the estimated state as nav_msgs/Odometry on '~/nav_state'"
   }
