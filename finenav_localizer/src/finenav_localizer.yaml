@@ -46,6 +46,25 @@ finenav_localizer:
     description: "Whether to use odometry twist data to set state velocity"
   }
 
+  # ── State history ──────────────────────────────────────────────────────
+  #
+  #  How far back a stamped query may reach: getRobotState(stamp) resolves a
+  #  past timestamp from the retained window, and every consumer that
+  #  back-dates to its measurement stamp fails when the state is gone —
+  #  the pose channel above falls back to the latest odometry, map-side
+  #  observation sources drop the message.
+  #
+  #  Size it for the slowest back-dated source: its period plus scan /
+  #  processing / transport latency (a 0.5 Hz pose channel spends 2 s per
+  #  period alone).
+
+  state_history_duration: {
+    type: double,
+    default_value: 5.0,
+    description: "Retained robot-state history window [s]; how far back a stamped query may reach (0 = keep only the latest sample)",
+    validation: { bounds<>: [0.0, 60.0] }
+  }
+
   # ── Output ─────────────────────────────────────────────────────────────
 
   force_2d_mode: {

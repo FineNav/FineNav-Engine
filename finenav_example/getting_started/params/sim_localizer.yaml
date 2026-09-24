@@ -39,6 +39,13 @@ hello_finenav:
       odom_topic: "/odom"
       odom_use_twist: true              # /odom 自带速度
 
+      # ── 状态历史窗口 ──────────────────────────────────────────────────────
+      #   pose 与 map 侧观测都按"测量时刻"回填状态；超出窗口就取不到 ——
+      #   pose 退化为用最新里程计算 anchor，观测消息直接丢弃。
+      #   取值须覆盖最慢回填源的周期 + 解算/传输延迟（0.5 Hz 的 pose
+      #   一个周期就是 2 s）；0 = 只保留最新一条。
+      state_history_duration: 5.0
+
       # ── 输出 ──────────────────────────────────────────────────────────────
       force_2d_mode: true               # z/roll/pitch 输出前清零
       publish_tf: false                 # 广播 map→base_link（本示例不需要）
