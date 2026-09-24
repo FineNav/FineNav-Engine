@@ -25,7 +25,8 @@ inline constexpr double  kInternalTickRateHz = 100.0;
 }  // namespace
 
 
-FineNavLocalizer::Routing FineNavLocalizer::buildRouting(const Params& p) {
+FineNavLocalizer::Routing FineNavLocalizer::buildRouting(const Params& p,
+                                                         const rclcpp::Logger& logger) {
     Routing r{};
 
     const bool has_pose_topic  = !p.pose_topic.empty();
@@ -38,7 +39,7 @@ FineNavLocalizer::Routing FineNavLocalizer::buildRouting(const Params& p) {
 
     // ── Integration source ───────────────────────────────────────────────
     if (has_twist_topic && has_odom) {
-        RCLCPP_WARN(rclcpp::get_logger("finenav_localizer"),
+        RCLCPP_WARN(logger,
             "FineNavLocalizer: twist_topic ignored for position integration — odom_topic takes priority.");
     }
 
@@ -52,7 +53,7 @@ FineNavLocalizer::Routing FineNavLocalizer::buildRouting(const Params& p) {
 
     // ── Velocity source ──────────────────────────────────────────────────
     if (has_twist_topic && has_odom && p.odom_use_twist) {
-        RCLCPP_WARN(rclcpp::get_logger("finenav_localizer"),
+        RCLCPP_WARN(logger,
             "FineNavLocalizer: odom_use_twist ignored for velocity — twist_topic takes priority.");
     }
 
@@ -82,7 +83,7 @@ FineNavLocalizer::FineNavLocalizer(rclcpp::Node::SharedPtr parent_node,
     params_         = param_listener_->get_params();
 
     // Resolve and validate routing
-    routing_ = buildRouting(params_);
+    routing_ = buildRouting(params_, pnode_->get_logger());
 
     // Create effect sources
     world_anchor_.configure(params_.pose_smoothing_time, kInternalTickRateHz);
