@@ -17,7 +17,7 @@ void PlanRegistry::registerPlannerImpl(std::string name, Factory factory,
     bool inserted = insertOrKeep(name, PlanEntry{
         std::move(factory), std::move(loader), std::move(type_name)});
     if (!inserted) {
-        FINENAV_LOG_WARN(rclcpp::get_logger("PlanRegistry"),
+        FINENAV_LOG_ERROR(rclcpp::get_logger("PlanRegistry"),
             "Planner '{}' already registered — keeping the FIRST registrant "
             "(renaming one of the duplicate parameter namespaces resolves this).",
             name);
