@@ -11,7 +11,7 @@
 namespace finenav::navigator {
 
 /**
- * @brief RestartBranch — 整条支路清停重起（升级 / 核选项）。
+ * @brief RestartControlBranch — 整条支路清停重起（升级 / 核选项）。
  *
  * 从黑盒读取 `_pipeline`（PipelineController*），端口 `branch` 为支路名，调用
  * PipelineController::restartBranch()：逆序 STOP 该支路全部 stage，再顺序 START。
@@ -29,9 +29,9 @@ namespace finenav::navigator {
  * Blackboard inputs:
  *   _pipeline (finenav::navigator::PipelineController*)
  */
-class RestartBranch : public BT::SyncActionNode {
+class RestartControlBranch : public BT::SyncActionNode {
 public:
-    RestartBranch(const std::string& name, const BT::NodeConfig& config)
+    RestartControlBranch(const std::string& name, const BT::NodeConfig& config)
         : BT::SyncActionNode(name, config) {}
 
     static BT::PortsList providedPorts() {
