@@ -4,7 +4,7 @@
 
 // Framework-internal MAP reflection table.  Not part of the public API —
 // plugin authors register a map with FINENAV_REGISTER_MAP; the engine creates
-// one by name through FineNavEngine::createMapServer().
+// one by name when the engine assembles a WorldView.
 
 #pragma once
 
