@@ -26,8 +26,9 @@ int main(int argc, char** argv) {
     //    self-registering .so the executable references no symbol from would be
     //    dropped by --as-needed.  dlopen forces each registrar to fire, which
     //    populates the shared PlanRegistry + MapRegistry + WorldViewRegistry.
-    //    "finenav_example/lib" resolves to <prefix>/lib and loads every *.so it finds.
-    engine->loadAlgoPlugins({"finenav_example/lib"});
+    //    Only the PACKAGE is named: its CMakeLists registers the exact .so list
+    //    in the ament resource index ("finenav_algo_plugins").
+    engine->loadAlgoPlugins({"finenav_example"});
 
     // 2. Assemble a ControlLayer from a WorldView bridge by NAME.
     //    createControlLayerByWorldView resolves the planner + map TYPES the bridge

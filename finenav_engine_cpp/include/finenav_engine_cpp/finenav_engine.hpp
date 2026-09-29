@@ -102,15 +102,22 @@ public:
     void cancelNavigation();
 
     /**
-     * @brief dlopen every .so under each "package/sub_folder"
+     * @brief dlopen the algorithm .so's each named package publishes.
+     *
+     * Each entry is a bare package name; the .so's to load come from that
+     * package's `finenav_algo_plugins` ament-index resource (written at build
+     * time by finenav_register_algo_plugin()), whose content is one
+     * prefix-relative library path per line.  A .so that loads but registers no
+     * algorithm is silently skipped; the call logs a one-line summary of the
+     * planners / maps / world views that actually self-registered.
      * Example usage:
      * @code
-     *   engine.loadAlgoPlugins({"finenav_example/lib"});
+     *   engine.loadAlgoPlugins({"finenav_example"});
      * @endcode
-     * @param plugins  Entries of the form "package/sub_folder" (e.g. {"finenav_example/lib"}).
-     * @return false if nothing was loaded.
+     * @param plugins  Package names (e.g. {"finenav_example"}).
+     * @return true if at least one planner, map, or world view registered.
      */
-    bool loadAlgoPlugins(const std::vector<std::string>& plugins); // TODO: 确认用法 — 能否只传 pkg_name，sub_folder 默认 lib；名字优化
+    bool loadAlgoPlugins(const std::vector<std::string>& plugins);
 
     /**
      * @brief Create a control-pipeline layer for an algorithm by registration name.

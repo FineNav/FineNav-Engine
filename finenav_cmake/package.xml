@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>finenav_cmake</name>
+  <version>0.1.0</version>
+  <description>Pure-CMake build helpers for FineNav algorithm packages. Ships the
+    finenav_register_algo_plugin() macro, which publishes a package's algorithm
+    plugin .so's into the ament resource index (resource type
+    "finenav_algo_plugins") so that the engine can dlopen them by bare package
+    name. Compiles nothing and is not needed at runtime.</description>
+
+  <maintainer email="wangjinghui@sjtu.edu.cn">Jinghui Wang</maintainer>
+  <license>MPL-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Consumed, not just built with: the extras file that find_package(finenav_cmake)
+       pulls in calls find_package(ament_cmake_core) and ament_register_extension(),
+       so consumers need ament_cmake_core as a buildtool too. -->
+  <buildtool_export_depend>ament_cmake_core</buildtool_export_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

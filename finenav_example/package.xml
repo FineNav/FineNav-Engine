@@ -10,6 +10,10 @@
 
   <depend>finenav_engine_cpp</depend>
 
+  <!-- Build-time only: registers this package's algorithm .so's in the ament
+       resource index so the engine can dlopen them by bare package name. -->
+  <build_depend>finenav_cmake</build_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
