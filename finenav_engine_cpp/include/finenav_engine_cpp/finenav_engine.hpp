@@ -130,18 +130,21 @@ public:
         finenav::core::ExecutionPolicyVariant policy = finenav::core::EventDrivenPolicy{});
 
     /**
-     * @brief Declare a named branch as an ordered list of already-created layers.
-     * @details // TODO: xxx，注意，这里的detail不是框架作者视角，而是从用户视角，直观说明什么是ControlBranch
-     * Example usage:
-     * @code
-     * // TODO: xxx
-     * @encode
+     * @brief Declare a named control branch as an ordered list of already-created layers.
+     *
+     * Each entry in @p stages is a layer name — the name passed to createControlLayer() —
+     * which also serves as that layer's stage in the branch, so one name may appear in
+     * several branches (fan-out).  The first stage implicitly consumes _root
+     * (navigation-goal injection) and each later stage consumes its predecessor, so
+     * "_root" must not appear in @p stages.  The branch is registered in the navigator's
+     * BranchTable, where a behavior tree activates it with
+     * <ExecuteControlBranch branch="@p branch_name"/>.
      *
      * @param branch_name  Unique branch name.
-     * @param stages       Ordered layer names, each already created.
-     * @return false on failure (unknown stage, or addBranch rejecting the branch).
+     * @param stages       Ordered layer names, in pipeline order.
+     * @return false on failure (empty stages, an unknown stage, or addBranch rejecting it).
      */
-    bool registerControlBranch(const std::string& branch_name, const std::vector<std::string>& stages); // TODO： stage 形参名字很奇怪
+    bool registerControlBranch(const std::string& branch_name, const std::vector<std::string>& stages);
 
     /**
      * @brief Load layers and branches from a JSON config file.

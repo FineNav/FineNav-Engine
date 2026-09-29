@@ -2,7 +2,7 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-#include "finenav_navigator/plugins/action/execute_control_pipeline_branch.hpp"
+#include "finenav_navigator/plugins/action/execute_control_branch.hpp"
 
 #include <string>
 #include <vector>
@@ -17,7 +17,7 @@ namespace finenav::navigator {
 
 using FeedbackMsg = finenav_interfaces::msg::TaskFeedback;
 
-BT::NodeStatus ExecuteControlPipelineBranch::onStart() {
+BT::NodeStatus ExecuteControlBranch::onStart() {
     PipelineController* pipeline = nullptr;
     if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
@@ -31,7 +31,7 @@ BT::NodeStatus ExecuteControlPipelineBranch::onStart() {
         rclcpp::Node::SharedPtr node;
         if (config().blackboard->get("_node", node) && node) {
             FINENAV_LOG_ERROR(node->get_logger(),
-                "ExecuteControlPipelineBranch: unknown branch '{}'. Known branches:{}",
+                "ExecuteControlBranch: unknown branch '{}'. Known branches:{}",
                 branch_, candidates);
         }
         return BT::NodeStatus::FAILURE;
@@ -41,7 +41,7 @@ BT::NodeStatus ExecuteControlPipelineBranch::onStart() {
     return BT::NodeStatus::RUNNING;
 }
 
-BT::NodeStatus ExecuteControlPipelineBranch::onRunning() {
+BT::NodeStatus ExecuteControlBranch::onRunning() {
     PipelineController* pipeline = nullptr;
     if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
@@ -64,7 +64,7 @@ BT::NodeStatus ExecuteControlPipelineBranch::onRunning() {
     return BT::NodeStatus::RUNNING;
 }
 
-void ExecuteControlPipelineBranch::onHalted() {
+void ExecuteControlBranch::onHalted() {
     PipelineController* pipeline = nullptr;
     if (config().blackboard->get("_pipeline", pipeline) && pipeline) {
         // 仅当本支路仍是活跃支路时才整管清停（取消/抢占）。若已被 activateBranch
@@ -79,5 +79,5 @@ void ExecuteControlPipelineBranch::onHalted() {
 }  // namespace finenav::navigator
 
 BT_REGISTER_NODES(factory) {
-    factory.registerNodeType<finenav::navigator::ExecuteControlPipelineBranch>("ExecuteControlPipelineBranch");
+    factory.registerNodeType<finenav::navigator::ExecuteControlBranch>("ExecuteControlBranch");
 }

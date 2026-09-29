@@ -2,7 +2,7 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-#include "finenav_navigator/plugins/action/restart_branch.hpp"
+#include "finenav_navigator/plugins/action/restart_control_branch.hpp"
 
 #include <string>
 
@@ -13,7 +13,7 @@
 
 namespace finenav::navigator {
 
-BT::NodeStatus RestartBranch::tick() {
+BT::NodeStatus RestartControlBranch::tick() {
     PipelineController* pipeline = nullptr;
     if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
@@ -30,7 +30,7 @@ BT::NodeStatus RestartBranch::tick() {
         rclcpp::Node::SharedPtr node;
         if (config().blackboard->get("_node", node) && node) {
             FINENAV_LOG_ERROR(node->get_logger(),
-                "RestartBranch: unknown branch '{}'. Known branches:{}. No-op.",
+                "RestartControlBranch: unknown branch '{}'. Known branches:{}. No-op.",
                 branch, candidates);
         }
         return BT::NodeStatus::SUCCESS;
@@ -43,5 +43,5 @@ BT::NodeStatus RestartBranch::tick() {
 }  // namespace finenav::navigator
 
 BT_REGISTER_NODES(factory) {
-    factory.registerNodeType<finenav::navigator::RestartBranch>("RestartBranch");
+    factory.registerNodeType<finenav::navigator::RestartControlBranch>("RestartControlBranch");
 }

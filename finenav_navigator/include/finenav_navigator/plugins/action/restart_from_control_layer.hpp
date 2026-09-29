@@ -17,7 +17,7 @@ namespace finenav::navigator {
  * 调用 PipelineController::restartFrom()：逆序 STOP 再顺序 START
  * [control_layer .. leaf]，上游前缀保持运行。
  *
- * 与 RestartBranch 的关系：这是**定点**恢复，只动故障层及其下游；RestartBranch
+ * 与 RestartControlBranch 的关系：这是**定点**恢复，只动故障层及其下游；RestartControlBranch
  * 是整条支路清停重起的「核选项」，用于连根因都难以定位的情况。故障沿管线向下游
  * 传播，故「最上游的故障层」即根因 —— 通常与 GetFaultedControlLayer 配对使用。
  *

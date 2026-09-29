@@ -11,7 +11,7 @@
 namespace finenav::navigator {
 
 /**
- * @brief ExecuteControlPipelineBranch — 有状态地激活并持有一条 control_pipeline 支路。
+ * @brief ExecuteControlBranch — 有状态地激活并持有一条 control_pipeline 支路。
  *
  * 从黑盒读取 `_pipeline`，端口 `branch` 为支路名。StatefulActionNode：
  * onStart 里调用 activateBranch(branch)（集合差：停旧−新、起新−旧、共享 stage 保留）
@@ -22,9 +22,9 @@ namespace finenav::navigator {
  * （多支路切换，停止已由集合差完成）则 no-op。
  * 未知支路名 → onStart 返回 FAILURE（候选名列日志）。
  */
-class ExecuteControlPipelineBranch : public BT::StatefulActionNode {
+class ExecuteControlBranch : public BT::StatefulActionNode {
 public:
-    ExecuteControlPipelineBranch(const std::string& name, const BT::NodeConfig& config)
+    ExecuteControlBranch(const std::string& name, const BT::NodeConfig& config)
         : BT::StatefulActionNode(name, config) {}
 
     static BT::PortsList providedPorts() {

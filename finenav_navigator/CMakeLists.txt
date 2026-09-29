@@ -69,13 +69,13 @@ ament_target_dependencies(finenav_publish_navigation_goal_behavior
 )
 target_compile_definitions(finenav_publish_navigation_goal_behavior PRIVATE BT_PLUGIN_EXPORT)
 
-add_library(finenav_execute_control_pipeline_branch_behavior SHARED
-        src/plugins/action/execute_control_pipeline_branch.cpp
+add_library(finenav_execute_control_branch_behavior SHARED
+        src/plugins/action/execute_control_branch.cpp
 )
-ament_target_dependencies(finenav_execute_control_pipeline_branch_behavior
+ament_target_dependencies(finenav_execute_control_branch_behavior
         ${dependencies}
 )
-target_compile_definitions(finenav_execute_control_pipeline_branch_behavior PRIVATE BT_PLUGIN_EXPORT)
+target_compile_definitions(finenav_execute_control_branch_behavior PRIVATE BT_PLUGIN_EXPORT)
 
 # Condition Plugins
 add_library(finenav_is_goal_reached_condition SHARED
@@ -115,11 +115,11 @@ add_library(finenav_restart_from_control_layer_behavior SHARED
 ament_target_dependencies(finenav_restart_from_control_layer_behavior ${dependencies})
 target_compile_definitions(finenav_restart_from_control_layer_behavior PRIVATE BT_PLUGIN_EXPORT)
 
-add_library(finenav_restart_branch_behavior SHARED
-        src/plugins/action/restart_branch.cpp
+add_library(finenav_restart_control_branch_behavior SHARED
+        src/plugins/action/restart_control_branch.cpp
 )
-ament_target_dependencies(finenav_restart_branch_behavior ${dependencies})
-target_compile_definitions(finenav_restart_branch_behavior PRIVATE BT_PLUGIN_EXPORT)
+ament_target_dependencies(finenav_restart_control_branch_behavior ${dependencies})
+target_compile_definitions(finenav_restart_control_branch_behavior PRIVATE BT_PLUGIN_EXPORT)
 
 
 # StopChassisMotion Plugin
@@ -184,7 +184,7 @@ install(TARGETS finenav_navigator navigator_params
 # Install — BT plugins (separate subdirectory so the scanner doesn't pick up non-plugin .so)
 install(TARGETS
         finenav_publish_navigation_goal_behavior
-        finenav_execute_control_pipeline_branch_behavior
+        finenav_execute_control_branch_behavior
         finenav_stop_chassis_motion_behavior
         finenav_is_goal_reached_condition
         finenav_is_waypoint_reached_condition
@@ -192,7 +192,7 @@ install(TARGETS
         finenav_is_near_point_condition
         finenav_get_faulted_control_layer_behavior
         finenav_restart_from_control_layer_behavior
-        finenav_restart_branch_behavior
+        finenav_restart_control_branch_behavior
         finenav_follow_target_as_goal
         finenav_recovery_node
         finenav_round_robin_node
