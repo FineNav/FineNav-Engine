@@ -14,3 +14,6 @@ ament_target_dependencies(dummy_world_view finenav_core)
 
 install(TARGETS dummy_world_view ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
+
+# Publish dummy_world_view as a discoverable FineNav algorithm plugin.
+finenav_register_algo_plugin(dummy_world_view)

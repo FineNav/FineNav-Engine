@@ -9,3 +9,6 @@ target_link_libraries(dummy_planner dummy_planner_params)
 
 install(TARGETS dummy_planner ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
+
+# Publish dummy_planner as a discoverable FineNav algorithm plugin.
+finenav_register_algo_plugin(dummy_planner)

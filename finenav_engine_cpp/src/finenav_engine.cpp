@@ -8,8 +8,9 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <sstream>
 
-#include <ament_index_cpp/get_package_prefix.hpp>
+#include <ament_index_cpp/get_resource.hpp>
 #include <behaviortree_cpp/utils/shared_library.h>
 #include <nlohmann/json.hpp>
 
@@ -267,56 +268,66 @@ bool FineNavEngine::createControlLayerFromWorldView(
     return true;
 }
 
+// ament-resource-index plugin discovery.  Each entry is a bare PACKAGE NAME;
+// the .so's to dlopen come from that package's `finenav_algo_plugins`
+// ament-index resource, whose content is one prefix-relative library path per
+// line (written at build time by finenav_register_algo_plugin()).
 bool FineNavEngine::loadAlgoPlugins(const std::vector<std::string>& plugins)
 {
-    int loaded_total = 0;
-    for (const auto& plugin_param : plugins) {
-        const auto slash = plugin_param.find('/');
-        if (slash == std::string::npos) {
-            FINENAV_LOG_ERROR(node_->get_logger(),
-                "loadAlgoPlugins: '{}' is not in 'pkg_name/sub_folder' form.", plugin_param);
-            continue;
-        }
-        const auto pkg_name = plugin_param.substr(0, slash);
-        const auto sub_folder = plugin_param.substr(slash + 1);
+    constexpr const char* kResourceType = "finenav_algo_plugins";
 
-        std::filesystem::path plugin_directory;
-        try {
-            plugin_directory = std::filesystem::path(
-                ament_index_cpp::get_package_prefix(pkg_name)) / sub_folder;
-        }
-        catch (const ament_index_cpp::PackageNotFoundError&) {
+    for (const auto& pkg_name : plugins) {
+        // get_resource() throws std::runtime_error on an EMPTY name (terminates
+        // the process), so an empty entry is skipped up front.
+        if (pkg_name.empty()) continue;
+
+        std::string content;
+        std::string prefix;
+        // get_resource() returns false (it does NOT throw) when the package or
+        // the resource type is missing — that is the "not a plugin package" case.
+        if (!ament_index_cpp::get_resource(kResourceType, pkg_name, content, &prefix)) {
             FINENAV_LOG_ERROR(node_->get_logger(),
-                "loadAlgoPlugins: package '{}' not found.", pkg_name);
-            continue;
-        }
-        if (!std::filesystem::exists(plugin_directory)) {
-            FINENAV_LOG_WARN(node_->get_logger(),
-                "loadAlgoPlugins: directory not found: {}", plugin_directory.string());
+                "loadAlgoPlugins: package '{}' registers no '{}' resource "
+                "(add ament_index_register_resource({} CONTENT ...) to its CMakeLists).",
+                pkg_name, kResourceType, kResourceType);
             continue;
         }
 
-        int loaded_count = 0;
-        for (const auto& entry :
-             std::filesystem::recursive_directory_iterator(plugin_directory)) {
-            if (entry.path().extension() != ".so") continue;
+        std::istringstream lines(content);
+        std::string relative_path;
+        while (std::getline(lines, relative_path)) {
+            if (relative_path.empty()) continue;
+            const auto so_path = std::filesystem::path(prefix) / relative_path;
+            if (!std::filesystem::exists(so_path)) {
+                FINENAV_LOG_WARN(node_->get_logger(),
+                    "loadAlgoPlugins: '{}' lists '{}', which does not exist.",
+                    pkg_name, so_path.string());
+                continue;
+            }
             try {
                 // dlopen alone is enough — static-init runs the self-registrars.
                 // RTLD_GLOBAL (BT::SharedLibrary's default) keeps cross-DSO RTTI working.
                 plugin_handles_.push_back(
-                    std::make_shared<BT::SharedLibrary>(entry.path().string()));
-                ++loaded_count;
+                    std::make_shared<BT::SharedLibrary>(so_path.string()));
             } catch (const std::exception& e) {
                 FINENAV_LOG_ERROR(node_->get_logger(),
-                    "loadAlgoPlugins: failed to dlopen '{}': {}", entry.path().filename().string(), e.what());
+                    "loadAlgoPlugins: failed to dlopen '{}': {}", so_path.filename().string(), e.what());
             }
         }
-        FINENAV_LOG_INFO(node_->get_logger(),
-            "loadAlgoPlugins: scanned '{}' — loaded {} plugin .so(s).",
-            plugin_directory.string(), loaded_count);
-        loaded_total += loaded_count;
     }
-    return loaded_total > 0;
+
+    // A .so is a plugin only if it self-registered a name; one that dlopens
+    // cleanly but registers nothing is silently not a plugin.  This summary is
+    // therefore the authority on what actually loaded.
+    const auto planners = core::detail::PlanRegistry::instance().names();
+    const auto maps     = core::detail::MapRegistry::instance().names();
+    const auto views    = core::detail::WorldViewRegistry::instance().names();
+    const size_t loaded = planners.size() + maps.size() + views.size();
+    FINENAV_LOG_INFO(node_->get_logger(),
+        "loadAlgoPlugins: loaded {} plugin(s) — planners=[{}] maps=[{}] world_views=[{}]",
+        loaded, common::detail::joinNames(planners), common::detail::joinNames(maps),
+        common::detail::joinNames(views));
+    return loaded > 0;
 }
 
 bool FineNavEngine::registerControlBranch(const std::string& branch_name,
