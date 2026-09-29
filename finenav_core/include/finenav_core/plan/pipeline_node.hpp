@@ -65,6 +65,9 @@ public:
         BuiltWorldView built,
         std::vector<std::shared_ptr<IMapResource>> maps) override;
 
+    /// IPipelineNode — whether this planner reads a map (declares IWorldView).
+    bool requiresWorldView() const noexcept override { return HasWorldView<PlannerT>; }
+
 protected:
     PipelineNode(
         rclcpp::Node::SharedPtr node,
