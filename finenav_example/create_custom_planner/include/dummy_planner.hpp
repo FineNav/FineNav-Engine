@@ -6,8 +6,6 @@
 
 #include <optional>
 
-#include <geometry_msgs/msg/twist.hpp>
-
 // The planner role's entry point — it re-exports the concept, the geometry
 // vocabulary and (via planner_concept.hpp) Trajectory / IOProfile, so the
 // three separate includes this file used to carry are now one.

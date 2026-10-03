@@ -13,6 +13,12 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- Re-exported to plugin packages: find_package(finenav_cmake) also brings in
+       generate_parameter_library(), the codegen a plugin uses for its ConfigType
+       struct. build_export_depend makes that visible to consumers' builds. -->
+  <build_depend>generate_parameter_library</build_depend>
+  <build_export_depend>generate_parameter_library</build_export_depend>
+
   <!-- Consumed, not just built with: the extras file that find_package(finenav_cmake)
        pulls in calls find_package(ament_cmake_core) and ament_register_extension(),
        so consumers need ament_cmake_core as a buildtool too. -->

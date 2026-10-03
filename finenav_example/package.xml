@@ -6,12 +6,12 @@
   <maintainer email="wangjinghui@sjtu.edu.cn">Jinghui Wang</maintainer>
   <license>MPL-2.0</license>
 
-  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>rclcpp</depend>
   <depend>finenav_engine_cpp</depend>
+  <depend>finenav_core</depend>
 
-  <!-- Build-time only: registers this package's algorithm .so's in the ament
-       resource index so the engine can dlopen them by bare package name. -->
   <build_depend>finenav_cmake</build_depend>
 
   <export>
