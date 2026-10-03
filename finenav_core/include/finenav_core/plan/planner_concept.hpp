@@ -47,8 +47,8 @@ namespace finenav::core {
  * The goal of an episode is carried as the last pose of the reference
  * trajectory (`ref_traj.poses.back()`), not as a separate field.
  *
- * Both fields are **read-only views** into framework-owned storage.  A planner
- * that needs to mutate or retain the reference must copy it itself — the
+ * The two view fields are **read-only views** into framework-owned storage.  A
+ * planner that needs to mutate or retain the reference must copy it itself — the
  * framework never hands ownership of the input to the planner.
  *
  * @tparam PlannerT Planner type
@@ -57,6 +57,14 @@ template <typename PlannerT>
 struct PlanningContext {
     const RobotState&                    robot_state;  ///< Current robot state (read-only view)
     const InputTrajectoryT<PlannerT>&    ref_traj;     ///< Reference trajectory (read-only view)
+    /**
+     * @brief True when a backing map may have changed since the previous prepare().
+     *
+     * Also true on the first prepare.  Lets prepare() skip heavy map-derived
+     * recomputation when nothing changed.  Defaulted so existing two-element
+     * aggregate initialization keeps compiling.
+     */
+    bool                                 maps_changed = false;
 };
 
 /**

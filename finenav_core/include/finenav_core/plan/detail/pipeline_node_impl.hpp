@@ -210,8 +210,6 @@ PipelineNode<PlannerT>::planOnce() {
 
     param_keeper_.pollAll(); // Apply pending dynamic parameter updates
 
-    PlanningContext<PlannerT> ctx{current_robot_state, cached_ref_};
-
     // Acquire read locks on every map this view reads, held until plan() returns.
     std::vector<std::shared_ptr<void>> map_locks;
     map_locks.reserve(map_resources_.size());
@@ -219,10 +217,23 @@ PipelineNode<PlannerT>::planOnce() {
         map_locks.push_back(res->lockRead());
     }
 
+    // Snapshot each backing map's revision under the read lock and compare with
+    // the previous prepare().  The WorldView's prepare() uses this signal to skip
+    // heavy map-derived recomputation when no map changed since last time.
+    std::vector<std::uint64_t> current_revs;
+    current_revs.reserve(map_resources_.size());
+    for (const auto& res : map_resources_) {
+        current_revs.push_back(res->revision());
+    }
+    const bool maps_changed = (current_revs != last_map_revisions_);
+
+    PlanningContext<PlannerT> ctx{current_robot_state, cached_ref_, maps_changed};
+
     // WorldView heavy-derivation hook: once per plan, inside the map read lock
     // and before plan().  This is where inflation / terrain analysis / cost-field
     // construction belongs; plan() must only read what prepare() left behind.
     if (prepare_) prepare_(std::addressof(ctx));
+    last_map_revisions_ = std::move(current_revs);
 
     auto result = [&]() -> std::optional<OutputTrajectoryT<PlannerT>> {
         if constexpr (HasWorldView<PlannerT>) {
