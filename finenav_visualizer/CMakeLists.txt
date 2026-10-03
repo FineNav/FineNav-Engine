@@ -7,10 +7,11 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-find_package(ament_cmake_auto REQUIRED)
+find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common)
@@ -21,8 +22,6 @@ find_package(finenav_util REQUIRED)
 if (BUILD_TESTING)
     find_package(ament_cmake_gtest REQUIRED)
 endif()
-
-ament_auto_find_build_dependencies()
 
 add_library(${PROJECT_NAME} SHARED
     src/color.cpp
@@ -64,7 +63,7 @@ install(DIRECTORY include/finenav_visualizer/
 )
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
-ament_export_dependencies(rclcpp visualization_msgs std_msgs sensor_msgs Eigen3 PCL fmt finenav_common finenav_util)
+ament_export_dependencies(rclcpp visualization_msgs std_msgs sensor_msgs Eigen3 PCL fmt finenav_common finenav_util eigen3_cmake_module pcl_conversions)
 
 if (BUILD_TESTING)
     ament_add_gtest(marker_viz_test
@@ -101,4 +100,6 @@ if (BUILD_TESTING)
     ament_target_dependencies(point_cloud_viz_test rclcpp sensor_msgs)
 endif()
 
-ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)
+ament_export_include_directories(include/${PROJECT_NAME})
+
+ament_package()

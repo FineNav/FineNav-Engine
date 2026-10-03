@@ -5,7 +5,7 @@
     <description>FineNav independent simulation package. Provides Gazebo environment, robot model, pointcloud tools and odometry for simulation.</description>
     <maintainer email="021424216@sues.edu.cn">Chenghao Wang</maintainer>
     <license>MPL-2.0</license>
-    <buildtool_depend>ament_cmake_auto</buildtool_depend>
+    <buildtool_depend>ament_cmake</buildtool_depend>
     <exec_depend>ament_index_python</exec_depend>
     <exec_depend>launch_ros</exec_depend>
     <exec_depend>robot_state_publisher</exec_depend>

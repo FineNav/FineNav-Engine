@@ -1,13 +1,11 @@
 cmake_minimum_required(VERSION 3.22)
 project(finenav_interfaces)
 
-find_package(ament_cmake_auto REQUIRED)
+find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
-
 find_package(std_msgs REQUIRED)
-
-ament_auto_find_build_dependencies()
+find_package(action_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
         msg/Trajectory.msg
@@ -19,4 +17,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
         DEPENDENCIES geometry_msgs std_msgs
 )
 
-ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)
+ament_export_dependencies(geometry_msgs std_msgs action_msgs)
+
+ament_package()

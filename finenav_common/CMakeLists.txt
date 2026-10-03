@@ -7,18 +7,17 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
-find_package(ament_cmake_auto REQUIRED)
-
-include_directories(include)
-
-ament_auto_find_build_dependencies()
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(finenav_util REQUIRED)
+find_package(fmt REQUIRED)
 
 # A shared library, not a header-only interface, and deliberately so: this is
 # where the ONE definition of frames() lives.  A header-only frames() would be
 # instantiated once per DSO and each plugin would read its own copy — the exact
 # failure the cross-DSO singleton discipline exists to prevent.  See
 # include/finenav_common/frames.hpp.
-ament_auto_add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME} SHARED
         src/frame_names.cpp
 )
 
@@ -26,5 +25,23 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
+ament_target_dependencies(${PROJECT_NAME} SYSTEM
+        rclcpp
+        finenav_util
+        fmt
+)
 
-ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)
+install(TARGETS ${PROJECT_NAME}
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+)
+install(DIRECTORY include/
+        DESTINATION include/${PROJECT_NAME}
+)
+
+ament_export_include_directories(include/${PROJECT_NAME})
+ament_export_libraries(${PROJECT_NAME})
+ament_export_dependencies(rclcpp finenav_util fmt)
+
+ament_package()
