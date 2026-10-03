@@ -1,5 +1,3 @@
-find_package(generate_parameter_library REQUIRED)
-
 generate_parameter_library(dummy_planner_params dummy_planner.yaml)
 
 add_library(dummy_planner SHARED src/dummy_planner.cpp)

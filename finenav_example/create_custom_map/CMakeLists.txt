@@ -1,5 +1,3 @@
-find_package(generate_parameter_library REQUIRED)
-
 generate_parameter_library(dummy_map_params dummy_map.yaml)
 
 add_library(dummy_map SHARED src/dummy_map.cpp)

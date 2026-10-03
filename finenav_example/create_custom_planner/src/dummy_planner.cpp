@@ -5,6 +5,7 @@
 #include "dummy_planner.hpp"
 
 #include <cmath>
+#include <geometry_msgs/msg/twist.hpp>
 
 #include "finenav_core/algo_register_macros.hpp"
 
