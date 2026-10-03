@@ -172,6 +172,12 @@ const void* MapServer<MapT>::mapData() const {
     return map_instance_.get();
 }
 
+// --- MapServer::revision  (see map_server.hpp) --------------------------------
+template <Map MapT>
+std::uint64_t MapServer<MapT>::revision() const noexcept {
+    return revision_.load(std::memory_order_acquire);
+}
+
 // --- MapServer::lockRead  (see map_server.hpp) --------------------------------
 template <Map MapT>
 std::shared_ptr<void> MapServer<MapT>::lockRead() {
@@ -187,6 +193,8 @@ LockedMapRO<MapT> MapServer<MapT>::getLockedReadView() {
 // --- MapServer::getLockedWriteView  (see map_server.hpp) -----------------------
 template <Map MapT>
 LockedMapRW<MapT> MapServer<MapT>::getLockedWriteView() {
+    // Coarse change signal: anyone taking write access may mutate the map.
+    revision_.fetch_add(1, std::memory_order_release);
     return LockedMapRW<MapT>(*map_instance_, rw_mutex_);
 }
 
@@ -249,6 +257,12 @@ void MapServer<MapT>::runUpdateCycle(const rclcpp::Time& now) {
         }
     }
 
+    // Coarse change signal: one bump per completed cycle, after every mutation
+    // site has run — observation fusion (or its absence), the pre/post hooks,
+    // and any configure() applied by the parameter poll at the top.  Tracking
+    // is the framework's job, so a map author never reports its own changes.
+    revision_.fetch_add(1, std::memory_order_release);
+
     sw.warn_if_over(1000.0 / update_rate_hz_);
 }
 
@@ -270,6 +284,7 @@ void MapServer<MapT>::runShiftCycle(const rclcpp::Time& now) {
                 "MapServer '{}': robot escaped window — forcing immediate shift.",
                 server_name_);
             map_instance_->shiftWindowTo(robot_pose);
+            revision_.fetch_add(1, std::memory_order_release);
             return;
         }
 
@@ -288,6 +303,7 @@ void MapServer<MapT>::runShiftCycle(const rclcpp::Time& now) {
         }
 
         map_instance_->shiftWindowTo(robot_pose);
+        revision_.fetch_add(1, std::memory_order_release);
 
         FINENAV_LOG_DEBUG(pnode_->get_logger(),
             "MapServer window shifted to ({:.2f}, {:.2f}, {:.2f})",
