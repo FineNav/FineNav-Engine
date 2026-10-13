@@ -176,6 +176,12 @@ nav:
 - multirepo 在 i18n 前注册，让导入文档参与语言处理；搜索显式启用。
 - 聚合配置统一声明所需导航翻译、代码高亮、Mermaid 等扩展及依赖。
 
+实际组合构建发现：multirepo 0.8.3 提供的文件位于文档源目录外，static-i18n 1.3.1
+会忽略这些 Markdown。聚合仓库已加入 `scripts/multirepo_i18n.py` 兼容钩子，
+在语言处理前自动将导入文件临时放入文档目录，完成全部语言构建后清理。
+聚合配置还需要 `hooks: [scripts/multirepo_i18n.py]`；模块无需增加任何步骤。
+完整执行配置以 [聚合仓库](https://github.com/FineNav/FineNav.github.io) 为准。
+
 按查询版本的兼容声明，候选依赖如下。static-i18n 1.3.1 的 Material 可选依赖
 限制为 `<9.7.2`；正式采用前需验证组合构建，成功后固定实际使用版本。
 
@@ -305,7 +311,8 @@ Engine 的已有使用指南现已整理到 `docs/` 和 `docs/guide/`，中文�
 Engine 的远程 `gh-pages` 已删除；公开聚合仓库为 `FineNav/FineNav.github.io`，
 部署状态以聚合仓库的 Actions 运行结果为准。
 Engine 本地英文站、中文站和保留的旧详细版均已通过严格构建；
-中文首页与其余页面的英文回退已检查。真实跨仓库聚合与线上发布仍待验证。
+中文首页与其余页面的英文回退已检查。聚合仓库从 Engine 的远程 `dev` 分支
+导入并严格构建双语站点已通过，内部页面和资源链接已检查；线上状态查看其 Actions。
 
 实施顺序：
 
