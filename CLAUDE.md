@@ -194,8 +194,8 @@ Two intra-process topics per stage name:
 ### Two-level status model — report, never guess
 
 - **Micro (per stage):** each `ControlLayer` publishes its own status; the only framework policy is *fault propagation* (FAULTED upstream → this stage publishes FAULTED). A broken pipeline therefore shows a FAULTED **suffix**, and the most-upstream FAULTED stage is the root cause — what `GetFaultedControlLayer` returns.
-- **Macro (per branch):** the branch's state = its leaf's state; `ExecuteControlPipelineBranch::onRunning` returns FAILURE if *any* stage is FAULTED.
-- The framework **reports** status and **never chooses recovery**. Recovery is BT logic: `GetFaultedControlLayer → RestartFromControlLayer` (point self-heal from the root cause), `RestartBranch` (whole branch), or let FAILURE propagate to `stopAll()`.
+- **Macro (per branch):** the branch's state = its leaf's state; `ExecuteControlBranch::onRunning` returns FAILURE if *any* stage is FAULTED.
+- The framework **reports** status and **never chooses recovery**. Recovery is BT logic: `GetFaultedControlLayer → RestartFromControlLayer` (point self-heal from the root cause), `RestartControlBranch` (whole branch), or let FAILURE propagate to `stopAll()`.
 
 ### Trigger policies & worker lifecycle
 
@@ -254,7 +254,7 @@ Sequence: `pollAll()` → `PlanningContext{state, cached_ref}` (read-only views)
 
 ### BT integration
 
-`ExecuteControlPipelineBranch` (`StatefulActionNode`, port `branch`):
+`ExecuteControlBranch` (`StatefulActionNode`, port `branch`):
 
 | Callback | Behaviour |
 |---|---|
@@ -262,7 +262,7 @@ Sequence: `pollAll()` → `PlanningContext{state, cached_ref}` (read-only views)
 | `onRunning` | FAILURE if branch empty or any stage FAULTED; else RUNNING (never SUCCESS — completion is decided elsewhere) |
 | `onHalted` | `stopAll()` **only if** `isActive(branch)` (a switch already handled stopping via set difference) |
 
-Supporting nodes: `GetFaultedControlLayer`, `RestartFromControlLayer`, `RestartBranch`, `PublishNavigationGoal`, `FollowTargetAsGoal`.
+Supporting nodes: `GetFaultedControlLayer`, `RestartFromControlLayer`, `RestartControlBranch`, `PublishNavigationGoal`, `FollowTargetAsGoal`.
 
 ### Invariants / gotchas
 

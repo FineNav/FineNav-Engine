@@ -1,27 +1,35 @@
 # Planners
 
-Planner plugins compute paths or motion commands.
-Choose a Planner according to your robot's motion, navigation task, and
-the queries available from your Map through a WorldView.
+Planner plugins compute paths or motion commands. Choose and order Planners
+according to the pipeline data each stage consumes and produces.
 
 ## Available entries
 
-| Plugin | Input → Output | Repository |
+| Plugin | Input -> Output | Repository |
 | --- | --- | --- |
-| `dummy_planner` | Goal poses → velocity commands | [FineNav-Engine](https://github.com/FineNav/FineNav-Engine/tree/81c8f277518fb9229eb5e78be43375227490ce39/finenav_example/create_custom_planner) |
+| `dummy_line_planner` | Goal poses -> pose path | [FineNav-Engine](https://github.com/FineNav/FineNav-Engine/tree/dev/finenav_example/create_custom_planner) |
+| `dummy_follow_planner` | Pose path -> velocity command | [FineNav-Engine](https://github.com/FineNav/FineNav-Engine/tree/dev/finenav_example/create_custom_planner) |
 
-## Dummy Planner
+## Dummy Line Planner
 
-**Package:** `finenav_example`\
-**Registered name:** `dummy_planner`\
-**Example pairing:** `dummy_map` through `dummy_world_view`
+- **Package:** `finenav_example`
+- **Registered name:** `dummy_line_planner`
+- **Example pairing:** `dummy_map` through `dummy_line_world_view`
 
-This Planner uses the final pose in its input as the goal and generates
-forward and angular velocity commands from the robot's current pose.
-Its parameters include `linear_speed` and `angular_speed`.
+This Planner samples a straight pose path from the robot's current pose to the
+final reference pose. `path_resolution` controls sample spacing. The Planner
+returns no result if any sampled point is not walkable.
 
-The example demonstrates Planner integration and parameter configuration.
-It does not perform obstacle avoidance or use the WorldView to check obstacles.
+## Dummy Follow Planner
 
-For installation and execution, follow the [Quickstart](../quickstart.md).
-To connect a different Planner to your Map, see [WorldView integration](../worldview.md).
+- **Package:** `finenav_example`
+- **Registered name:** `dummy_follow_planner`
+- **Example pairing:** `dummy_map` through `dummy_follow_world_view`
+
+This Planner finds the closest path sample, advances by `lookahead_distance`,
+and produces linear and angular velocity commands toward that target. Its speed
+parameters are hot-reloadable.
+
+The example runs the line Planner when a new goal arrives and the follower at
+10 Hz. For installation and execution, follow the [Quickstart](../quickstart.md).
+To connect a different Planner to a Map, see [WorldView integration](../worldview.md).

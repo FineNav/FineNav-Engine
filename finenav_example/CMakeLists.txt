@@ -17,4 +17,11 @@ add_subdirectory(create_custom_planner)
 add_subdirectory(create_custom_world_view)
 add_subdirectory(getting_started)
 
+install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
+
+if(BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    add_subdirectory(test)
+endif()
+
 ament_package()

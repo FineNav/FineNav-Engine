@@ -20,7 +20,7 @@ colcon build --symlink-install
 3. Launch the example
 ```shell
 source install/setup.bash
-ros2 run finenav_example hello_finenav --ros-args --params-file ./src/FineNav-Engine/finenav_example/getting_started/params/sim_localizer.yaml
+ros2 launch finenav_example hello_finenav.launch.py
 
 # Another terminal
 ros2 launch finenav_simulator finenav_simulator.launch.py \

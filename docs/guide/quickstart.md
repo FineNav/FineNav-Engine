@@ -4,8 +4,9 @@ Download FineNav-Engine, build it in a ROS 2 workspace, and run the included
 navigation example.
 
 !!! note "Example scope"
-    The example uses `dummy_map`, `dummy_planner`, and `dummy_world_view`.
-    It demonstrates navigation setup; the dummy components do not provide obstacle avoidance.
+    The example uses `dummy_line_planner` and `dummy_follow_planner` with one
+    shared `dummy_map`. It demonstrates a layered control pipeline; the dummy
+    Map does not contain obstacle data.
 
 ## 1. Prepare your environment
 
@@ -121,8 +122,7 @@ In a second terminal:
 ```bash
 cd ~/finenav_ws
 source install/setup.bash
-ros2 run finenav_example hello_finenav --ros-args \
-  --params-file src/FineNav-Engine/finenav_example/getting_started/params/sim_localizer.yaml
+ros2 launch finenav_example hello_finenav.launch.py
 ```
 
 Wait for `FineNav-Engine ready.` and for the simulator to publish odometry.
@@ -142,11 +142,12 @@ Set RViz's **Fixed Frame** to `map`. Use **2D Goal Pose** to send a goal on
 
 ## Next: use your own components
 
-The example application loads plugins, creates a layer from `dummy_world_view`,
-and registers the `navigate` branch. To use your components, write a WorldView
-and replace its plugin path and registered name in that application.
+The example application loads the `finenav_example` plugin package, creates a
+line-planning layer and a path-following layer, then registers both in the
+`navigate` branch. To use your components, register the required WorldViews and
+replace the package and WorldView names in that application.
 
 Continue with [Choose Map and Planner](choose-algorithms.md).
-The complete [example application](https://github.com/FineNav/FineNav-Engine/blob/81c8f277518fb9229eb5e78be43375227490ce39/finenav_example/getting_started/main.cpp)
-and [simulation configuration](https://github.com/FineNav/FineNav-Engine/blob/81c8f277518fb9229eb5e78be43375227490ce39/finenav_example/getting_started/params/sim_localizer.yaml)
+The complete [example application](https://github.com/FineNav/FineNav-Engine/blob/dev/finenav_example/getting_started/hello_finenav.cpp)
+and [runtime configuration](https://github.com/FineNav/FineNav-Engine/blob/dev/finenav_example/config/hello_finenav.yaml)
 are useful starting points.

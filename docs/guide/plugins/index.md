@@ -1,8 +1,7 @@
 # FineNav Plugins
 
-Find Map, Planner, and related components to use with FineNav-Engine.
-Plugins may be included in the engine repository or distributed in a separate
-integration repository.
+Find Map and Planner components to use with FineNav-Engine. Plugins may be
+included in the engine repository or distributed in an integration repository.
 
 ## Browse plugins
 
@@ -11,18 +10,17 @@ integration repository.
 | [Maps](maps.md) | Environment representations and the queries they provide. |
 | [Planners](planners.md) | Planning algorithms, supported inputs, and navigation outputs. |
 
-The catalogue currently documents the built-in example plugins.
-Separate integration repositories will be added with their own installation
-instructions and compatibility information.
+The catalogue currently documents the built-in example plugins. Integration
+repositories provide their own installation and compatibility information.
 
 ## Use a plugin
 
-1. Choose a Map and Planner that suit your robot and environment.
-2. Follow the plugin repository's installation instructions.
-3. Use a supplied WorldView or [write one](../worldview.md) for the selected pair.
-4. Load the installed plugin libraries and select the WorldView in your
+1. Choose Planners that produce the required pipeline data.
+2. Choose Maps that provide the required environment data.
+3. Use supplied WorldViews or [write one](../worldview.md) for each Planner and Map pairing.
+4. Load the plugin package and assemble the WorldViews in a
    [C++ application](../cpp-application.md).
 
-The built-in example combines `dummy_map`, `dummy_planner`, and
-`dummy_world_view` in the `finenav_example` package.
-Follow the [Quickstart](../quickstart.md) to build and run that combination.
+The built-in example combines `dummy_line_planner`, `dummy_follow_planner`, and
+`dummy_map` through `dummy_line_world_view` and `dummy_follow_world_view`. Follow
+the [Quickstart](../quickstart.md) to build and run the layered pipeline.
