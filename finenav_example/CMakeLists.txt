@@ -7,14 +7,14 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-find_package(ament_cmake_auto REQUIRED)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
 find_package(finenav_engine_cpp REQUIRED)
-
-ament_auto_find_build_dependencies()
+find_package(finenav_cmake REQUIRED)
 
 add_subdirectory(create_custom_map)
 add_subdirectory(create_custom_planner)
 add_subdirectory(create_custom_world_view)
 add_subdirectory(getting_started)
 
-ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)
+ament_package()

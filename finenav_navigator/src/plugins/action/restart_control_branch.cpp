@@ -2,20 +2,32 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-#include "finenav_navigator/plugins/action/restart_branch.hpp"
+#include "finenav_navigator/plugins/action/restart_control_branch.hpp"
 
+#include <memory>
 #include <string>
 
 #include <behaviortree_cpp/bt_factory.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include "finenav_navigator/pipeline_controller.hpp"
 #include "finenav_util/common/log_macros.hpp"
 
 namespace finenav::navigator {
 
-BT::NodeStatus RestartBranch::tick() {
+BT::PortsList RestartControlBranch::providedPorts() {
+    return {
+        BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
+            "PipelineController driving the control branches"),
+        BT::InputPort<rclcpp::Node::SharedPtr>("node", "{@_node}",
+            "Node used for error logging"),
+        BT::InputPort<std::string>("branch", "Name of the pipeline branch to restart"),
+    };
+}
+
+BT::NodeStatus RestartControlBranch::tick() {
     PipelineController* pipeline = nullptr;
-    if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
+    if (!getInput("pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
     }
 
@@ -28,9 +40,9 @@ BT::NodeStatus RestartBranch::tick() {
         std::string candidates;
         for (const auto& name : pipeline->branchNames()) candidates += " " + name;
         rclcpp::Node::SharedPtr node;
-        if (config().blackboard->get("_node", node) && node) {
+        if (getInput("node", node) && node) {
             FINENAV_LOG_ERROR(node->get_logger(),
-                "RestartBranch: unknown branch '{}'. Known branches:{}. No-op.",
+                "RestartControlBranch: unknown branch '{}'. Known branches:{}. No-op.",
                 branch, candidates);
         }
         return BT::NodeStatus::SUCCESS;
@@ -43,5 +55,5 @@ BT::NodeStatus RestartBranch::tick() {
 }  // namespace finenav::navigator
 
 BT_REGISTER_NODES(factory) {
-    factory.registerNodeType<finenav::navigator::RestartBranch>("RestartBranch");
+    factory.registerNodeType<finenav::navigator::RestartControlBranch>("RestartControlBranch");
 }

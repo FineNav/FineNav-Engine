@@ -4,7 +4,11 @@
 
 #pragma once
 
+#include <vector>
+
 #include <rclcpp/rclcpp.hpp>
+
+#include "finenav_core/plugin_world_view.hpp"
 
 #include "dummy_map.hpp"
 #include "dummy_planner.hpp"
@@ -57,10 +61,18 @@ public:
      * robot pose / goal.  The query methods below (isWalkable) must stay cheap
      * and read only what prepare() left behind.
      *
-     * This view derives nothing (DummyMap has no content to derive from), so it
-     * only counts its own invocations to show the hook actually fires.
+     * The heavy product here is a walkability lattice sampled from map_.  It is
+     * gated on ctx.maps_changed: the framework owns the backing map's revision
+     * counter and sets that flag whenever a map changed since the previous
+     * prepare() (and on the first prepare).  When it is false the lattice is
+     * reused as-is, so prepare() is just the cheap robot-side bookkeeping —
+     * exactly the shape terrain/inflation/cost-field caches should follow.
      */
     void prepare(const finenav::core::PlanningContext<DummyPlanner>& ctx);
+
+    /// How many times the walkability lattice has been rebuilt — exposed so a
+    /// caller can confirm the maps_changed gate is skipping recomputation.
+    int64_t deriveRebuilds() const { return derive_count_; }
 
     // ── OPTIONAL injections ───────────────────────────────────────────────
     // Declare these to receive the framework logger / visualizer automatically.
@@ -73,10 +85,19 @@ public:
     }
 
 private:
-    const DummyMap& map_;
-    int64_t         prepare_log_period_{100};
-    rclcpp::Logger  logger_;
-    int64_t         prepare_count_{0};
+    /// Sample map_ on a fixed lattice over its window, proving the pattern a
+    /// real view uses for its inflation / cost-field cache.
+    void rebuildWalkableCache();
+
+    static constexpr int kSampleGrid = 16;
+
+    const DummyMap&     map_;
+    std::vector<char>   walkable_cache_;  ///< kSampleGrid * kSampleGrid cells
+    bool                cache_valid_{false};
+    int64_t             derive_count_{0};
+    int64_t             prepare_log_period_{100};
+    rclcpp::Logger      logger_;
+    int64_t             prepare_count_{0};
 };
 
 }  // namespace finenav::example

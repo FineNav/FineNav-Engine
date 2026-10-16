@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -64,6 +65,9 @@ public:
     void attachWorldView(
         BuiltWorldView built,
         std::vector<std::shared_ptr<IMapResource>> maps) override;
+
+    /// IPipelineNode — whether this planner reads a map (declares IWorldView).
+    bool requiresWorldView() const noexcept override { return HasWorldView<PlannerT>; }
 
 protected:
     PipelineNode(
@@ -126,6 +130,13 @@ protected:
     std::shared_ptr<void>       view_;              ///< type-erased IWorldView (map-reading planners only)
     BuiltWorldView::PrepareFn   prepare_;           ///< per-plan hook, run under the map read lock
     std::vector<std::shared_ptr<IMapResource>> map_resources_;  ///< maps to read-lock per plan
+    /**
+     * @brief Backing-map revisions cached at the previous prepare().
+     *
+     * Empty means "not yet prepared", so the first prepare() reports
+     * maps_changed = true.
+     */
+    std::vector<std::uint64_t>  last_map_revisions_;
     RobotStateProvider*         state_provider_{nullptr};
 
     // ── Data ───────────────────────────────────────────────────────────────

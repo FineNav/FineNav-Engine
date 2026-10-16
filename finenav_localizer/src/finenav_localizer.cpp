@@ -25,7 +25,8 @@ inline constexpr double  kInternalTickRateHz = 100.0;
 }  // namespace
 
 
-FineNavLocalizer::Routing FineNavLocalizer::buildRouting(const Params& p) {
+FineNavLocalizer::Routing FineNavLocalizer::buildRouting(const Params& p,
+                                                         const rclcpp::Logger& logger) {
     Routing r{};
 
     const bool has_pose_topic  = !p.pose_topic.empty();
@@ -38,9 +39,8 @@ FineNavLocalizer::Routing FineNavLocalizer::buildRouting(const Params& p) {
 
     // ── Integration source ───────────────────────────────────────────────
     if (has_twist_topic && has_odom) {
-        RCLCPP_WARN(rclcpp::get_logger("finenav_localizer"),
-            "FineNavLocalizer: twist_topic ignored for position integration — "
-            "odom_topic takes priority.");
+        RCLCPP_WARN(logger,
+            "FineNavLocalizer: twist_topic ignored for position integration — odom_topic takes priority.");
     }
 
     if (has_odom) {
@@ -53,9 +53,8 @@ FineNavLocalizer::Routing FineNavLocalizer::buildRouting(const Params& p) {
 
     // ── Velocity source ──────────────────────────────────────────────────
     if (has_twist_topic && has_odom && p.odom_use_twist) {
-        RCLCPP_WARN(rclcpp::get_logger("finenav_localizer"),
-            "FineNavLocalizer: odom_use_twist ignored for velocity — "
-            "twist_topic takes priority.");
+        RCLCPP_WARN(logger,
+            "FineNavLocalizer: odom_use_twist ignored for velocity — twist_topic takes priority.");
     }
 
     if (has_twist_topic) {
@@ -84,10 +83,12 @@ FineNavLocalizer::FineNavLocalizer(rclcpp::Node::SharedPtr parent_node,
     params_         = param_listener_->get_params();
 
     // Resolve and validate routing
-    routing_ = buildRouting(params_);
+    routing_ = buildRouting(params_, pnode_->get_logger());
 
     // Create effect sources
     world_anchor_.configure(params_.pose_smoothing_time, kInternalTickRateHz);
+
+    setHistoryDuration(params_.state_history_duration);
 
     // Subscriptions
     if (!params_.initial_pose_topic.empty()) {
@@ -150,19 +151,30 @@ void FineNavLocalizer::onPose(const PoseMsg& msg) {
 
         if (routing_.pose != Routing::PoseSrc::Pose) return;
 
-        // ── Resolve odometry at the observation timestamp ────────────────
+        // Odometry at the observation stamp.  Both start at the latest snapshot, so
+        // a stamp the history cannot resolve degrades to the latest odometry
         Eigen::Vector3d    odom_p_at_obs = odom_cache_.position();
         Eigen::Quaterniond odom_q_at_obs = odom_cache_.orientation();
-        bool               fallback      = false;
 
-        if (world_anchor_.isReady()) {
+        // With no odom/twist integration source the odom frame is identity — nothing to resolve.
+        if (world_anchor_.isReady() && routing_.integration != Routing::IntegSrc::None) {
             auto state_at_obs = getRobotState(stamp);
             if (!state_at_obs.has_value()) {
-                FINENAV_LOG_WARN_THROTTLE(pnode_->get_logger(), 5000,
-                    "FineNavLocalizer: pose stamp %.3f s is outside the "
-                    "retained state history — falling back to latest odometry.",
-                    stamp.seconds());
-                fallback = true;
+                const auto newest = newestStamp();
+                if (newest && stamp > *newest) {
+                    FINENAV_LOG_WARN_THROTTLE(pnode_->get_logger(), 5000,
+                        "FineNavLocalizer: pose timestamp is {:.3f} s ahead of the newest "
+                        "recorded time — using the latest available estimate.",
+                        (stamp - *newest).seconds());
+                } else {
+                    const auto oldest = oldestStamp();
+                    const double older_s = oldest ? (*oldest - stamp).seconds() : 0.0;
+                    FINENAV_LOG_WARN_THROTTLE(pnode_->get_logger(), 5000,
+                        "FineNavLocalizer: pose timestamp is {:.3f} s older than the {:.1f} s "
+                        "history window — using the latest available estimate. "
+                        "Consider raising 'state_history_duration'.",
+                        older_s, params_.state_history_duration);
+                }
             } else {
                 Eigen::Vector3d    state_pos_at_obs;
                 Eigen::Quaterniond state_ori_at_obs;
@@ -176,7 +188,7 @@ void FineNavLocalizer::onPose(const PoseMsg& msg) {
             }
         }
 
-        // ── Compute the new anchor ───────────────────────────────────────
+        // Compute the new anchor
         const Eigen::Quaterniond anchor_ori = obs_q * odom_q_at_obs.conjugate();
         const Eigen::Vector3d    anchor_pos = obs_p - anchor_ori * odom_p_at_obs;
 
@@ -186,7 +198,7 @@ void FineNavLocalizer::onPose(const PoseMsg& msg) {
             world_anchor_.setTarget(anchor_pos, anchor_ori);
         }
 
-        // ── Compose state from the updated anchor ────────────────────────
+        // Compose state from the updated anchor
         {
             Eigen::Vector3d    tmp_pos;
             Eigen::Quaterniond tmp_ori;
@@ -279,19 +291,25 @@ void FineNavLocalizer::onOdometry(const OdomMsg& msg) {
 }
 
 void FineNavLocalizer::timerCallback() {
-    // ── Refresh dynamic parameters ───────────────────────────────────────
-    if (param_listener_->is_old(params_)) {
-        const auto old_smoothing = params_.pose_smoothing_time;
-        params_ = param_listener_->get_params();
-        if (params_.pose_smoothing_time != old_smoothing) {
-            world_anchor_.configure(params_.pose_smoothing_time, kInternalTickRateHz);
-        }
-    }
-
     const rclcpp::Time now = pnode_->now();
 
     {
         std::lock_guard<std::mutex> lk(state_mutex_);
+
+        // ── Refresh dynamic parameters ───────────────────────────────────
+        if (param_listener_->is_old(params_)) {
+            const auto old_smoothing = params_.pose_smoothing_time;
+            const auto old_history   = params_.state_history_duration;
+            params_ = param_listener_->get_params();
+
+            if (params_.pose_smoothing_time != old_smoothing) {
+                world_anchor_.configure(params_.pose_smoothing_time, kInternalTickRateHz);
+            }
+            if (params_.state_history_duration != old_history) {
+                // Growing only helps samples pushed from now on — samples already pruned are gone.
+                setHistoryDuration(params_.state_history_duration);
+            }
+        }
 
         // ── EMA smoothing tick ──────────────────────────────────────────
         if (world_anchor_.isReady()) {

@@ -10,9 +10,18 @@
 
 namespace finenav::navigator {
 
+BT::PortsList RestartFromControlLayer::providedPorts() {
+    return {
+        BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
+            "PipelineController driving the control branches"),
+        BT::InputPort<std::string>("control_layer",
+            "ControlLayer name to restart the pipeline suffix from (inclusive)"),
+    };
+}
+
 BT::NodeStatus RestartFromControlLayer::tick() {
     PipelineController* pipeline = nullptr;
-    if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
+    if (!getInput("pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
     }
 

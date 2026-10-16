@@ -2,12 +2,14 @@
 // IWIN-FINS Lab, Shanghai Jiao Tong University, Shanghai, China.
 // All rights reserved.
 
-#include "finenav_navigator/plugins/action/execute_control_pipeline_branch.hpp"
+#include "finenav_navigator/plugins/action/execute_control_branch.hpp"
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include <behaviortree_cpp/bt_factory.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include "finenav_interfaces/msg/task_feedback.hpp"
 #include "finenav_navigator/pipeline_controller.hpp"
@@ -17,9 +19,19 @@ namespace finenav::navigator {
 
 using FeedbackMsg = finenav_interfaces::msg::TaskFeedback;
 
-BT::NodeStatus ExecuteControlPipelineBranch::onStart() {
+BT::PortsList ExecuteControlBranch::providedPorts() {
+    return {
+        BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
+            "PipelineController driving the control branches"),
+        BT::InputPort<rclcpp::Node::SharedPtr>("node", "{@_node}",
+            "Node used for error logging"),
+        BT::InputPort<std::string>("branch", "Name of the pipeline branch to activate"),
+    };
+}
+
+BT::NodeStatus ExecuteControlBranch::onStart() {
     PipelineController* pipeline = nullptr;
-    if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
+    if (!getInput("pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
     }
 
@@ -29,9 +41,9 @@ BT::NodeStatus ExecuteControlPipelineBranch::onStart() {
         std::string candidates;
         for (const auto& name : pipeline->branchNames()) candidates += " " + name;
         rclcpp::Node::SharedPtr node;
-        if (config().blackboard->get("_node", node) && node) {
+        if (getInput("node", node) && node) {
             FINENAV_LOG_ERROR(node->get_logger(),
-                "ExecuteControlPipelineBranch: unknown branch '{}'. Known branches:{}",
+                "ExecuteControlBranch: unknown branch '{}'. Known branches:{}",
                 branch_, candidates);
         }
         return BT::NodeStatus::FAILURE;
@@ -41,9 +53,9 @@ BT::NodeStatus ExecuteControlPipelineBranch::onStart() {
     return BT::NodeStatus::RUNNING;
 }
 
-BT::NodeStatus ExecuteControlPipelineBranch::onRunning() {
+BT::NodeStatus ExecuteControlBranch::onRunning() {
     PipelineController* pipeline = nullptr;
-    if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
+    if (!getInput("pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
     }
 
@@ -64,9 +76,9 @@ BT::NodeStatus ExecuteControlPipelineBranch::onRunning() {
     return BT::NodeStatus::RUNNING;
 }
 
-void ExecuteControlPipelineBranch::onHalted() {
+void ExecuteControlBranch::onHalted() {
     PipelineController* pipeline = nullptr;
-    if (config().blackboard->get("_pipeline", pipeline) && pipeline) {
+    if (getInput("pipeline", pipeline) && pipeline) {
         // 仅当本支路仍是活跃支路时才整管清停（取消/抢占）。若已被 activateBranch
         // 切走（多支路切换，新支路 onStart 先于本 onHalted），停止已由集合差完成，
         // 这里什么都不做，以免误停共享 stage / 新支路。
@@ -79,5 +91,5 @@ void ExecuteControlPipelineBranch::onHalted() {
 }  // namespace finenav::navigator
 
 BT_REGISTER_NODES(factory) {
-    factory.registerNodeType<finenav::navigator::ExecuteControlPipelineBranch>("ExecuteControlPipelineBranch");
+    factory.registerNodeType<finenav::navigator::ExecuteControlBranch>("ExecuteControlBranch");
 }

@@ -16,9 +16,9 @@ IsWaypointReached::IsWaypointReached(const std::string& name, const BT::NodeConf
 BT::PortsList IsWaypointReached::providedPorts() {
     return {
         BT::InputPort<std::vector<geometry_msgs::msg::Pose>>(
-            "goal_poses", "{goal_poses}", "Goal poses; waypoint_index selects one"),
+            "goal_poses", "{@goal_poses}", "Goal poses; waypoint_index selects one"),
         BT::InputPort<int>("waypoint_index", 0, "Index of the waypoint to check"),
-        BT::InputPort<geometry_msgs::msg::Pose>("robot_pose", "{robot_pose}", "Current robot pose"),
+        BT::InputPort<geometry_msgs::msg::Pose>("robot_pose", "{@robot_pose}", "Current robot pose"),
 
         BT::InputPort<double>("xy_tolerance", 0.25, "Horizontal distance [m]; 0 = skip"),
         BT::InputPort<double>("z_tolerance",  0.0,  "Vertical   distance [m]; 0 = skip"),

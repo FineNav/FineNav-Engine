@@ -22,30 +22,34 @@ namespace finenav::navigator
  *
  * StatefulActionNode：onStart 创建 /target_pose 订阅（独立 callback_group +
  * 独立 executor spin_some），此后每次 onRunning 处理 ROS 回调并计算跟随目标点
- * （在 target 后方的 follow_distance 处），把单元素向量写入 blackboard 的
- * {goal_poses}，同时经 _pipeline 的 publishNavigationGoal({follow_goal})
- * 重新注入 _root/__feedback，驱动下游控制层以新的 ref_traj 重新规划。
- * 本节点始终返回 RUNNING；被 halt 时通过 onHalted 复位订阅状态。
+ * （在 target 后方的 follow_distance 处），把单元素向量写入端口 goal_poses
+ * （默认 blackboard 键 `{@goal_poses}`），同时经输入端口 pipeline 的
+ * publishNavigationGoal({follow_goal}) 重新注入 _root/__feedback，驱动下游控制层
+ * 以新的 ref_traj 重新规划。本节点始终返回 RUNNING；被 halt 时通过 onHalted
+ * 复位订阅状态。
  *
- * 典型用法：与 ExecuteControlPipelineBranch 放在 ReactiveSequence 中并发执行，
- * 由 ExecuteControlPipelineBranch 激活整条支路、本节点持续喂入最新跟随目标。
+ * 典型用法：与 ExecuteControlBranch 放在 ReactiveSequence 中并发执行，
+ * 由 ExecuteControlBranch 激活整条支路、本节点持续喂入最新跟随目标。
  *
  * 输入端口:
  *   - topic_name      (string, 默认 "/target_pose"):  订阅的目标话题名称
- *   - robot_pose      (Pose,   默认 "{robot_pose}"):   当前机器人位姿（从 blackboard 读取）
+ *   - robot_pose      (Pose,   默认 "{@robot_pose}"):   当前机器人位姿
+ *   - node            (rclcpp::Node::SharedPtr, 默认 "{@_node}"):    用于创建订阅的节点
+ *   - pipeline        (finenav::navigator::PipelineController*, 默认 "{@_pipeline}"):
+ *                     用于把跟随目标重新注入 _root/__feedback
  *   - follow_distance (double, 默认 0.0):              跟随距离（在目标后方多远停下，单位 m）
  *   - update_distance (double, 默认 0.05):             最小位移阈值，新 goal 与上次距离低于此值时不更新
  *
  * 输出端口:
- *   - goal_poses (std::vector<geometry_msgs::msg::Pose>, 默认 "{goal_poses}"):
+ *   - goal_poses (std::vector<geometry_msgs::msg::Pose>, 默认 "{@goal_poses}"):
  *                 计算出的跟随目标（单元素向量），供 IsGoalReached 等条件节点
  *                 读取，作为"终点"（.back()）判定。
  *
  * Usage in XML:
  * @code
  * <FollowTargetAsGoal topic_name="/target_pose"
- *                     robot_pose="{robot_pose}"
- *                     goal_poses="{goal_poses}"
+ *                     robot_pose="{@robot_pose}"
+ *                     goal_poses="{@goal_poses}"
  *                     follow_distance="0.5"
  *                     update_distance="0.1"/>
  * @endcode

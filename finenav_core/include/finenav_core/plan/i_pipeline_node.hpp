@@ -71,6 +71,11 @@ public:
         BuiltWorldView built,
         std::vector<std::shared_ptr<IMapResource>> maps) = 0;
 
+    /// Whether this stage's planner declares an IWorldView (i.e. reads a map).
+    /// A map-reading planner must be created through its WorldView name; the engine
+    /// uses this to reject a bare-planner-name misuse at creation time.
+    virtual bool requiresWorldView() const = 0;
+
     /// The stage's private sub-node (pnode).  Handed to WorldView build so a
     /// subscribing WorldView shares the layer's node/executor.
     virtual rclcpp::Node::SharedPtr getPrivateNode() const = 0;

@@ -24,9 +24,13 @@ BT::PortsList FollowTargetAsGoal::providedPorts()
 {
   return {
     BT::InputPort<std::string>("topic_name", "/target_pose", "Target pose topic"),
-    BT::InputPort<geometry_msgs::msg::Pose>("robot_pose", "{robot_pose}", "Current robot pose"),
+    BT::InputPort<geometry_msgs::msg::Pose>("robot_pose", "{@robot_pose}", "Current robot pose"),
+    BT::InputPort<rclcpp::Node::SharedPtr>("node", "{@_node}",
+      "Node used to create the target pose subscription"),
+    BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
+      "PipelineController re-injecting the follow goal as the navigation goal"),
     BT::OutputPort<std::vector<geometry_msgs::msg::Pose>>(
-      "goal_poses", "{goal_poses}", "Computed follow goal as single-element pose vector"),
+      "goal_poses", "{@goal_poses}", "Computed follow goal as single-element pose vector"),
     BT::InputPort<double>("follow_distance", 0.0, "Distance behind target to follow [m]"),
     BT::InputPort<double>("update_distance", 0.05, "Min displacement to trigger update [m]"),
   };
@@ -34,8 +38,8 @@ BT::PortsList FollowTargetAsGoal::providedPorts()
 
 void FollowTargetAsGoal::initialize()
 {
-  auto node = config().blackboard->get<rclcpp::Node::SharedPtr>("_node");
-  if (!node) {
+  rclcpp::Node::SharedPtr node;
+  if (!getInput("node", node) || !node) {
     throw BT::RuntimeError("FollowTargetAsGoal: _node not found on blackboard.");
   }
 
@@ -71,7 +75,7 @@ BT::NodeStatus FollowTargetAsGoal::onRunning()
   // 处理积压的 ROS 回调，获取最新目标位姿
   callback_executor_.spin_some();
 
-  // 从 blackboard 获取机器人当前位姿
+  // 从输入端口 robot_pose（默认 {@robot_pose}）获取机器人当前位姿
   geometry_msgs::msg::Pose robot_pose{};
   getInput("robot_pose", robot_pose);
 
@@ -87,7 +91,7 @@ BT::NodeStatus FollowTargetAsGoal::onRunning()
       // 将跟随点重新注入 _root/__feedback，驱动下游层以新 ref_traj 重新规划。
       // （否则层里存储的 ref_traj 仍是初始静态 goal，机器人不会跟着移动目标走。）
       PipelineController* pipeline = nullptr;
-      if (config().blackboard->get("_pipeline", pipeline) && pipeline) {
+      if (getInput("pipeline", pipeline) && pipeline) {
         pipeline->publishNavigationGoal({follow_goal});
       }
     }

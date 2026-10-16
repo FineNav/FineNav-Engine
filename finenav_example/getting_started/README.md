@@ -74,15 +74,17 @@ Now, you can use Rviz2 to publish a goal pose. The dummy planner computes a twis
 
 ## How It Works
 
-`FineNavEngine` subscribes to `/goal_pose` and triggers `navigateTo()`.  The BT ID is set in `main.cpp`:
+`FineNavEngine` subscribes to `/goal_pose` and triggers `navigateTo()`.  The BT ID is set in `hello_finenav.cpp`:
 
 ```cpp
 engine->setDefaultBehaviorTree("GettingStartedNavigate");
 ```
 
-The behavior tree (`behavior_trees/navigate_to_pose.xml`) wires the example's
-`layer="my_layer"` and `planner_id="dummy_planner"` via TaskChannel IPC.
-Navigator reads feedback from the layer and publishes `/cmd_vel`.
+The tree (`behavior_trees/navigate_to_pose.xml`) is a top-level tree plus a shared
+`DriveToGoal` `<SubTree>`.  The navigator writes `robot_pose`, `robot_twist` and
+`goal_poses` to the root blackboard; inside the SubTree, condition ports reach them through
+`@`-prefixed defaults (e.g. `robot_pose="{@robot_pose}"`), so those ports do not appear in
+the XML.
 
 ## Key Parameters (`sim_localizer.yaml`)
 

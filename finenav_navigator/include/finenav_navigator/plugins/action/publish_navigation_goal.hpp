@@ -11,16 +11,20 @@ namespace finenav::navigator {
 /**
  * @brief PublishNavigationGoal — 开始导航：把 goal_poses[] 注入控制流水线根。
  *
- * 从黑盒读取 `goal_poses`（std::vector<geometry_msgs::msg::Pose>）与
- * `_pipeline`（PipelineController*），调用 publishNavigationGoal()。
- * 无端口，直接读黑盒（避免 vector<Pose> 的端口类型注册）。
+ * 经输入端口读取 `goal_poses`（std::vector<geometry_msgs::msg::Pose>，默认
+ * `{@goal_poses}`）与 `pipeline`（PipelineController*，默认 `{@_pipeline}`），
+ * 调用 publishNavigationGoal()。
+ *
+ * Ports:
+ *   goal_poses (std::vector<geometry_msgs::msg::Pose>, 默认 "{@goal_poses}") 目标位姿序列。
+ *   pipeline   (finenav::navigator::PipelineController*,  默认 "{@_pipeline}") 控制流水线。
  */
 class PublishNavigationGoal : public BT::SyncActionNode {
 public:
     PublishNavigationGoal(const std::string& name, const BT::NodeConfig& config)
         : BT::SyncActionNode(name, config) {}
 
-    static BT::PortsList providedPorts() { return {}; }
+    static BT::PortsList providedPorts();
 
     BT::NodeStatus tick() override;
 };

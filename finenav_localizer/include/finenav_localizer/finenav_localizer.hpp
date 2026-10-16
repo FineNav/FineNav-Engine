@@ -34,7 +34,8 @@ namespace finenav::localizer {
  *   VelocityProvider — current-velocity estimate
  *
  * Output state = world_anchor ⊕ odom_cache.
- * pushState() is event-driven: one sample per observation.
+ * pushState() is event-driven: one sample per observation; the retained window
+ * (state_history_duration) bounds how far back a stamped query can resolve.
  */
 class FineNavLocalizer : public finenav::core::RobotStateProvider {
 public:
@@ -65,7 +66,7 @@ private:
     };
 
     /// Build routing table from params + validate.  Throws on conflict.
-    static Routing buildRouting(const Params& p);
+    static Routing buildRouting(const Params& p, const rclcpp::Logger& logger);
 
     // ── ROS callbacks ────────────────────────────────────────────────────
 

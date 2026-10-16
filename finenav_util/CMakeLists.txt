@@ -7,13 +7,12 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
-find_package(ament_cmake_auto REQUIRED)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(fmt REQUIRED)
 
-include_directories(include)
-
-ament_auto_find_build_dependencies()
-
-ament_auto_add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME} SHARED
         src/node_thread.cpp
 )
 
@@ -21,5 +20,23 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
+ament_target_dependencies(${PROJECT_NAME} SYSTEM
+        rclcpp
+        rclcpp_action
+        fmt
+)
 
-ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)
+install(TARGETS ${PROJECT_NAME}
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+)
+install(DIRECTORY include/
+        DESTINATION include/${PROJECT_NAME}
+)
+
+ament_export_include_directories(include/${PROJECT_NAME})
+ament_export_libraries(${PROJECT_NAME})
+ament_export_dependencies(rclcpp rclcpp_action fmt)
+
+ament_package()

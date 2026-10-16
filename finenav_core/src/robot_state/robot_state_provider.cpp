@@ -47,6 +47,24 @@ std::optional<RobotState> RobotStateProvider::getRobotState(const rclcpp::Time &
     return interpolate(s1, s2, alpha);
 }
 
+std::optional<rclcpp::Time> RobotStateProvider::oldestStamp() const
+{
+    std::lock_guard<std::mutex> lk(history_mutex_);
+    if (history_.empty()) {
+        return std::nullopt;
+    }
+    return stampOf(history_.front());
+}
+
+std::optional<rclcpp::Time> RobotStateProvider::newestStamp() const
+{
+    std::lock_guard<std::mutex> lk(history_mutex_);
+    if (history_.empty()) {
+        return std::nullopt;
+    }
+    return stampOf(history_.back());
+}
+
 void RobotStateProvider::pushState(const RobotState & s)
 {
     const rclcpp::Time stamp = stampOf(s);

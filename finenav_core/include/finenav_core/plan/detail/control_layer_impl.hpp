@@ -13,6 +13,7 @@
 #include <type_traits>
 
 #include "finenav_util/common/log_macros.hpp"
+#include "finenav_util/common/stopwatch.hpp"
 
 namespace finenav::core {
 
@@ -95,7 +96,8 @@ bool ControlLayer<PlannerT>::waitForState() {   // TODO: 为什么要 Wait?
 
 template <Planner PlannerT>
 void ControlLayer<PlannerT>::runPeriodic() {
-    rclcpp::Rate rate(std::get<PeriodicPolicy>(policy_).frequency_hz);
+    const double frequency_hz = std::get<PeriodicPolicy>(policy_).frequency_hz;
+    rclcpp::Rate rate(frequency_hz);
 
     while (rclcpp::ok()) {
         if (this->worker_->shouldStop()) {
@@ -118,14 +120,24 @@ void ControlLayer<PlannerT>::runPeriodic() {
                 break;
         }
 
-        auto out = this->planOnce();
-        if (!out) {
-            FINENAV_LOG_ERROR(this->pnode_->get_logger(), "Periodic: plan() faulted — aborting.");
-            this->clearFaultedPlanRef();
-            this->worker_->publishFaulted();
-            return;
+        {
+            // Scoped to the work alone: rate.sleep() below pads the rest of the
+            // cycle, so a Stopwatch spanning it would read ~= one period every
+            // round and trip the threshold on scheduling jitter.  Mirrors
+            // MapServer::runUpdateCycle — warn once a cycle outlasts its period.
+            finenav::util::Stopwatch sw(this->pnode_->get_logger(), "runPeriodic");
+
+            auto out = this->planOnce();
+            if (!out) {
+                FINENAV_LOG_ERROR(this->pnode_->get_logger(), "Periodic: plan() faulted — aborting.");
+                this->clearFaultedPlanRef();
+                this->worker_->publishFaulted();
+                return;
+            }
+            this->worker_->publishRunning(std::move(*out));
+
+            sw.warn_if_over(1000.0 / frequency_hz);
         }
-        this->worker_->publishRunning(std::move(*out));
         rate.sleep();
     }
 }

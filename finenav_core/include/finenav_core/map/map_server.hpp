@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <shared_mutex>
@@ -80,6 +82,7 @@ public:
     std::string       mapTypeId() const override;
     const void*       mapData() const override;
     std::shared_ptr<void> lockRead() override;
+    std::uint64_t     revision() const noexcept override;
 
     /**
      * @brief Acquire a RAII read-only view of the map.
@@ -111,6 +114,9 @@ private:
     // ---- Map data & lock ----
     std::unique_ptr<MapT> map_instance_;
     std::shared_mutex     rw_mutex_;
+
+    // ---- Framework-owned change counter (see IMapResource::revision) ----
+    std::atomic<std::uint64_t> revision_{0};
 
     // ---- MapRuntime: owns dev hooks, observation sources, subscriptions ----
     MapRuntime runtime_;
