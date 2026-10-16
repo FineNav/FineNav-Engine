@@ -58,8 +58,8 @@ install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
 )
 
-install(DIRECTORY include/finenav_visualizer/
-    DESTINATION include/finenav_visualizer
+install(DIRECTORY include/
+    DESTINATION include/${PROJECT_NAME}
 )
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
