@@ -15,10 +15,10 @@ IsGoalReached::IsGoalReached(const std::string& name, const BT::NodeConfig& conf
 
 BT::PortsList IsGoalReached::providedPorts() {
     return {
-        BT::InputPort<geometry_msgs::msg::Pose>("robot_pose",  "{robot_pose}",  "Current robot pose"),
-        BT::InputPort<geometry_msgs::msg::Twist>("robot_twist", "{robot_twist}", "Current robot twist"),
+        BT::InputPort<geometry_msgs::msg::Pose>("robot_pose",  "{@robot_pose}",  "Current robot pose"),
+        BT::InputPort<geometry_msgs::msg::Twist>("robot_twist", "{@robot_twist}", "Current robot twist"),
         BT::InputPort<std::vector<geometry_msgs::msg::Pose>>(
-            "goal_poses", "{goal_poses}", "Goal poses; last element is the terminal goal"),
+            "goal_poses", "{@goal_poses}", "Goal poses; last element is the terminal goal"),
 
         BT::InputPort<double>("xy_tolerance",    0.25, "Horizontal distance [m]; 0 = skip"),
         BT::InputPort<double>("z_tolerance",     0.0,  "Vertical   distance [m]; 0 = skip"),

@@ -80,6 +80,12 @@ Now, you can use Rviz2 to publish a goal pose. The dummy planner computes a twis
 engine->setDefaultBehaviorTree("GettingStartedNavigate");
 ```
 
+The tree (`behavior_trees/navigate_to_pose.xml`) is a top-level tree plus a shared
+`DriveToGoal` `<SubTree>`.  The navigator writes `robot_pose`, `robot_twist` and
+`goal_poses` to the root blackboard; inside the SubTree, condition ports reach them through
+`@`-prefixed defaults (e.g. `robot_pose="{@robot_pose}"`), so those ports do not appear in
+the XML.
+
 ## Key Parameters (`sim_localizer.yaml`)
 
 | Section | Parameter | Purpose |

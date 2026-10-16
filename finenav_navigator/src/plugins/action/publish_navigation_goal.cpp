@@ -12,14 +12,23 @@
 
 namespace finenav::navigator {
 
+BT::PortsList PublishNavigationGoal::providedPorts() {
+    return {
+        BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
+            "PipelineController to publish the navigation goal to"),
+        BT::InputPort<std::vector<geometry_msgs::msg::Pose>>("goal_poses", "{@goal_poses}",
+            "Goal poses injected into the control pipeline root"),
+    };
+}
+
 BT::NodeStatus PublishNavigationGoal::tick() {
     PipelineController* pipeline = nullptr;
-    if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
+    if (!getInput("pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
     }
 
     std::vector<geometry_msgs::msg::Pose> poses;
-    if (!config().blackboard->get("goal_poses", poses)) {
+    if (!getInput("goal_poses", poses)) {
         return BT::NodeStatus::FAILURE;
     }
 

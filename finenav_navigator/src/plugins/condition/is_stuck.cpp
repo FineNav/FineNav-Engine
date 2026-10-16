@@ -14,7 +14,7 @@ IsStuck::IsStuck(const std::string& name, const BT::NodeConfig& config)
 
 BT::PortsList IsStuck::providedPorts() {
     return {
-        BT::InputPort<geometry_msgs::msg::Pose>("robot_pose",      "{robot_pose}", "Current robot pose"),
+        BT::InputPort<geometry_msgs::msg::Pose>("robot_pose",      "{@robot_pose}", "Current robot pose"),
         BT::InputPort<double>("dist_threshold", 0.05, "Minimum displacement [m] within window"),
         BT::InputPort<double>("timeout_s",      5.0,  "Time window [s] for stuck detection"),
     };

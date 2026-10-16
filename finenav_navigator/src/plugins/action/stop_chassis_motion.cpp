@@ -9,9 +9,16 @@
 
 namespace finenav::navigator {
 
+BT::PortsList StopChassisMotion::providedPorts() {
+    return {
+        BT::InputPort<IChassisCommand*>("chassis_cmd", "{@_chassis_cmd}",
+            "Chassis command interface used to stop the robot"),
+    };
+}
+
 BT::NodeStatus StopChassisMotion::tick() {
-    auto* cmd = config().blackboard->get<IChassisCommand*>("_chassis_cmd");
-    if (!cmd) return BT::NodeStatus::FAILURE;
+    IChassisCommand* cmd = nullptr;
+    if (!getInput("chassis_cmd", cmd) || !cmd) return BT::NodeStatus::FAILURE;
     cmd->stop();
     return BT::NodeStatus::SUCCESS;
 }
