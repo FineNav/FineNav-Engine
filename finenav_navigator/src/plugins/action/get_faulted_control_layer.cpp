@@ -13,9 +13,18 @@ namespace finenav::navigator {
 
 using FeedbackMsg = finenav_interfaces::msg::TaskFeedback;
 
+BT::PortsList GetFaultedControlLayer::providedPorts() {
+    return {
+        BT::OutputPort<std::string>("control_layer",
+            "Name of the most-upstream FAULTED ControlLayer of the active branch"),
+        BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
+            "PipelineController holding the control pipeline state"),
+    };
+}
+
 BT::NodeStatus GetFaultedControlLayer::tick() {
     PipelineController* pipeline = nullptr;
-    if (!config().blackboard->get("_pipeline", pipeline) || !pipeline) {
+    if (!getInput("pipeline", pipeline) || !pipeline) {
         return BT::NodeStatus::FAILURE;
     }
 
