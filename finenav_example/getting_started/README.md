@@ -1,24 +1,34 @@
-# Getting Started — Simulation
+# Getting Started - Simulation
 
 Minimal FineNav-Engine navigation stack driven by a simulator.
 
-```
-/odom → FineNavLocalizer (ESKF) → BtNavigator → ComputePlan("my_layer")
-                                                    ↓
-                                            ControlLayer<DummyPlanner>
-                                                    ↓
-                                               /cmd_vel
-/goal_pose → FineNavEngine → navigateTo()
+```text
+/goal_pose -> FineNavEngine -> branch "navigate"
+                                  |
+                       DummyLinePlanner
+                       EventDrivenPolicy
+                                  |
+                             pose path
+                                  |
+                       DummyFollowPlanner
+                       PeriodicPolicy{10.0}
+                                  |
+                             /cmd_vel
+
+DummyLineWorldView ----+
+                       +---- shared DummyMap
+DummyFollowWorldView --+
 ```
 
 ## Prerequisites
 
-- Ubuntu 22.04 + ROS 2 Humble
-- Workspace built: `colcon build --symlink-install && source install/setup.bash`
+- Ubuntu 22.04 and ROS 2 Humble
+- Workspace built with `colcon build --symlink-install`
+- Workspace environment sourced with `source install/setup.bash`
 
-## Quick Start
+## Run
 
-### Terminal 1 — Simulator
+Start the simulator:
 
 ```bash
 ros2 launch finenav_simulator finenav_simulator.launch.py \
@@ -28,78 +38,59 @@ ros2 launch finenav_simulator finenav_simulator.launch.py \
   publish_map_tf:=true
 ```
 
-### Terminal 2 — FineNav-Engine
+Start FineNav-Engine:
 
 ```bash
-cd ~/FineNav_Engine_ws && source install/setup.bash
-ros2 run finenav_example hello_finenav \
-  --ros-args --params-file src/FineNav-Engine/finenav_example/getting_started/params/sim_localizer.yaml
+ros2 launch finenav_example hello_finenav.launch.py
 ```
 
-### Terminal 3 — Set Initial Pose
-TODO: use Rviz2 tool to set initial pose.
+The launch file loads all runtime settings from `config/hello_finenav.yaml`.
+
+Publish an initial pose with RViz, then use **2D Goal Pose** to send a goal on
+`/goal_pose`. Inspect the output with:
+
 ```bash
-ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped "{
-  header: {
-    stamp: {sec: 16, nanosec: 360000000},
-    frame_id: 'odom'
-  },
-  pose: {
-    pose: {
-      position: {
-        x: 2.000000000423794,
-        y: 2.0,
-        z: 0.7500389896494932
-      },
-      orientation: {
-        x: 1.617940655980588e-18,
-        y: 2.638455507896242e-10,
-        z: 4.989162198923731e-21,
-        w: 1.0
-      }
-    },
-    covariance: [
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-    ]
-  }
-}"
+ros2 topic echo /cmd_vel
 ```
 
-Now, you can use Rviz2 to publish a goal pose. The dummy planner computes a twist toward the goal.  Verify with `ros2 topic echo /cmd_vel`.
+## Pipeline
 
-## How It Works
-
-`FineNavEngine` subscribes to `/goal_pose` and triggers `navigateTo()`.  The BT ID is set in `hello_finenav.cpp`:
+`hello_finenav.cpp` loads the `finenav_example` plugin package and creates two
+control layers:
 
 ```cpp
-engine->setDefaultBehaviorTree("GettingStartedNavigate");
+engine->createControlLayer(
+    "dummy_line_world_view", "line_layer", core::EventDrivenPolicy{});
+engine->createControlLayer(
+    "dummy_follow_world_view", "follow_layer", core::PeriodicPolicy{10.0});
+engine->registerControlBranch("navigate", {"line_layer", "follow_layer"});
 ```
 
-The tree (`behavior_trees/navigate_to_pose.xml`) is a top-level tree plus a shared
-`DriveToGoal` `<SubTree>`.  The navigator writes `robot_pose`, `robot_twist` and
-`goal_poses` to the root blackboard; inside the SubTree, condition ports reach them through
-`@`-prefixed defaults (e.g. `robot_pose="{@robot_pose}"`), so those ports do not appear in
-the XML.
+`line_layer` generates a straight pose path for each new goal. `follow_layer`
+selects a fixed-distance lookahead point from that path and publishes velocity
+commands at 10 Hz. FineNavEngine resolves both WorldView registrations to the
+same `DummyMap` type and reuses one map server.
 
-## Key Parameters (`sim_localizer.yaml`)
+The `GettingStartedNavigate` behavior tree activates the `navigate` branch,
+stops the chassis when the goal is reached, and restarts from the first faulted
+control layer when recovery is required.
 
-| Section | Parameter | Purpose |
-|---|---|---|
-| `hello_finenav/finenav_localizer` | `odom0: "/odom"` | Subscribe to simulator ground truth |
-| | `publish_tf: true` | Broadcast `map→base_link` |
-| | `force_2d_mode: true` | Planar constraint |
-| `hello_finenav/finenav_navigator` | `behavior_trees` | Load the example's BT XML |
+## Parameters
+
+| Node | Parameter | Purpose |
+| --- | --- | --- |
+| `/hello_finenav` | `use_sim_time` | Use the simulator clock. |
+| `/hello_finenav/finenav_navigator` | `behavior_trees` | Load the example behavior tree. |
+| `/hello_finenav/finenav_localizer` | `odom_topic` | Read simulator odometry. |
+| `/hello_finenav/finenav_localizer` | `state_history_duration` | Retain states for delayed measurements. |
+| `/hello_finenav/dummy_map` | `dummy_map.window_size` | Set the map window half-extent. |
+| `/hello_finenav/line_layer` | `dummy_line_planner.path_resolution` | Set the straight-path sample spacing. |
+| `/hello_finenav/follow_layer` | `dummy_follow_planner.*` | Set tracking speeds and lookahead distance. |
 
 ## Troubleshooting
 
 | Symptom | Check |
-|---|---|
-| Robot doesn't move | `ros2 topic echo /cmd_vel` |
-| No TF | Ensure `publish_tf: true` in params |
-| "behavior tree ID is empty" | `setDefaultBehaviorTree()` was not called |
-| "Failed to create tree" | Ensure `behavior_trees` includes the example's BT directory |
+| --- | --- |
+| Robot does not move | Confirm `/cmd_vel` is published and simulation time advances. |
+| No navigation tree | Confirm the workspace is sourced and `behavior_trees` resolves. |
+| Plugin not registered | Check the `finenav_example` ament plugin resource after building. |

@@ -27,13 +27,13 @@ namespace finenav::example {
  * data structures, reallocating memory, or otherwise cannot be safely applied
  * while the planner is running.
  *
- * For hot-reloadable parameters (like DummyPlanner's speeds), simply omit
+ * For hot-reloadable parameters (like DummyFollowPlanner's speeds), simply omit
  * read_only — the framework will call configure() on every ros2 param set.
  */
 class DummyMap {
-public:
+  public:
     using ConfigType = dummy_map::Params;
-    using DataType   = int;
+    using DataType = int;
 
     DummyMap();
 
@@ -41,11 +41,12 @@ public:
 
     // ── Framework injectors ─────────────────────────────────────────
     void setLogger(const rclcpp::Logger& logger) { logger_ = logger; }
+
     void setVisualizer(const finenav::viz::FineNavVisualizer& viz) { viz_ = viz; }
 
     bool isInside(const finenav::common::Position3D& p) const;
-    finenav::common::Region3D   getWindowBounds()  const;
-    finenav::common::Position3D getWindowCenter()  const;
+    finenav::common::Region3D getWindowBounds() const;
+    finenav::common::Position3D getWindowCenter() const;
 
     // Inline so the getting_started executable needs no symbol from this .so —
     // it recovers the typed handle by header + RTTI only (the .so is dlopened).
@@ -53,10 +54,10 @@ public:
 
     void selfManage(finenav::core::MapRuntime&) {}
 
-private:
+  private:
     double window_size_ = 50.0;
     finenav::common::Region3D bounds_;
-    rclcpp::Logger                logger_{rclcpp::get_logger("DummyMap")};
+    rclcpp::Logger logger_{rclcpp::get_logger("DummyMap")};
     finenav::viz::FineNavVisualizer viz_;
 };
 

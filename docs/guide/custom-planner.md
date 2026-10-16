@@ -1,17 +1,24 @@
 # Custom Planner
 
-Write a custom Planner when the available algorithms do not fit your robot or task.
-Start from the
-[Planner example](https://github.com/FineNav/FineNav-Engine/tree/81c8f277518fb9229eb5e78be43375227490ce39/finenav_example/create_custom_planner).
+Write a custom Planner when the available algorithms do not fit your robot or
+task. Start from the
+[Planner examples](https://github.com/FineNav/FineNav-Engine/tree/dev/finenav_example/create_custom_planner).
 
-## Define what your algorithm needs
+## Define the contract
 
-Declare an `IWorldView` interface containing the environment queries your algorithm
-uses. Keep those queries independent of a particular Map representation.
-Users implement that interface in a WorldView for their chosen Map.
+Declare an `IWorldView` interface containing the environment queries the
+algorithm uses. Keep those queries independent of a concrete Map type so a
+WorldView can adapt the selected Map later.
 
-Choose input and output profiles to match your algorithm. The example takes poses
-as input and produces velocity commands:
+Choose input and output profiles for each pipeline stage. The layered example
+uses pose input and pose output for path generation:
+
+```cpp
+static constexpr finenav::core::IOProfile InputProfile{true, false, false, false};
+static constexpr finenav::core::IOProfile OutputProfile{true, false, false, false};
+```
+
+The follower consumes that pose path and produces velocity commands:
 
 ```cpp
 static constexpr finenav::core::IOProfile InputProfile{true, false, false, false};
@@ -20,35 +27,40 @@ static constexpr finenav::core::IOProfile OutputProfile{false, true, false, fals
 
 ## Implement the algorithm
 
-The example's main methods are:
+`DummyLinePlanner` demonstrates the complete Planner contract:
 
 ```cpp
-using ConfigType = dummy_planner::Params;
+using ConfigType = dummy_line_planner::Params;
 using IWorldView = DummyWorldView;
-using Context = finenav::core::PlanningContext<DummyPlanner>;
-using Result = std::optional<finenav::core::OutputTrajectoryT<DummyPlanner>>;
+using Context = finenav::core::PlanningContext<DummyLinePlanner>;
+using Result = std::optional<finenav::core::OutputTrajectoryT<DummyLinePlanner>>;
 
-void configure(const ConfigType& cfg);
+void configure(const ConfigType& config);
 void reset();
-Result plan(const Context& ctx, const IWorldView& view);
+Result plan(const Context& context, const IWorldView& world_view);
 ```
 
-Apply parameters in `configure()`, clear planning state in `reset()`, and compute
-the output in `plan()` using the robot state, reference trajectory, and WorldView.
-Return `std::nullopt` when no result is available.
+Apply parameters in `configure()`, clear episode state in `reset()`, and compute
+the output from `robot_state`, `ref_traj`, and the WorldView in `plan()`. Return
+`std::nullopt` when valid input cannot produce a result.
 
-## Package and use it
+## Register and publish the plugin
 
 Define the parameter YAML, generate its parameter library, and build the Planner
-as a shared library. Register it in a `.cpp` file:
+as a shared library. The YAML namespace, generated parameter namespace, and
+registration name must match:
 
 ```cpp
-FINENAV_REGISTER_PLANNER(finenav::example::DummyPlanner, dummy_planner)
+FINENAV_REGISTER_PLANNER(
+    finenav::example::DummyLinePlanner,
+    dummy_line_planner)
 ```
 
-For your plugin, replace the example class and namespace with your own and keep
-the registration namespace consistent with the YAML schema.
-Use the example's CMake file as a build starting point.
+Publish the library through the package's ament resource:
 
-Then [write a WorldView](worldview.md) for your Planner and chosen Map,
-and load both plugins in your [C++ application](cpp-application.md).
+```cmake
+finenav_register_algo_plugin(dummy_line_planner)
+```
+
+Then [write a WorldView](worldview.md) for the Planner and selected Map, and
+assemble the registered components in a [C++ application](cpp-application.md).
