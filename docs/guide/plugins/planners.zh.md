@@ -1,11 +1,8 @@
 # finenav_planners
 
 规划组件集中维护在 [FineNav/finenav_planner](https://github.com/FineNav/finenav_planner)。
-网站栏目采用复数 `finenav_planners`，实际仓库名为单数 `finenav_planner`。
 
 ## 组件目录
-
-以下目录已对照仓库 `main` 分支的 `bab23e5` 版本核对：
 
 | ROS 包 | Planner 注册名 | 用途 |
 | --- | --- | --- |
@@ -16,14 +13,14 @@
 | `finenav_rotate_heading_aligner` | `finenav_rotate_shim` | 航向对齐组件。 |
 
 具体接口和参数见对应目录的 README：
-[路径规划](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_route_planner)、
-[MPPI](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_mppi_SE2)、
-[航向对齐](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_rotate_heading_aligner)。
+[路径规划](https://github.com/FineNav/finenav_planner/tree/main/finenav_route_planner)、
+[MPPI](https://github.com/FineNav/finenav_planner/tree/main/finenav_mppi_SE2)、
+[航向对齐](https://github.com/FineNav/finenav_planner/tree/main/finenav_rotate_heading_aligner)。
 
 ## Engine 接入状态
 
 以下组件需完成接入后组装为导航应用。
-核对版本尚未为新的包名发现 API 声明 `finenav_register_algo_plugin()` 资源。
+这些组件尚未为包名发现 API 声明 `finenav_register_algo_plugin()` 资源。
 使用前需要通过 `finenav_cmake` 发布共享库；读取地图的算法还需配套 WorldView，
 并检查上下游的输入、输出是否匹配。
 

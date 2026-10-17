@@ -2,11 +2,8 @@
 
 The planner collection is maintained in
 [FineNav/finenav_planner](https://github.com/FineNav/finenav_planner).
-The site section uses the plural name `finenav_planners`; the repository name is singular.
 
 ## Component catalogue
-
-The following entries were checked against repository `main`, revision `bab23e5`:
 
 | ROS package | Registered Planner | Purpose |
 | --- | --- | --- |
@@ -17,14 +14,14 @@ The following entries were checked against repository `main`, revision `bab23e5`
 | `finenav_rotate_heading_aligner` | `finenav_rotate_shim` | Heading alignment component. |
 
 Package READMEs describe their interfaces and parameters:
-[route planners](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_route_planner),
-[MPPI](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_mppi_SE2),
-[heading alignment](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_rotate_heading_aligner).
+[route planners](https://github.com/FineNav/finenav_planner/tree/main/finenav_route_planner),
+[MPPI](https://github.com/FineNav/finenav_planner/tree/main/finenav_mppi_SE2),
+[heading alignment](https://github.com/FineNav/finenav_planner/tree/main/finenav_rotate_heading_aligner).
 
 ## Engine integration status
 
 These packages are a component catalogue, not a preassembled navigation application.
-The inspected revision does not yet declare `finenav_register_algo_plugin()`
+These components do not yet declare `finenav_register_algo_plugin()`
 resources for the new package-name discovery API. Before using a component,
 publish its shared library through `finenav_cmake`, implement the required
 WorldView if it reads a Map, and verify pipeline input/output compatibility.
