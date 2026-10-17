@@ -1,8 +1,11 @@
 # MkDocs documentation
 
 The main website uses the developer usage guide in `docs/`.
-Its path is: choose a Map and Planner, write a WorldView, configure a C++
-application, and run navigation. Custom Map and Planner development is advanced.
+Its path is: install and build, run the supplied example, choose a Map and
+Planner, write a WorldView, assemble a control pipeline, and configure its
+Behavior Tree. Getting Started follows the layered `finenav_example` source.
+The `finenav_planners` and `finenav_maps` sections catalogue the independent
+component repositories and link to custom Planner and Map development.
 
 The earlier detailed documentation remains in `docs-detailed/`, with its OpenWiki sources
 in `openwiki/`. Both versions use the same Material theme.
@@ -33,8 +36,8 @@ python -m mkdocs serve --dev-addr 127.0.0.1:8008
 
 In Windows PowerShell, use `.venv-docs\Scripts\python.exe` for the Python commands.
 `mkdocs.yml` builds `docs/` into `.site-docs/`. English is the default language;
-Chinese uses `.zh.md` suffixes and is served under `/zh/`. Currently the homepage
-is translated; other pages fall back to English.
+Chinese uses `.zh.md` suffixes and is served under `/zh/`. All current guide
+pages have Chinese versions; future untranslated pages fall back to English.
 The local preview is <http://127.0.0.1:8008/>.
 
 ## Build and preview the detailed version
