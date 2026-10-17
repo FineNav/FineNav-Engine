@@ -6,16 +6,23 @@ WorldView 把选定 Map 的查询适配成 Planner 需要的接口。
 
 ## Planner 接口
 
-两个示例 Planner 都将 `DummyWorldView` 作为自己的 `IWorldView`：
+两个示例 Planner 分别定义自己的 `IWorldView`。例如，
+`DummyLinePlanner` 在类内声明接口：
 
 ```cpp
-class DummyWorldView {
+class DummyLinePlanner {
   public:
-    virtual ~DummyWorldView() = default;
-    virtual bool isWalkable(const finenav::common::Position3D& position) const = 0;
+    class IWorldView {
+      public:
+        virtual ~IWorldView() = default;
+        virtual bool isWalkable(const finenav::common::Position3D& position) const = 0;
+    };
+    // ...
 };
 ```
 
+`DummyFollowPlanner` 也独立声明 `IWorldView`，目前包含相同的查询。
+两个接口是独立类型，适配类分别实现对应 Planner 的接口。
 Planner 只需要判断某个位置是否可通行，不需要依赖具体地图的数据存储方式。
 
 ## 实现适配类
@@ -23,7 +30,7 @@ Planner 只需要判断某个位置是否可通行，不需要依赖具体地图
 在 `finenav::example` 命名空间内，直线 Planner 使用以下实现：
 
 ```cpp
-class DummyLineWorldView final : public DummyWorldView {
+class DummyLineWorldView : public DummyLinePlanner::IWorldView {
   public:
     using ConfigType = dummy_line_world_view::Params;
 
@@ -42,7 +49,7 @@ class DummyLineWorldView final : public DummyWorldView {
 
 构造函数接收 Map，`isWalkable()` 将查询转换为 `!map_.isOccupied(position)`。
 `configure()` 用于应用适配参数，`prepare()` 可以准备本轮规划所需数据；本例中两者均为空实现。
-`DummyFollowWorldView` 采用相同写法，对应 `DummyFollowPlanner`。
+`DummyFollowWorldView` 采用相同写法，继承 `DummyFollowPlanner::IWorldView`。
 
 ## 类型绑定与插件注册
 
@@ -99,7 +106,7 @@ source install/setup.bash
 重启应用以加载新插件。换 Map 时，调整 Map 类型和查询转换；换 Planner 时，
 按照它实际声明的 `IWorldView` 实现接口，并更新注册绑定。
 
-源码：[适配类](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_world_view/include/dummy_world_view.hpp)、
+源码：[适配类](https://github.com/FineNav/FineNav-Engine/blob/dev/finenav_example/create_custom_world_view/include/dummy_world_view.hpp)、
 [类型注册](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_world_view/src/dummy_world_view.cpp)、
 [CMake 配置](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_world_view/CMakeLists.txt)。
 
