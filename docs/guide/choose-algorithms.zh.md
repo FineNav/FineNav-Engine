@@ -32,13 +32,17 @@ Engine 自动创建所需的 `dummy_map` 服务，并让两层复用它。
 
 ## 接入检查
 
-| 选择事项 | 检查内容 |
+| 检查事项 | 检查内容 |
 | --- | --- |
 | 环境表示 | Map 表示适合当前环境，并支持传感器数据接入。 |
 | Map 到 Planner | WorldView 实现 Planner 的 `IWorldView` 所需的全部查询。 |
 | Planner 到下一层 | 输出包含下一层需要的位姿、速度等字段。 |
 | 最终输出 | 末层输出与底盘接口兼容；本例使用 `/cmd_vel`。 |
-| 插件打包 | 软件包包含当前 Engine 版本所需的 ament 插件发现声明。 |
+| 插件加载 | 插件已编译安装，Engine 可按 ROS 包名发现并加载。 |
+
+插件包需在 CMake 中调用 `finenav_register_algo_plugin(<库目标名>)`，
+供 `loadAlgoPlugins()` 按包名查找插件库。`finenav_example` 已包含该配置；
+自定义插件需补充此声明，详见 [WorldView 教程](worldview.md)的“类型绑定与插件注册”。
 
 其他组件见 [finenav_planners](plugins/planners.md) 和 [finenav_maps](plugins/maps.md)。
 只克隆仓库，不会自动生成选定 Map 与 Planner 之间的 WorldView。
