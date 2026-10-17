@@ -35,13 +35,18 @@ required `dummy_map` server automatically.
 
 ## Integration checklist
 
-| Item | Requirement |
+| Check item | Requirement |
 | --- | --- |
 | Environment | The Map represents the environment and accepts the sensor inputs. |
 | Map → Planner | The WorldView implements every query required by the Planner's `IWorldView`. |
 | Planner → next layer | The output contains the pose / velocity fields required by the next layer. |
 | Final output | The final output matches the chassis interface; this example uses `/cmd_vel`. |
-| Plugin packaging | The package declares the resources required by the current Engine's ament discovery API. |
+| Plugin loading | The plugins are built and installed; Engine can discover and load them by ROS package name. |
+
+Plugin packages must call `finenav_register_algo_plugin(<library_target>)` in
+CMake so `loadAlgoPlugins()` can find their libraries by package name.
+`finenav_example` already includes this configuration; custom plugins must add it.
+See [plugin registration](worldview.md#type-binding-and-plugin-registration).
 
 For alternatives, see [finenav_planners](plugins/planners.md) and
 [finenav_maps](plugins/maps.md). Cloning a repository alone does not create
