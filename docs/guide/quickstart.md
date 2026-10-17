@@ -1,153 +1,75 @@
-# Quickstart
+# 1. Run the example
 
-Download FineNav-Engine, build it in a ROS 2 workspace, and run the included
-navigation example.
+Complete [Installation](installation.md) first. In this step you run the
+unmodified `finenav_example` application and observe its velocity output.
 
-!!! note "Example scope"
-    The example uses `dummy_line_planner` and `dummy_follow_planner` with one
-    shared `dummy_map`. It demonstrates a layered control pipeline; the dummy
-    Map does not contain obstacle data.
-
-## 1. Prepare your environment
-
-Use **Ubuntu 22.04 with ROS 2 Humble**. This is the environment used by the
-engine's CI. If ROS 2 is not installed, follow the
-[ROS 2 Humble installation guide](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html)
-and choose the desktop installation.
-
-Install the development tools:
-
-```bash
-sudo apt update
-sudo apt install -y git build-essential cmake \
-  python3-colcon-common-extensions python3-rosdep
-source /opt/ros/humble/setup.bash
-```
-
-## 2. Download the source
-
-Create a workspace and clone all three repositories into `src`. Use the
-engine's `dev` branch for these examples; the map and planner repositories
-use their default branches:
-
-```bash
-mkdir -p ~/finenav_ws/src
-cd ~/finenav_ws
-git clone --branch dev https://github.com/FineNav/FineNav-Engine.git \
-  src/FineNav-Engine
-git clone https://github.com/FineNav/finenav_map.git src/finenav_map
-git clone https://github.com/FineNav/finenav_planner.git src/finenav_planner
-```
-
-The workspace should now contain:
-
-```text
-finenav_ws/
-└── src/
-    ├── FineNav-Engine/
-    ├── finenav_map/
-    └── finenav_planner/
-```
-
-If GitHub requests authentication, use an account with access to the repository.
-Keep subsequent dependency and build commands in the workspace root,
-`~/finenav_ws`.
-
-## 3. Install dependencies
-
-Initialize rosdep once on your machine. Skip `sudo rosdep init` if it has
-already been initialized:
-
-```bash
-sudo rosdep init
-rosdep update
-```
-
-Install the package dependencies:
+## Start the simulator — terminal 1
 
 ```bash
 cd ~/finenav_ws
 source /opt/ros/humble/setup.bash
-rosdep install --from-paths src --ignore-src --rosdistro humble -y
-```
-
-For the simulation example, also install Gazebo integration, RViz, and the
-launch-time Python dependencies:
-
-```bash
-sudo apt install -y ros-humble-ros-gz ros-humble-rviz2 \
-  ros-humble-xacro python3-yaml
-```
-
-The simulator uses Gazebo Sim 6 (Fortress) and needs a graphical desktop.
-The example below uses Gazebo odometry, so a separate Fast-LIO installation
-is not required.
-
-## 4. Build and load the workspace
-
-```bash
-cd ~/finenav_ws
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install
-source install/setup.bash
-```
-
-After the build succeeds, check that ROS 2 can find the example executable:
-
-```bash
-ros2 pkg executables finenav_example
-```
-
-The output should include `finenav_example hello_finenav`.
-Source `install/setup.bash` in each new terminal before using the built packages.
-
-## 5. Start the simulator
-
-In the first terminal:
-
-```bash
-cd ~/finenav_ws
 source install/setup.bash
 ros2 launch finenav_simulator finenav_simulator.launch.py \
   lio_type:=gazebo_odom use_sim_time:=true \
   world_name:=flat_small_scale_maze.world publish_map_tf:=true
 ```
 
-Press **Play** in Gazebo to start the simulation clock.
+Press **Play** in Gazebo. `gazebo_odom` selects simulator odometry instead of
+the Fast-LIO chain. The simulator helper provides the map-to-odom transform in this mode.
 
-## 6. Start FineNav
-
-In a second terminal:
+## Start the navigation application — terminal 2
 
 ```bash
 cd ~/finenav_ws
+source /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 launch finenav_example hello_finenav.launch.py
 ```
 
-Wait for `FineNav-Engine ready.` and for the simulator to publish odometry.
+The launch file loads `finenav_example/config/hello_finenav.yaml` and starts
+`getting_started/hello_finenav.cpp`. Wait for `FineNav-Engine ready.` and inspect
+earlier messages for plugin-loading errors; that line alone does not confirm successful assembly.
 
-## 7. Send a goal
-
-Open RViz in a third terminal:
+## Send a goal — terminal 3
 
 ```bash
-cd ~/finenav_ws
-source install/setup.bash
+source /opt/ros/humble/setup.bash
+source ~/finenav_ws/install/setup.bash
 rviz2 --ros-args -p use_sim_time:=true
 ```
 
-Set RViz's **Fixed Frame** to `map`. Use **2D Goal Pose** to send a goal on
-`/goal_pose`; select an unobstructed goal for this dummy example.
+1. Set **Fixed Frame** to `map`.
+2. Add **RobotModel** and **TF** displays if needed. An **Odometry** display on `/odom` helps locate the robot.
+3. Use **2D Pose Estimate** to publish an initial pose on `/initialpose`, consistent with the robot's simulated pose.
+4. Use **2D Goal Pose**, or RViz's **2D Goal Pose** tool added through **+**, to publish a nearby goal on `/goal_pose`.
 
-## Next: use your own components
+Choose a short unobstructed segment for this demonstration. You should see the
+robot start following the straight path. This example does not publish an occupancy
+map, so a blank Map display is expected.
 
-The example application loads the `finenav_example` plugin package, creates a
-line-planning layer and a path-following layer, then registers both in the
-`navigate` branch. To use your components, register the required WorldViews and
-replace the package and WorldView names in that application.
+## Inspect the output
 
-Continue with [Choose Map and Planner](choose-algorithms.md).
-The complete [example application](https://github.com/FineNav/FineNav-Engine/blob/dev/finenav_example/getting_started/hello_finenav.cpp)
-and [runtime configuration](https://github.com/FineNav/FineNav-Engine/blob/dev/finenav_example/config/hello_finenav.yaml)
-are useful starting points.
+In another sourced terminal, run these commands one at a time:
+
+```bash
+ros2 topic echo /clock --once
+ros2 topic echo /odom --once
+ros2 topic echo /cmd_vel
+```
+
+`/clock` should advance, `/odom` should update, and `/cmd_vel` should contain
+commands while the branch is running. The follower runs at a configured 10 Hz;
+this is its target rate, not a timing guarantee.
+
+| Symptom | First check |
+| --- | --- |
+| Package or executable not found | Build succeeded and `install/setup.bash` was sourced. |
+| Robot remains still | Gazebo is playing, `/odom` updates, and `/cmd_vel` has commands. |
+| Tree or algorithm name not found | Installed behavior-tree files and plugin resource exist; inspect startup errors. |
+| Robot approaches the goal but task does not finish | Read the completion criteria in [step 5](behavior-tree.md); the dummy follower has no terminal braking or final-heading controller. |
+
+`DummyMap::isOccupied()` always returns false. The robot is not planning around
+the maze walls. Inspect the [example application](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/getting_started/hello_finenav.cpp)
+and [launch configuration](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/config/hello_finenav.yaml).
+
+Continue with [2. Choose Map and Planner](choose-algorithms.md).

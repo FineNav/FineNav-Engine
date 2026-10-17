@@ -44,6 +44,10 @@ Apply parameters in `configure()`, clear episode state in `reset()`, and compute
 the output from `robot_state`, `ref_traj`, and the WorldView in `plan()`. Return
 `std::nullopt` when valid input cannot produce a result.
 
+The shared library is declared with `add_library(... SHARED ...)` and installed
+to `lib`. The parent package must find `finenav_cmake` and declare it as a build
+dependency. Refer to the example CMake files for the complete setup.
+
 ## Register and publish the plugin
 
 Define the parameter YAML, generate its parameter library, and build the Planner

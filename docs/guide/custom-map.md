@@ -41,7 +41,16 @@ FINENAV_REGISTER_MAP(finenav::example::DummyMap, dummy_map)
 
 For your plugin, replace the example class and namespace with your own and keep
 the registration namespace consistent with the YAML schema.
-The example directory includes the CMake configuration.
+The example directory includes the CMake configuration. The parent package
+finds `finenav_cmake`; install the shared library and publish its discovery entry:
+
+```cmake
+finenav_register_algo_plugin(dummy_map)
+```
+
+The minimal Map contract requires configuration and `selfManage()`. Window
+tracking is an additional capability; do not add rolling-window machinery unless
+the representation needs it.
 
 Finally, [write a WorldView](worldview.md) that translates your Map's
 queries into the selected Planner's interface. Load the plugins and select that
