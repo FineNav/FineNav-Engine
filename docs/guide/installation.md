@@ -97,7 +97,7 @@ infer undeclared dependencies from CMake, or build the project. A successful
 `check` confirms only that declared dependencies are installed; building and
 running the example are still required to validate the setup.
 
-## 4. Build the tutorial packages
+## 4. Build the example
 
 ```bash
 cd ~/finenav_ws

@@ -3,7 +3,7 @@
 规划组件集中维护在 [FineNav/finenav_planner](https://github.com/FineNav/finenav_planner)。
 网站栏目采用复数 `finenav_planners`，实际仓库名为单数 `finenav_planner`。
 
-## 仓库中的组件
+## 组件目录
 
 以下目录已对照仓库 `main` 分支的 `bab23e5` 版本核对：
 
@@ -20,9 +20,9 @@
 [MPPI](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_mppi_SE2)、
 [航向对齐](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_rotate_heading_aligner)。
 
-## 与当前 Engine 的接入状态
+## Engine 接入状态
 
-这些是组件目录，还不是已经组装好的导航应用。
+以下组件需完成接入后组装为导航应用。
 核对版本尚未为新的包名发现 API 声明 `finenav_register_algo_plugin()` 资源。
 使用前需要通过 `finenav_cmake` 发布共享库；读取地图的算法还需配套 WorldView，
 并检查上下游的输入、输出是否匹配。
@@ -30,7 +30,7 @@
 迁移航向对齐组件时，还要核对完成语义：当前 Engine 将 Planner 返回的 `std::nullopt`
 视为失败，不表示该阶段成功完成。不能直接把旧 TrackingPolicy 的切换流程套进新 pipeline。
 
-## 教程中的 Planner
+## 示例 Planner
 
 Getting Started 使用的是 `finenav_example` 自带的两个示例：
 

@@ -4,7 +4,7 @@ The pipeline defines how to compute commands. The Behavior Tree defines when
 to execute it, what counts as arrival, and how to respond to a failure.
 Start with `finenav_example/getting_started/behavior_trees/navigate_to_pose.xml`.
 
-## Read the supplied tree
+## Example behavior tree
 
 ```xml
 <root BTCPP_format="4">
@@ -53,7 +53,7 @@ The navigator loads the XML from the directory configured in YAML:
       - "finenav_example/getting_started/behavior_trees"
 ```
 
-| Node | Meaning in this task |
+| Node | Purpose |
 | --- | --- |
 | `PublishNavigationGoal` | Supplies the requested goal to the first layer. |
 | `ReactiveFallback` | Rechecks arrival while the branch is running. |
@@ -68,7 +68,7 @@ condition such as `IsGoalReached` so the task can finish. The recovery sequence
 is the supplied example policy; validate actual failure/restart cases with your
 selected algorithms before relying on it.
 
-## Turn requirements into configuration
+## Task configuration
 
 | Requirement | Change |
 | --- | --- |
@@ -95,7 +95,7 @@ For this node, zero disables the corresponding check. Once position is reached,
 the tree halts the branch and calls `StopChassisMotion`. This changes the
 exercise's acceptance criteria; it does not add braking or heading control.
 
-## Apply and check the change
+## Configuration validation
 
 Edit the XML in the source package. Keep its directory in the runtime YAML.
 If you rename the main tree ID, update `setDefaultBehaviorTree()` as well.

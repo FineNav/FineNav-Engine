@@ -5,7 +5,7 @@
 FineNav-Engine 是一个用于组装导航应用的 ROS 2 C++ 工具。选择 Map 和 Planner，
 通过 WorldView 对接地图查询，在 C++ 中组装控制 pipeline，再通过行为树定义导航任务的执行方式。
 
-| 组件 | 你需要配置的内容 |
+| 组件 | 配置内容 |
 | --- | --- |
 | Map | 环境表示方式，以及地图的数据来源。 |
 | Planner | 生成路径或运动指令的算法。 |
@@ -13,13 +13,13 @@ FineNav-Engine 是一个用于组装导航应用的 ROS 2 C++ 工具。选择 Ma
 | 控制 pipeline | 各规划层的连接顺序和执行时机。 |
 | Behavior Tree（行为树） | 任务执行、完成条件、停车和故障恢复。 |
 
-## 围绕一个示例学习
+## 入门教程
 
 Getting Started 以 `dev` 分支的 `finenav_example` 为基础，已核对源码版本 `2c5bbe5`。
-先运行现成应用，再沿着同一份代码学习如何选择组件、编写适配并组装自己的导航流程。
+教程涵盖示例运行、组件选择、WorldView 适配和导航流程组装。
 
 1. [如何安装](guide/installation.md)：配置 ROS 2 环境、克隆仓库并编译。
-2. [运行示例，查看效果](guide/quickstart.md)：启动仿真并发送目标点。
+2. [运行示例](guide/quickstart.md)：启动仿真并发送目标点。
 3. [选择 Map 和 Planner](guide/choose-algorithms.md)：理解示例使用的组件组合。
 4. [编写 WorldView](guide/worldview.md)：把地图查询适配到 Planner 接口。
 5. [组装控制 Pipeline](guide/cpp-application.md)：通过 C++ 连接两个控制层。

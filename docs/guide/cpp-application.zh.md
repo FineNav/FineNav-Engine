@@ -2,7 +2,7 @@
 
 选定 Map、Planner 并完成 WorldView 后，应用代码只需加载插件包、创建控制层，再声明连接顺序。
 
-## 完整示例应用
+## 示例应用
 
 以下代码来自 `finenav_example/getting_started/hello_finenav.cpp`：
 
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
 }
 ```
 
-## 沿着数据流理解组装结果
+## 数据流
 
 ```mermaid
 flowchart LR
@@ -47,7 +47,7 @@ flowchart LR
     F --> C[/cmd_vel/]
 ```
 
-| 调用 | 配置的内容 |
+| 调用 | 作用 |
 | --- | --- |
 | `setDefaultBehaviorTree("GettingStartedNavigate")` | 没有显式指定树 ID 时，导航使用的默认任务树。 |
 | `loadAlgoPlugins({"finenav_example"})` | 发现包内已安装的 Map、Planner、WorldView 插件库。 |
@@ -60,7 +60,7 @@ flowchart LR
 
 这些组装接口返回 `bool`。最小示例省略了错误处理；编写自己的应用时，应检查返回值，失败时停止初始化。
 
-## 参数路径要与组装名称对应
+## 参数配置
 
 `hello_finenav.launch.py` 加载以下运行配置：
 
@@ -113,7 +113,7 @@ flowchart LR
 修改层名后，需要同步修改 YAML 中对应的节点路径。
 定位器读取 `/odom`，默认底盘接口向 `/cmd_vel` 发布 `geometry_msgs/msg/Twist`。
 
-例如，运行时可以把跟踪器配置的前进速度降低为：
+运行时调整跟踪速度：
 
 ```bash
 ros2 param set /hello_finenav/follow_layer dummy_follow_planner.linear_speed 0.3

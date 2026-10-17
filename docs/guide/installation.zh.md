@@ -84,7 +84,7 @@ rosdep check --from-paths src/FineNav-Engine \
 需要另行克隆兼容版本。rosdep 不会自动克隆源码、读取 CMake 来推断遗漏依赖或编译项目。
 `check` 通过只表示已声明依赖安装齐全，仍需通过编译和运行验证。
 
-## 4. 编译教程所需的软件包
+## 4. 编译示例
 
 ```bash
 cd ~/finenav_ws
@@ -110,4 +110,4 @@ source ~/finenav_ws/install/setup.bash
 如果提示找不到软件包，先检查编译结果，以及加载的是否是当前工作空间。
 本页命令已对照仓库文件核对；此次文档更新尚未执行干净 Ubuntu 环境下的编译和图形仿真。
 
-下一步：[1. 运行示例，查看效果](quickstart.md)。
+下一步：[1. 运行示例](quickstart.md)。

@@ -47,7 +47,7 @@ Choose a short unobstructed segment for this demonstration. You should see the
 robot start following the straight path. This example does not publish an occupancy
 map, so a blank Map display is expected.
 
-## Inspect the output
+## Output checks
 
 In another sourced terminal, run these commands one at a time:
 

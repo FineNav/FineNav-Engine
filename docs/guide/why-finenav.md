@@ -7,7 +7,7 @@ a WorldView, and use the framework APIs to build your navigation system.
 The framework also provides a runtime branch-switching mechanism, allowing a
 Behavior Tree to select pipelines assembled and registered ahead of time.
 
-## 1. Freely assemble decoupled control layers
+## 1. Layered control composition
 
 Each control layer encapsulates its own algorithm and execution policy,
 connecting to other layers through defined input and output interfaces.
@@ -22,9 +22,9 @@ velocity commands from it. To change the planning algorithm, keep the tracking
 layer and connect a new planning layer with compatible inputs and outputs,
 reusing the rest of the workflow.
 
-[Learn how to assemble a control pipeline](cpp-application.md).
+[Assemble a control pipeline](cpp-application.md).
 
-## 2. Build with your choice of components, a WorldView, and framework APIs
+## 2. Component adaptation and integration
 
 Use Maps and Planners already adapted to the framework, or implement and register
 your own map and planning plugins against the framework interfaces.
@@ -44,9 +44,9 @@ needs a walkability check. Once the WorldView translates that query, the
 application selects the combination by its registered name without handling
 map-query details in the main program.
 
-[Learn how to write a WorldView](worldview.md).
+[Write a WorldView](worldview.md).
 
-## 3. Select registered control branches through a Behavior Tree
+## 3. Runtime branch switching
 
 A navigation system can assemble and register multiple control branches ahead
 of time, then use a Behavior Tree to select and switch the active pipeline at
@@ -58,6 +58,6 @@ one application. Validate branch combinations and switching behavior in your
 application, particularly data handoff and layer start/stop behavior when
 branches share control layers.
 
-[Learn how to configure a Behavior Tree](behavior-tree.md).
+[Configure a Behavior Tree](behavior-tree.md).
 
 [Get started with FineNav-Engine](installation.md).
