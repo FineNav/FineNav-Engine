@@ -1,8 +1,8 @@
 # 2. 选择 Map 和 Planner
 
-先确定应用需要什么输入和输出。这个示例将目标点变成位姿路径，再将路径变成底盘速度指令。
+根据应用的输入、输出选择组件。本例将目标点转换为位姿路径，再生成底盘速度指令。
 
-## 示例选择了哪些组件
+## 示例组件
 
 | 职责 | 实现 / 注册名 | 用途 |
 | --- | --- | --- |
@@ -14,7 +14,7 @@
 
 以上组件全部由 ROS 包 `finenav_example` 提供，不依赖独立地图、规划仓库中的算法。
 
-## 应用代码实际上选择什么
+## 组件配置
 
 ```cpp
 engine->loadAlgoPlugins({"finenav_example"});
@@ -30,15 +30,15 @@ engine->createControlLayer(
 该注册已经绑定 Map 和 Planner 类型，无需在应用中再分别传入两者的名称。
 Engine 自动创建所需的 `dummy_map` 服务，并让两层复用它。
 
-## 换成自己的组件时检查什么
+## 接入检查
 
 | 选择事项 | 检查内容 |
 | --- | --- |
-| 环境表示 | Map 是否适合当前环境，是否能接收你的传感器数据？ |
-| Map 到 Planner | WorldView 能否实现 Planner 的 `IWorldView` 所需全部查询？ |
-| Planner 到下一层 | 输出是否包含下一层需要的位姿、速度等字段？ |
-| 最终输出 | 末层输出是否符合底盘接口？本例使用 `/cmd_vel`。 |
-| 插件打包 | 软件包是否完成当前 Engine 版本的 ament 插件发现声明？ |
+| 环境表示 | Map 表示适合当前环境，并支持传感器数据接入。 |
+| Map 到 Planner | WorldView 实现 Planner 的 `IWorldView` 所需的全部查询。 |
+| Planner 到下一层 | 输出包含下一层需要的位姿、速度等字段。 |
+| 最终输出 | 末层输出与底盘接口兼容；本例使用 `/cmd_vel`。 |
+| 插件打包 | 软件包包含当前 Engine 版本所需的 ament 插件发现声明。 |
 
 其他组件见 [finenav_planners](plugins/planners.md) 和 [finenav_maps](plugins/maps.md)。
 只克隆仓库，不会自动生成选定 Map 与 Planner 之间的 WorldView。

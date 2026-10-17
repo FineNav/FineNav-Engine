@@ -6,7 +6,7 @@ FineNav-Engine is a ROS 2 C++ tool for assembling navigation applications. Choos
 Map and Planner components, connect them with a WorldView, assemble a control
 pipeline, and use a Behavior Tree to define how a navigation task runs.
 
-| Component | What you configure |
+| Component | Configuration |
 | --- | --- |
 | Map | The environment representation and its data sources. |
 | Planner | The algorithm for producing a path or motion commands. |
@@ -14,11 +14,11 @@ pipeline, and use a Behavior Tree to define how a navigation task runs.
 | Control pipeline | The order of the planning layers and when each layer runs. |
 | Behavior Tree | Task execution, completion conditions, stopping, and recovery. |
 
-## Learn through one example
+## Getting Started
 
 The Getting Started tutorial follows `finenav_example` on `dev`, checked against
-source revision `2c5bbe5`. You first run the supplied application, then follow
-the same source to learn how its components fit together.
+source revision `2c5bbe5`. It covers running the example, selecting components,
+writing a WorldView, and assembling a navigation workflow.
 
 1. [Installation](guide/installation.md): prepare ROS 2, clone the repositories, and build.
 2. [Run the example](guide/quickstart.md): start the simulator and send a goal.

@@ -3,7 +3,7 @@
 Start from the inputs and outputs your application needs. In this example, a goal
 becomes a pose path, and that path becomes velocity commands.
 
-## The example's choices
+## Example components
 
 | Role | Implementation / registered name | Purpose |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ becomes a pose path, and that path becomes velocity commands.
 All five components are supplied by ROS package `finenav_example`. They do not
 come from the separate Map and Planner repositories.
 
-## What the application selects
+## Component configuration
 
 ```cpp
 engine->loadAlgoPlugins({"finenav_example"});
@@ -33,15 +33,15 @@ registration**, which already binds the Map and Planner types. It does not
 take two independent Map/Planner names. The engine creates and shares the
 required `dummy_map` server automatically.
 
-## Choosing components for your application
+## Integration checklist
 
-| Decision | What to check |
+| Item | Requirement |
 | --- | --- |
-| Environment | Does the Map represent your environment and accept your sensor inputs? |
-| Map → Planner | Can a WorldView implement every query in the Planner's `IWorldView`? |
-| Planner → next layer | Does the output contain the pose / velocity fields required by the next layer? |
-| Final output | Can the last layer's output drive your chassis interface? The example uses `/cmd_vel`. |
-| Plugin packaging | Is the package registered for the current Engine's ament discovery API? |
+| Environment | The Map represents the environment and accepts the sensor inputs. |
+| Map → Planner | The WorldView implements every query required by the Planner's `IWorldView`. |
+| Planner → next layer | The output contains the pose / velocity fields required by the next layer. |
+| Final output | The final output matches the chassis interface; this example uses `/cmd_vel`. |
+| Plugin packaging | The package declares the resources required by the current Engine's ament discovery API. |
 
 For alternatives, see [finenav_planners](plugins/planners.md) and
 [finenav_maps](plugins/maps.md). Cloning a repository alone does not create

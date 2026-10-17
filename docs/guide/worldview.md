@@ -4,7 +4,7 @@ A WorldView adapts the chosen Map to the interface required by a Planner.
 The working example is in `finenav_example/create_custom_world_view/`.
 You can read or modify it in place before creating a separate plugin package.
 
-## Read the Planner's interface
+## Planner interface
 
 Both example Planners use `DummyWorldView` as their `IWorldView`:
 
@@ -46,7 +46,7 @@ The constructor receives the Map. `isWalkable()` translates the query to
 `prepare()` can prepare per-plan data; both are empty in this example.
 `DummyFollowWorldView` follows the same pattern with `DummyFollowPlanner`.
 
-## Bind the types and publish the library
+## Type binding and plugin registration
 
 The registration file binds each adapter to one Planner and the selected Map:
 
@@ -90,7 +90,7 @@ The parent package finds `finenav_cmake` and includes this subdirectory.
 When moving to your own package, also declare the dependencies in `package.xml`,
 install the shared library, and publish it with `finenav_register_algo_plugin()`.
 
-## Rebuild after a change
+## Rebuild
 
 ```bash
 cd ~/finenav_ws

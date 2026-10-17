@@ -4,7 +4,7 @@ Map components are maintained in
 [FineNav/finenav_map](https://github.com/FineNav/finenav_map).
 The site section uses the plural name `finenav_maps`; the repository name is singular.
 
-## Repository component
+## Component catalogue
 
 The repository's `main` branch at revision `e5abf6a` contains `stvl_map`,
 a rolling spatio-temporal voxel Map fed by `sensor_msgs/msg/PointCloud2`.
@@ -16,7 +16,7 @@ voxels according to its decay setting. See its
 [README and parameter schema](https://github.com/FineNav/finenav_map/tree/e5abf6a/stvl_map).
 Other feature-branch experiments are not listed as default-branch components.
 
-## Integration status with the current Engine
+## Engine integration status
 
 The inspected `stvl_map` CMake file does not yet publish the ament resource
 required by the new `loadAlgoPlugins({"package_name"})` API.
@@ -25,7 +25,7 @@ using it with the current Engine. The linked README still shows older engine
 assembly calls; follow the current [WorldView](../worldview.md) and
 [pipeline](../cpp-application.md) tutorials for the application API.
 
-## Tutorial Map
+## Example Map
 
 Getting Started uses `dummy_map` from ROS package `finenav_example`.
 It has no observation sources, and `isOccupied()` always returns false.

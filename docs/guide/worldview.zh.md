@@ -2,9 +2,9 @@
 
 WorldView 把选定 Map 的查询适配成 Planner 需要的接口。
 完整示例位于 `finenav_example/create_custom_world_view/`。
-可以先在示例包中理解和修改适配，再迁移到自己的插件包。
+在示例包中完成适配后，可迁移至自定义插件包。
 
-## 查看 Planner 需要什么接口
+## Planner 接口
 
 两个示例 Planner 都将 `DummyWorldView` 作为自己的 `IWorldView`：
 
@@ -44,7 +44,7 @@ class DummyLineWorldView final : public DummyWorldView {
 `configure()` 用于应用适配参数，`prepare()` 可以准备本轮规划所需数据；本例中两者均为空实现。
 `DummyFollowWorldView` 采用相同写法，对应 `DummyFollowPlanner`。
 
-## 绑定类型并发布插件库
+## 类型绑定与插件注册
 
 注册文件将每个适配类与一个 Planner、所选 Map 绑定：
 
@@ -87,7 +87,7 @@ finenav_register_algo_plugin(dummy_world_view)
 迁移到自己的包时，还需在 `package.xml` 声明依赖、安装共享库，
 并通过 `finenav_register_algo_plugin()` 发布插件发现信息。
 
-## 修改后重新编译
+## 重新编译
 
 ```bash
 cd ~/finenav_ws

@@ -1,9 +1,9 @@
 # 5. 按需求配置行为树
 
-控制 pipeline 决定如何计算运动指令，Behavior Tree（行为树）决定什么时候执行、怎样算到达、失败后如何处理。
+控制 pipeline 计算运动指令，Behavior Tree（行为树）管理任务执行、完成条件和故障恢复。
 从 `finenav_example/getting_started/behavior_trees/navigate_to_pose.xml` 开始修改。
 
-## 先读懂示例任务树
+## 示例行为树
 
 ```xml
 <root BTCPP_format="4">
@@ -51,7 +51,7 @@ C++ 应用将 `GettingStartedNavigate` 设为默认树。导航器根据 YAML �
       - "finenav_example/getting_started/behavior_trees"
 ```
 
-| 节点 | 在本任务中的含义 |
+| 节点 | 作用 |
 | --- | --- |
 | `PublishNavigationGoal` | 将请求的导航目标提供给第一层。 |
 | `ReactiveFallback` | 在分支运行期间持续重新检查到达条件。 |
@@ -64,7 +64,7 @@ C++ 应用将 `GettingStartedNavigate` 设为默认树。导航器根据 YAML �
 `ExecuteControlBranch` 不负责判断到达，必须配合 `IsGoalReached` 等完成条件，任务才能正常结束。
 恢复序列是示例提供的策略；换用实际算法后，需要验证真实故障与重启场景，再依赖它进行恢复。
 
-## 把实际需求对应到配置
+## 任务配置
 
 | 需求 | 修改位置 |
 | --- | --- |
@@ -89,7 +89,7 @@ Dummy 跟踪器没有终点朝向对齐和基于剩余距离的到点减速；
 这个节点中，0 表示关闭对应检查。满足位置条件后，行为树中止分支并调用 `StopChassisMotion`。
 这只是调整练习的验收条件，不会为跟踪器增加减速或朝向控制能力。
 
-## 应用并检查修改
+## 配置验证
 
 修改源包中的 XML，保持运行 YAML 中的目录正确。
 如果更改主树 ID，还需要同步修改 `setDefaultBehaviorTree()`。
@@ -109,4 +109,4 @@ ros2 launch finenav_example hello_finenav.launch.py
 源码：[示例行为树](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml)、
 [完成条件实现](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_navigator/src/plugins/condition/is_goal_reached.cpp)。
 
-接下来可查看 [finenav_planners](plugins/planners.md) 和 [finenav_maps](plugins/maps.md)。
+组件目录：[finenav_planners](plugins/planners.md) 和 [finenav_maps](plugins/maps.md)。

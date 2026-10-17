@@ -3,7 +3,7 @@
 With the Map, Planners, and WorldViews selected, the application only needs to
 load the plugin package, create the layers, and register their execution order.
 
-## The complete example application
+## Example application
 
 This is `finenav_example/getting_started/hello_finenav.cpp`:
 
@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
 }
 ```
 
-## Follow the data flow
+## Data flow
 
 ```mermaid
 flowchart LR
@@ -63,7 +63,7 @@ the connection; the Behavior Tree activates it with `ExecuteControlBranch`.
 These assembly methods return `bool`. The minimal example omits error handling;
 in your application, check their return values and stop initialization on failure.
 
-## Match parameters to the configured names
+## Parameter configuration
 
 `hello_finenav.launch.py` loads this runtime configuration:
 

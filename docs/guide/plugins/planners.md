@@ -4,7 +4,7 @@ The planner collection is maintained in
 [FineNav/finenav_planner](https://github.com/FineNav/finenav_planner).
 The site section uses the plural name `finenav_planners`; the repository name is singular.
 
-## Repository components
+## Component catalogue
 
 The following entries were checked against repository `main`, revision `bab23e5`:
 
@@ -21,7 +21,7 @@ Package READMEs describe their interfaces and parameters:
 [MPPI](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_mppi_SE2),
 [heading alignment](https://github.com/FineNav/finenav_planner/tree/bab23e5/finenav_rotate_heading_aligner).
 
-## Integration status with the current Engine
+## Engine integration status
 
 These packages are a component catalogue, not a preassembled navigation application.
 The inspected revision does not yet declare `finenav_register_algo_plugin()`
@@ -33,7 +33,7 @@ In particular, check the heading aligner's completion semantics when porting it:
 current Engine treats `std::nullopt` from a Planner as a failure, not successful
 stage completion. Do not copy old TrackingPolicy-based instructions into the new pipeline.
 
-## Tutorial Planners
+## Example Planners
 
 Getting Started uses two separate examples bundled in `finenav_example`:
 
