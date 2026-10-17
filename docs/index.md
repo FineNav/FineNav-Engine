@@ -1,5 +1,7 @@
 # FineNav-Engine
 
+[![FineNav-Engine overview: layered control, Behavior Tree branch selection, and Map/Planner composition.](assets/images/finenav-engine-overview.png)](assets/images/finenav-engine-overview.png)
+
 FineNav-Engine is a ROS 2 C++ tool for assembling navigation applications. Choose
 Map and Planner components, connect them with a WorldView, assemble a control
 pipeline, and use a Behavior Tree to define how a navigation task runs.

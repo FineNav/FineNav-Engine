@@ -1,5 +1,7 @@
 # FineNav-Engine
 
+[![FineNav-Engine 概览：分层控制架构、行为树分支选择，以及 Map 与 Planner 的组合。](assets/images/finenav-engine-overview.png)](assets/images/finenav-engine-overview.png)
+
 FineNav-Engine 是一个用于组装导航应用的 ROS 2 C++ 工具。选择 Map 和 Planner，
 通过 WorldView 对接地图查询，在 C++ 中组装控制 pipeline，再通过行为树定义导航任务的执行方式。
 
