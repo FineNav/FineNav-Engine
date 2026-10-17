@@ -20,13 +20,13 @@ source /opt/ros/humble/setup.bash
 ```bash
 mkdir -p ~/finenav_ws/src
 cd ~/finenav_ws
-git clone --branch dev https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
+git clone --branch main https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
 git clone https://github.com/FineNav/finenav_map.git src/finenav_map
 git clone https://github.com/FineNav/finenav_planner.git src/finenav_planner
 ```
 
 如 GitHub 要求登录，请使用拥有仓库访问权限的账号。
-Engine 使用 `dev` 分支，地图与规划仓库使用各自默认分支。
+Engine 使用 `main` 分支，地图与规划仓库使用各自默认分支。
 Map、Planner 仓库为后续选择组件准备；入门 Dummy 示例仅使用 Engine 仓库内的示例插件。
 
 ```text

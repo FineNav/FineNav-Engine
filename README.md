@@ -21,7 +21,7 @@ source /opt/ros/humble/setup.bash
 
 mkdir -p ~/finenav_ws/src
 cd ~/finenav_ws
-git clone --branch dev https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
+git clone --branch main https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
 ```
 
 Initialize rosdep once per machine, then install the manifest dependencies:

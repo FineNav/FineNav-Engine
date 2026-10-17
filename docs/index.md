@@ -16,8 +16,8 @@ pipeline, and use a Behavior Tree to define how a navigation task runs.
 
 ## Getting Started
 
-The Getting Started tutorial follows `finenav_example` on `dev`, checked against
-source revision `2c5bbe5`. It covers running the example, selecting components,
+The Getting Started tutorial follows `finenav_example` on `main`.
+It covers running the example, selecting components,
 writing a WorldView, and assembling a navigation workflow.
 
 1. [Installation](guide/installation.md): prepare ROS 2, clone the repositories, and build.

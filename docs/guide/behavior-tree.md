@@ -113,7 +113,7 @@ Send a new goal and check that the chosen condition ends the task and `/cmd_vel`
 receives a stop command. For recovery changes, also exercise an algorithm failure
 and retry exhaustion; normal-path execution does not validate recovery.
 
-Source: [example tree](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml),
-[completion checks](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_navigator/src/plugins/condition/is_goal_reached.cpp).
+Source: [example tree](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml),
+[completion checks](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_navigator/src/plugins/condition/is_goal_reached.cpp).
 
 Next, explore [finenav_planners](plugins/planners.md) and [finenav_maps](plugins/maps.md).

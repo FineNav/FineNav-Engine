@@ -2,7 +2,7 @@
 
 Write a custom Map when you need another environment representation or data source.
 Start from the
-[Map example](https://github.com/FineNav/FineNav-Engine/tree/dev/finenav_example/create_custom_map).
+[Map example](https://github.com/FineNav/FineNav-Engine/tree/main/finenav_example/create_custom_map).
 
 ## Define the data and queries
 

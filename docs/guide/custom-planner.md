@@ -2,7 +2,7 @@
 
 Write a custom Planner when the available algorithms do not fit your robot or
 task. Start from the
-[Planner examples](https://github.com/FineNav/FineNav-Engine/tree/dev/finenav_example/create_custom_planner).
+[Planner examples](https://github.com/FineNav/FineNav-Engine/tree/main/finenav_example/create_custom_planner).
 
 ## Define the contract
 

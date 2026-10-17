@@ -118,7 +118,7 @@ FineNav.github.io/
 multirepo 在构建时读取模块文档和导航。
 
 以下使用用户示例里的占位仓库名。实施时替换为真实仓库并核对分支；
-Engine 当前文档基于 `dev`，示例中的 `main` 不是所有仓库已确认的文档分支。
+Engine 当前文档基于 `main`；聚合配置与安装命令均使用 `main`，其他仓库的分支需分别核对。
 
 ```yaml
 site_name: FineNav Documentation
@@ -313,7 +313,7 @@ Engine 的已有使用指南现已整理到 `docs/` 和 `docs/guide/`，十个�
 Engine 的远程 `gh-pages` 已删除；公开聚合仓库为 `FineNav/FineNav.github.io`，
 部署状态以聚合仓库的 Actions 运行结果为准。
 Engine 本地英文站、中文站和保留的旧详细版均已通过严格构建；
-双语页面与缺页英文回退机制已检查。聚合仓库从 Engine 的远程 `dev` 分支
+双语页面与缺页英文回退机制已检查。聚合仓库从 Engine 的远程 `main` 分支
 导入并严格构建双语站点已通过，内部页面和资源链接已检查；线上状态查看其 Actions。
 
 实施顺序：

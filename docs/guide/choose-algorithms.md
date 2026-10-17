@@ -52,8 +52,8 @@ For alternatives, see [finenav_planners](plugins/planners.md) and
 [finenav_maps](plugins/maps.md). Cloning a repository alone does not create
 the WorldView that connects a chosen Map and Planner.
 
-Source: [line Planner](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_planner/include/dummy_line_planner.hpp),
-[follower](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_planner/include/dummy_follow_planner.hpp),
-[Map](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_map/include/dummy_map.hpp).
+Source: [line Planner](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_planner/include/dummy_line_planner.hpp),
+[follower](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_planner/include/dummy_follow_planner.hpp),
+[Map](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_map/include/dummy_map.hpp).
 
 Continue with [3. Write a WorldView](worldview.md).

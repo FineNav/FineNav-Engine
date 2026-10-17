@@ -1,7 +1,7 @@
 # 自定义 Map
 
 需要不同的环境表示或观测数据源时，可以实现自己的 Map。
-从 [Map 示例](https://github.com/FineNav/FineNav-Engine/tree/2c5bbe5/finenav_example/create_custom_map)开始。
+从 [Map 示例](https://github.com/FineNav/FineNav-Engine/tree/main/finenav_example/create_custom_map)开始。
 
 ## 定义数据与查询
 
