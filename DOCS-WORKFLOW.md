@@ -51,8 +51,10 @@ finenav_planner/docs/ ─┘
 
 默认内容骨架为 Overview、Quickstart、使用指南和示例。插件目录、自定义组件、
 API 参考和排错页面按实际需要加入，不创建空分类。
-FineNav 主线仍为：**下载编译 → 选择 Map/Planner → 使用或编写 WorldView → C++ 配置 → 运行导航**。
-自定义 Map/Planner 放进阶指南，底层实现原理独立放架构文档。
+FineNav-Engine 当前导航采用：**如何安装 → Getting Started 五步教程 → finenav_planners → finenav_maps**。
+五步教程依次为：运行示例、选择 Map/Planner、编写 WorldView、组装控制 Pipeline、按需求配置行为树。
+教程以当前 `finenav_example` 源码为依据，命令和接口随示例更新；自定义 Planner/Map 指南放在对应组件栏目下。
+底层实现原理独立放架构文档。聚合站另为 FineNav-SlamBox、FineNav（ICRA 版本）保留占位页。
 插件具体说明由对应模块仓库维护，生态首页与 Engine 指南提供目录和通用集成入口。
 
 ## 3. 各模块的 mkdocs.yml
