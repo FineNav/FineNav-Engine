@@ -1,6 +1,8 @@
 # MkDocs documentation
 
-The main website uses the developer usage guide in `docs/`.
+The main website imports the developer usage guide from `docs/` on `main`.
+Keep the aggregator import branch, installation commands, and source links aligned
+with `main`.
 Its path is: install and build, run the supplied example, choose a Map and
 Planner, write a WorldView, assemble a control pipeline, and configure its
 Behavior Tree. Getting Started follows the layered `finenav_example` source.

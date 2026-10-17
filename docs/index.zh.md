@@ -15,7 +15,7 @@ FineNav-Engine 是一个用于组装导航应用的 ROS 2 C++ 工具。选择 Ma
 
 ## 入门教程
 
-Getting Started 以 `dev` 分支的 `finenav_example` 为基础，已核对源码版本 `2c5bbe5`。
+Getting Started 以 `main` 分支的 `finenav_example` 为基础。
 教程涵盖示例运行、组件选择、WorldView 适配和导航流程组装。
 
 1. [如何安装](guide/installation.md)：配置 ROS 2 环境、克隆仓库并编译。

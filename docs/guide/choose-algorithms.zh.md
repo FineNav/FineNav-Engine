@@ -47,8 +47,8 @@ Engine 自动创建所需的 `dummy_map` 服务，并让两层复用它。
 其他组件见 [finenav_planners](plugins/planners.md) 和 [finenav_maps](plugins/maps.md)。
 只克隆仓库，不会自动生成选定 Map 与 Planner 之间的 WorldView。
 
-源码：[直线 Planner](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_planner/include/dummy_line_planner.hpp)、
-[跟踪 Planner](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_planner/include/dummy_follow_planner.hpp)、
-[Map](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_map/include/dummy_map.hpp)。
+源码：[直线 Planner](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_planner/include/dummy_line_planner.hpp)、
+[跟踪 Planner](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_planner/include/dummy_follow_planner.hpp)、
+[Map](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_map/include/dummy_map.hpp)。
 
 下一步：[3. 编写 WorldView](worldview.md)。

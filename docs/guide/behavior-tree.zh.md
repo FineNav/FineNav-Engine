@@ -106,7 +106,7 @@ ros2 launch finenav_example hello_finenav.launch.py
 发送新目标，确认所选条件能够结束任务，且 `/cmd_vel` 收到停车指令。
 修改恢复策略时，还要主动覆盖算法失败、重试次数耗尽等场景；只跑通正常流程不能证明恢复有效。
 
-源码：[示例行为树](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml)、
-[完成条件实现](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_navigator/src/plugins/condition/is_goal_reached.cpp)。
+源码：[示例行为树](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml)、
+[完成条件实现](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_navigator/src/plugins/condition/is_goal_reached.cpp)。
 
 组件目录：[finenav_planners](plugins/planners.md) 和 [finenav_maps](plugins/maps.md)。

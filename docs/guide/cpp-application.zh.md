@@ -122,8 +122,8 @@ ros2 param set /hello_finenav/follow_layer dummy_follow_planner.linear_speed 0.3
 Planner 速度参数支持动态配置。C++ 组装关系变化后需要重新编译并重启。
 YAML 中的行为树目录指向安装后的资源，树 ID 必须与 C++ 设置的默认 ID 一致。
 
-源码：[应用入口](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/getting_started/hello_finenav.cpp)、
-[运行配置](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/config/hello_finenav.yaml)、
-[公开 API](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_engine_cpp/include/finenav_engine_cpp/finenav_engine.hpp)。
+源码：[应用入口](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/hello_finenav.cpp)、
+[运行配置](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/config/hello_finenav.yaml)、
+[公开 API](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_engine_cpp/include/finenav_engine_cpp/finenav_engine.hpp)。
 
 下一步：[5. 按需求配置行为树](behavior-tree.md)。

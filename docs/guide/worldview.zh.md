@@ -106,8 +106,8 @@ source install/setup.bash
 重启应用以加载新插件。换 Map 时，调整 Map 类型和查询转换；换 Planner 时，
 按照它实际声明的 `IWorldView` 实现接口，并更新注册绑定。
 
-源码：[适配类](https://github.com/FineNav/FineNav-Engine/blob/dev/finenav_example/create_custom_world_view/include/dummy_world_view.hpp)、
-[类型注册](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_world_view/src/dummy_world_view.cpp)、
-[CMake 配置](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_world_view/CMakeLists.txt)。
+源码：[适配类](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_world_view/include/dummy_world_view.hpp)、
+[类型注册](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_world_view/src/dummy_world_view.cpp)、
+[CMake 配置](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_world_view/CMakeLists.txt)。
 
 下一步：[4. 组装控制 Pipeline](cpp-application.md)。

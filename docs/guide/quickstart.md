@@ -69,7 +69,7 @@ this is its target rate, not a timing guarantee.
 | Robot approaches the goal but task does not finish | Read the completion criteria in [step 5](behavior-tree.md); the dummy follower has no terminal braking or final-heading controller. |
 
 `DummyMap::isOccupied()` always returns false. The robot is not planning around
-the maze walls. Inspect the [example application](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/getting_started/hello_finenav.cpp)
-and [launch configuration](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/config/hello_finenav.yaml).
+the maze walls. Inspect the [example application](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/hello_finenav.cpp)
+and [launch configuration](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/config/hello_finenav.yaml).
 
 Continue with [2. Choose Map and Planner](choose-algorithms.md).

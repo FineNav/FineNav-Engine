@@ -1,7 +1,7 @@
 # 自定义 Planner
 
 已有算法不满足机器人或任务需求时，可以实现自己的 Planner。
-从 [Planner 示例](https://github.com/FineNav/FineNav-Engine/tree/dev/finenav_example/create_custom_planner)开始。
+从 [Planner 示例](https://github.com/FineNav/FineNav-Engine/tree/main/finenav_example/create_custom_planner)开始。
 
 ## 定义接口约定
 

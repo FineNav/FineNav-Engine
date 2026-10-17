@@ -128,8 +128,8 @@ Planner speed settings are dynamically configurable. C++ assembly changes need
 a rebuild and restart. The YAML file selects the installed behavior-tree
 directory, whose tree ID must match the C++ default.
 
-Source: [application](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/getting_started/hello_finenav.cpp),
-[runtime YAML](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/config/hello_finenav.yaml),
-[public API](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_engine_cpp/include/finenav_engine_cpp/finenav_engine.hpp).
+Source: [application](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/hello_finenav.cpp),
+[runtime YAML](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/config/hello_finenav.yaml),
+[public API](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_engine_cpp/include/finenav_engine_cpp/finenav_engine.hpp).
 
 Continue with [5. Configure a Behavior Tree](behavior-tree.md).

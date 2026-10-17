@@ -66,7 +66,7 @@ ros2 topic echo /cmd_vel
 | 接近目标但任务不结束 | 查看[第 5 步](behavior-tree.md)的完成条件；Dummy 跟踪器没有到点减速和终点朝向控制。 |
 
 `DummyMap::isOccupied()` 始终返回 false，因此此示例不会绕开迷宫墙壁。
-源码入口：[示例应用](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/getting_started/hello_finenav.cpp)、
-[启动配置](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/config/hello_finenav.yaml)。
+源码入口：[示例应用](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/hello_finenav.cpp)、
+[启动配置](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/config/hello_finenav.yaml)。
 
 下一步：[2. 选择 Map 和 Planner](choose-algorithms.md)。

@@ -21,7 +21,7 @@ source /opt/ros/humble/setup.bash
 ```bash
 mkdir -p ~/finenav_ws/src
 cd ~/finenav_ws
-git clone --branch dev https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
+git clone --branch main https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
 git clone https://github.com/FineNav/finenav_map.git src/finenav_map
 git clone https://github.com/FineNav/finenav_planner.git src/finenav_planner
 ```
