@@ -6,25 +6,32 @@ You can read or modify it in place before creating a separate plugin package.
 
 ## Planner interface
 
-Both example Planners use `DummyWorldView` as their `IWorldView`:
+Each example Planner defines its own `IWorldView`. For example,
+`DummyLinePlanner` declares the interface inside its class:
 
 ```cpp
-class DummyWorldView {
+class DummyLinePlanner {
   public:
-    virtual ~DummyWorldView() = default;
-    virtual bool isWalkable(const finenav::common::Position3D& position) const = 0;
+    class IWorldView {
+      public:
+        virtual ~IWorldView() = default;
+        virtual bool isWalkable(const finenav::common::Position3D& position) const = 0;
+    };
+    // ...
 };
 ```
 
-The Planner asks whether a position is walkable; it does not need to know how
-the underlying Map stores its data.
+`DummyFollowPlanner` declares a separate `IWorldView` with the same query.
+The interfaces are independent types, so each adapter implements the interface
+of its corresponding Planner. The Planner asks whether a position is walkable;
+it does not need to know how the underlying Map stores its data.
 
 ## Implement the adapter
 
 Inside namespace `finenav::example`, the line Planner's adapter is:
 
 ```cpp
-class DummyLineWorldView final : public DummyWorldView {
+class DummyLineWorldView : public DummyLinePlanner::IWorldView {
   public:
     using ConfigType = dummy_line_world_view::Params;
 
@@ -44,7 +51,8 @@ class DummyLineWorldView final : public DummyWorldView {
 The constructor receives the Map. `isWalkable()` translates the query to
 `!map_.isOccupied(position)`. `configure()` applies adapter parameters and
 `prepare()` can prepare per-plan data; both are empty in this example.
-`DummyFollowWorldView` follows the same pattern with `DummyFollowPlanner`.
+`DummyFollowWorldView` follows the same pattern and inherits
+`DummyFollowPlanner::IWorldView`.
 
 ## Type binding and plugin registration
 
@@ -103,7 +111,7 @@ Restart the application to load the rebuilt library. For a different Map,
 replace the Map type and query translation; for a different Planner,
 implement its actual `IWorldView` contract and update the registration.
 
-Source: [adapter classes](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_world_view/include/dummy_world_view.hpp),
+Source: [adapter classes](https://github.com/FineNav/FineNav-Engine/blob/dev/finenav_example/create_custom_world_view/include/dummy_world_view.hpp),
 [registrations](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_world_view/src/dummy_world_view.cpp),
 [CMake](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_world_view/CMakeLists.txt).
 

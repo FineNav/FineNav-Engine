@@ -1,12 +1,13 @@
 # 自定义 Planner
 
 已有算法不满足机器人或任务需求时，可以实现自己的 Planner。
-从 [Planner 示例](https://github.com/FineNav/FineNav-Engine/tree/2c5bbe5/finenav_example/create_custom_planner)开始。
+从 [Planner 示例](https://github.com/FineNav/FineNav-Engine/tree/dev/finenav_example/create_custom_planner)开始。
 
 ## 定义接口约定
 
-声明 `IWorldView`，仅包含算法需要的环境查询，使算法不依赖具体 Map。
-之后通过 WorldView 适配所选地图。
+在每个 Planner 内定义自己的 `IWorldView`，仅包含该算法需要的环境查询，
+使算法不依赖具体 Map。即使两个算法当前使用相同的查询，也分别定义接口，
+之后通过各自的 WorldView 适配所选地图。
 
 分别声明每一层的输入和输出。直线规划层使用位姿输入、位姿输出：
 
@@ -24,11 +25,16 @@ static constexpr finenav::core::IOProfile OutputProfile{false, true, false, fals
 
 ## 实现算法
 
-`DummyLinePlanner` 给出完整的接口写法：
+在 `DummyLinePlanner` 类内，接口约定如下：
 
 ```cpp
+class IWorldView {
+  public:
+    virtual ~IWorldView() = default;
+    virtual bool isWalkable(const finenav::common::Position3D& position) const = 0;
+};
+
 using ConfigType = dummy_line_planner::Params;
-using IWorldView = DummyWorldView;
 using Context = finenav::core::PlanningContext<DummyLinePlanner>;
 using Result = std::optional<finenav::core::OutputTrajectoryT<DummyLinePlanner>>;
 

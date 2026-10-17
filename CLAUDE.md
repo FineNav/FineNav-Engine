@@ -46,7 +46,7 @@ Planners **do not own maps**; they receive lightweight `IMapView` adapters that 
 | `finenav_map/grid_map` | Template-based 3D rolling grid map (`GridMap<T>`) |
 | `finenav_map/occ_grid_2d` | 2D occupancy grid map implementing MapConcept |
 | `finenav_planner/finenav_route_planner` | A*, BFS, and topological route (GeoJSON) planners |
-| `finenav_planner/finenav_mppi_controller` | MPPI controller with configurable critics |
+| `finenav_planner/finenav_mppi_SE2` | SE(2) ground MPPI planner with configurable critics |
 | `finenav_navigator` | Behavior-tree-driven task navigator (BehaviorTree.CPP) |
 | `finenav_localizer` | ESKF (Error-State Kalman Filter) for 6-DOF state estimation |
 | `finenav_motion_decorator` | Trajectory post-processing: trim, smooth, seek-to-nearest |
@@ -131,7 +131,7 @@ Each planner defines:
 | `AstarPathSearch` | `finenav_route_planner` | `astar::IMapView` |
 | `BfsPathSearch` | `finenav_route_planner` | `astar::IMapView` |
 | `RoutePathSearch` | `finenav_route_planner` | `astar::IMapView` |
-| `MPPIController` | `finenav_mppi_controller` | `nav2_mppi_controller::IMapView` |
+| `MPPISE2` | `finenav_mppi_SE2` | `finenav_mppi_SE2::IWorldView` |
 | `SimpleTestPlanner` | `finenav_interface` | inner `IMapView` |
 
 ### IMapView for Route Planners (`finenav_planner/finenav_route_planner/include/imap_view.hpp`)
