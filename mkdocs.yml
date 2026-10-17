@@ -50,7 +50,7 @@ plugins:
             5. Configure a Behavior Tree: 5. 按需求配置行为树
             Custom Planner: 自定义 Planner
             Custom Map: 自定义 Map
-            FineNav (ICRA version): FineNav（ICRA 版本）
+            FineNav (ICRA 2026): FineNav (ICRA 2026)
 validation:
   nav:
     omitted_files: info
