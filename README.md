@@ -1,5 +1,7 @@
 # FineNav-Engine
 
+A low-level C++ foundational engine for robot navigation systems, powering FineNav (ICRA 2026).
+
 **Version: 0.5.0**
 
 FineNav-Engine is a ROS 2 C++ framework for assembling layered navigation systems.

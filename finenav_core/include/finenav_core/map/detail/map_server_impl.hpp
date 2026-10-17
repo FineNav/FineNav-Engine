@@ -88,7 +88,7 @@ MapServer<MapT>::MapServer(
     rclcpp::Node::SharedPtr node,
     const std::string& algo_name,
     const std::string& server_name,
-    IRobotStateProvider* state_provider)
+    RobotStateProvider* state_provider)
     : IMapResource(server_name),
       node_(node), server_name_(server_name), state_provider_(state_provider),
       runtime_(node, node->get_logger()) {
