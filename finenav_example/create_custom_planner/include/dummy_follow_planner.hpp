@@ -6,17 +6,21 @@
 
 #include <optional>
 
+#include "finenav_common/geometry_types.hpp"
 #include "finenav_core/plugin_planner.hpp"
 #include "finenav_example/dummy_follow_planner_params.hpp"
-
-#include "dummy_world_view_interface.hpp"
 
 namespace finenav::example {
 
 class DummyFollowPlanner {
   public:
     using ConfigType = dummy_follow_planner::Params;
-    using IWorldView = DummyWorldView;
+
+    class IWorldView {
+      public:
+        virtual ~IWorldView() = default;
+        virtual bool isWalkable(const finenav::common::Position3D& position) const = 0;
+    };
 
     static constexpr finenav::core::IOProfile InputProfile{true, false, false, false};
     static constexpr finenav::core::IOProfile OutputProfile{false, true, false, false};

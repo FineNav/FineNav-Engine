@@ -16,7 +16,7 @@
 
 namespace finenav::example {
 
-class DummyLineWorldView final : public DummyWorldView {
+class DummyLineWorldView : public DummyLinePlanner::IWorldView {
   public:
     using ConfigType = dummy_line_world_view::Params;
 
@@ -32,7 +32,7 @@ class DummyLineWorldView final : public DummyWorldView {
     const DummyMap& map_;
 };
 
-class DummyFollowWorldView final : public DummyWorldView {
+class DummyFollowWorldView : public DummyFollowPlanner::IWorldView {
   public:
     using ConfigType = dummy_follow_world_view::Params;
 

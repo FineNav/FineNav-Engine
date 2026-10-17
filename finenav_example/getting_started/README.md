@@ -1,5 +1,7 @@
 # Getting Started - Simulation
 
+**Version: 0.5.0**
+
 Minimal FineNav-Engine navigation stack driven by a simulator.
 
 ```text
@@ -32,10 +34,9 @@ Start the simulator:
 
 ```bash
 ros2 launch finenav_simulator finenav_simulator.launch.py \
-  lio_type:=static \
+  lio_type:=gazebo_odom \
   use_sim_time:=true \
-  world_name:=flat_small_scale_maze.world \
-  publish_map_tf:=true
+  world_name:=flat_small_scale_maze.world
 ```
 
 Start FineNav-Engine:
@@ -44,10 +45,20 @@ Start FineNav-Engine:
 ros2 launch finenav_example hello_finenav.launch.py
 ```
 
-The launch file loads all runtime settings from `config/hello_finenav.yaml`.
+The launch file loads runtime settings from
+[config/hello_finenav.yaml](../config/hello_finenav.yaml).
 
-Publish an initial pose with RViz, then use **2D Goal Pose** to send a goal on
-`/goal_pose`. Inspect the output with:
+Gazebo supplies odometry and the simulation TF. Open RViz separately, set its
+fixed frame to `map`, and configure **2D Goal Pose** to publish on `/goal_pose`.
+Alternatively, send a goal at a nearby unobstructed position:
+
+```bash
+ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped \
+  "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}"
+```
+
+The coordinates above are an example; choose them for the robot's actual spawn
+pose and world. Inspect the output with:
 
 ```bash
 ros2 topic echo /cmd_vel
@@ -68,12 +79,25 @@ engine->registerControlBranch("navigate", {"line_layer", "follow_layer"});
 
 `line_layer` generates a straight pose path for each new goal. `follow_layer`
 selects a fixed-distance lookahead point from that path and publishes velocity
-commands at 10 Hz. FineNavEngine resolves both WorldView registrations to the
-same `DummyMap` type and reuses one map server.
+commands with a configured periodic rate of 10 Hz. FineNavEngine resolves both
+WorldView registrations to the same `DummyMap` type and reuses one map server.
 
-The `GettingStartedNavigate` behavior tree activates the `navigate` branch,
-stops the chassis when the goal is reached, and restarts from the first faulted
-control layer when recovery is required.
+`DummyLineWorldView` implements `DummyLinePlanner::IWorldView`;
+`DummyFollowWorldView` implements `DummyFollowPlanner::IWorldView`. They are
+separate adapters for the two Planners.
+
+The `GettingStartedNavigate` behavior tree activates the `navigate` branch.
+It requests a stop when `IsGoalReached` succeeds and can restart from a faulted
+control layer, with up to three recovery attempts.
+
+## Example limitations
+
+DummyMap treats all positions as unoccupied, so the example does not avoid
+obstacles. DummyFollowPlanner does not implement terminal braking or final
+heading alignment. The default goal condition checks position, heading, and
+speed; reaching the goal position alone may therefore leave navigation active.
+Configure compatible completion conditions or use a planner with the required
+terminal behavior before relying on automatic goal completion.
 
 ## Parameters
 
@@ -83,7 +107,7 @@ control layer when recovery is required.
 | `/hello_finenav/finenav_navigator` | `behavior_trees` | Load the example behavior tree. |
 | `/hello_finenav/finenav_localizer` | `odom_topic` | Read simulator odometry. |
 | `/hello_finenav/finenav_localizer` | `state_history_duration` | Retain states for delayed measurements. |
-| `/hello_finenav/dummy_map` | `dummy_map.window_size` | Set the map window half-extent. |
+| `/hello_finenav/dummy_map` | `dummy_map.window_size` | Read-only example parameter; currently stored without changing the fixed map bounds. |
 | `/hello_finenav/line_layer` | `dummy_line_planner.path_resolution` | Set the straight-path sample spacing. |
 | `/hello_finenav/follow_layer` | `dummy_follow_planner.*` | Set tracking speeds and lookahead distance. |
 

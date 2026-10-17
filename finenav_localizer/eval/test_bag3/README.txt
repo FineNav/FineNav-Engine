@@ -13,7 +13,7 @@ Topics
 ------
   /tf_static           tf2_msgs/msg/TFMessage       2 msgs
   /tf                  tf2_msgs/msg/TFMessage    4897 msgs (~60 Hz)
-  /localization_pose   geometry_msgs/msg/PoseStamped  26 msgs (~0.32 Hz)
+  /localization_pose   geometry_msgs/msg/PoseWithCovarianceStamped  26 msgs (~0.32 Hz)
   /Odometry            nav_msgs/msg/Odometry      816 msgs (~10 Hz)
 
 Data sources
@@ -29,11 +29,12 @@ Known stress events
 -------------------
   1. Dual-sensor outage (t~44.7-45.9 s)
      Odometry drops for ~1.2 s inside a longer Pose gap (4.8 s, t~42.3-47.1).
-     Filter dead-reckons on stale velocity -- covariance inflates.
+     Tests behavior when neither input supplies new observations. The current
+     localizer does not propagate covariance during an observation outage.
 
   2. Extended Pose-only gap (t~54.2-63.8 s, ~9.5 s)
      Single longest GICP outage.  Odometry runs normally throughout but
-     without an absolute reference the filter gradually drifts.
+     without an absolute reference, odometry integration can accumulate drift.
 
   3. Dual-sensor outage (t~68.4-70.5 s)
      Odometry drops for ~2.1 s inside another Pose gap (4.8 s, t~66.2-71.0).

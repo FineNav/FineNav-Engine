@@ -5,6 +5,7 @@
 #include <cmath>
 #include <limits>
 #include <numbers>
+#include <type_traits>
 
 #include <gtest/gtest.h>
 
@@ -15,6 +16,9 @@ namespace finenav::example {
 namespace {
 
 constexpr double kEps = 1e-9;
+
+static_assert(!std::is_base_of_v<DummyLinePlanner::IWorldView, DummyFollowPlanner::IWorldView>);
+static_assert(!std::is_base_of_v<DummyFollowPlanner::IWorldView, DummyLinePlanner::IWorldView>);
 
 geometry_msgs::msg::Pose pose(double x, double y, double z = 0.0) {
     geometry_msgs::msg::Pose result;
@@ -33,7 +37,8 @@ core::RobotState robotState(double x, double y, double yaw = 0.0) {
     return state;
 }
 
-class TestWorldView final : public DummyWorldView {
+template <typename PlannerT>
+class TestWorldView final : public PlannerT::IWorldView {
   public:
     explicit TestWorldView(bool walkable = true) : walkable_(walkable) {}
 
@@ -43,7 +48,7 @@ class TestWorldView final : public DummyWorldView {
     bool walkable_;
 };
 
-class SamplingProbeWorldView final : public DummyWorldView {
+class SamplingProbeWorldView final : public DummyLinePlanner::IWorldView {
   public:
     bool isWalkable(const common::Position3D&) const override {
         ++sample_count;
@@ -53,7 +58,7 @@ class SamplingProbeWorldView final : public DummyWorldView {
     mutable size_t sample_count{0};
 };
 
-class BlockedPositionWorldView final : public DummyWorldView {
+class BlockedPositionWorldView final : public DummyLinePlanner::IWorldView {
   public:
     explicit BlockedPositionWorldView(double blocked_x) : blocked_x_(blocked_x) {}
 
@@ -84,7 +89,7 @@ TEST(DummyLinePlanner, RejectsNonfiniteGoalBeforeSampling) {
             EXPECT_FALSE(planner.plan(context, world_view).has_value());
             EXPECT_EQ(world_view.sample_count, 0u);
             if (std::isnan(invalid)) {
-                EXPECT_FALSE(planner.plan(context, TestWorldView{}).has_value());
+                EXPECT_FALSE(planner.plan(context, TestWorldView<DummyLinePlanner>{}).has_value());
             }
         }
     }
@@ -106,7 +111,7 @@ TEST(DummyLinePlanner, RejectsNonfiniteStartBeforeSampling) {
 
         EXPECT_FALSE(planner.plan(context, world_view).has_value());
         EXPECT_EQ(world_view.sample_count, 0u);
-        EXPECT_FALSE(planner.plan(context, TestWorldView{}).has_value());
+        EXPECT_FALSE(planner.plan(context, TestWorldView<DummyLinePlanner>{}).has_value());
     }
 }
 
@@ -125,7 +130,7 @@ TEST(DummyLinePlanner, RejectsNonfiniteResolutionBeforeSampling) {
 
         EXPECT_FALSE(planner.plan(context, world_view).has_value());
         EXPECT_EQ(world_view.sample_count, 0u);
-        EXPECT_FALSE(planner.plan(context, TestWorldView{}).has_value());
+        EXPECT_FALSE(planner.plan(context, TestWorldView<DummyLinePlanner>{}).has_value());
     }
 }
 
@@ -169,7 +174,7 @@ TEST(DummyLinePlanner, SamplesStraightPathAndKeepsExactGoal) {
     const auto state = robotState(0.0, 0.0);
     const core::PlanningContext<DummyLinePlanner> context{state, reference};
 
-    const auto result = planner.plan(context, TestWorldView{});
+    const auto result = planner.plan(context, TestWorldView<DummyLinePlanner>{});
 
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->poses.size(), 4u);
@@ -190,7 +195,7 @@ TEST(DummyLinePlanner, CoincidentStartAndGoalProducesOnePoint) {
     const auto state = robotState(1.0, -2.0);
     const core::PlanningContext<DummyLinePlanner> context{state, reference};
 
-    const auto result = planner.plan(context, TestWorldView{});
+    const auto result = planner.plan(context, TestWorldView<DummyLinePlanner>{});
 
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->poses.size(), 1u);
@@ -232,7 +237,7 @@ TEST(DummyLinePlanner, RejectsEmptyReference) {
     const auto state = robotState(0.0, 0.0);
     const core::PlanningContext<DummyLinePlanner> context{state, reference};
 
-    EXPECT_FALSE(planner.plan(context, TestWorldView{}).has_value());
+    EXPECT_FALSE(planner.plan(context, TestWorldView<DummyLinePlanner>{}).has_value());
 }
 
 TEST(DummyFollowPlanner, TracksTheFirstPointBeyondLookaheadDistance) {
@@ -248,7 +253,7 @@ TEST(DummyFollowPlanner, TracksTheFirstPointBeyondLookaheadDistance) {
     const auto state = robotState(0.9, 0.0);
     const core::PlanningContext<DummyFollowPlanner> context{state, reference};
 
-    const auto result = planner.plan(context, TestWorldView{});
+    const auto result = planner.plan(context, TestWorldView<DummyFollowPlanner>{});
 
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->twists.size(), 1u);
@@ -270,7 +275,7 @@ TEST(DummyFollowPlanner, UsesGoalWhenRemainingPathIsShorterThanLookahead) {
     const auto state = robotState(1.8, -0.2);
     const core::PlanningContext<DummyFollowPlanner> context{state, reference};
 
-    const auto result = planner.plan(context, TestWorldView{});
+    const auto result = planner.plan(context, TestWorldView<DummyFollowPlanner>{});
 
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->twists.size(), 1u);
@@ -285,12 +290,12 @@ TEST(DummyFollowPlanner, RejectsEmptyOrBlockedReference) {
     core::InputTrajectoryT<DummyFollowPlanner> empty_reference;
     const auto state = robotState(0.0, 0.0);
     const core::PlanningContext<DummyFollowPlanner> empty_context{state, empty_reference};
-    EXPECT_FALSE(planner.plan(empty_context, TestWorldView{}).has_value());
+    EXPECT_FALSE(planner.plan(empty_context, TestWorldView<DummyFollowPlanner>{}).has_value());
 
     core::InputTrajectoryT<DummyFollowPlanner> blocked_reference;
     blocked_reference.poses = {pose(0.0, 0.0), pose(1.0, 0.0)};
     const core::PlanningContext<DummyFollowPlanner> blocked_context{state, blocked_reference};
-    EXPECT_FALSE(planner.plan(blocked_context, TestWorldView{false}).has_value());
+    EXPECT_FALSE(planner.plan(blocked_context, TestWorldView<DummyFollowPlanner>{false}).has_value());
 }
 
 }  // namespace

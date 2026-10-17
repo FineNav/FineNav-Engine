@@ -1,29 +1,59 @@
-# Choose Map and Planner
+# 2. Choose Map and Planner
 
-Choose components that fit your robot, sensor data, and navigation task.
-You can use an existing Map and Planner together by writing a WorldView for that pair.
+Start from the inputs and outputs your application needs. In this example, a goal
+becomes a pose path, and that path becomes velocity commands.
 
-## What to check
+## Example components
 
-| Choice | Check before using it |
+| Role | Implementation / registered name | Purpose |
+| --- | --- | --- |
+| Map | `DummyMap` / `dummy_map` | Supplies a minimal occupancy query; every position is unoccupied. |
+| Path Planner | `DummyLinePlanner` / `dummy_line_planner` | Current robot pose + goal → straight pose path. |
+| Tracking Planner | `DummyFollowPlanner` / `dummy_follow_planner` | Robot state + pose path → velocity command. |
+| First adapter | `DummyLineWorldView` / `dummy_line_world_view` | Connects the Map to the line Planner. |
+| Second adapter | `DummyFollowWorldView` / `dummy_follow_world_view` | Connects the same Map to the follower. |
+
+All five components are supplied by ROS package `finenav_example`. They do not
+come from the separate Map and Planner repositories.
+
+## Component configuration
+
+```cpp
+engine->loadAlgoPlugins({"finenav_example"});
+engine->createControlLayer(
+    "dummy_line_world_view", "line_layer", core::EventDrivenPolicy{});
+engine->createControlLayer(
+    "dummy_follow_world_view", "follow_layer", core::PeriodicPolicy{10.0});
+```
+
+`loadAlgoPlugins()` takes **ROS package names**, without `/lib`. Each package
+must publish its plugin libraries with `finenav_register_algo_plugin()`.
+For these Map-reading Planners, `createControlLayer()` selects a **WorldView
+registration**, which already binds the Map and Planner types. It does not
+take two independent Map/Planner names. The engine creates and shares the
+required `dummy_map` server automatically.
+
+## Integration checklist
+
+| Check item | Requirement |
 | --- | --- |
-| Map | Does it accept your environment data and expose the queries you need? |
-| Planner | Does it support your robot's motion and produce the required path or commands? |
-| WorldView | Can the selected Map answer every query in the Planner's `IWorldView` interface? |
+| Environment | The Map represents the environment and accepts the sensor inputs. |
+| Map → Planner | The WorldView implements every query required by the Planner's `IWorldView`. |
+| Planner → next layer | The output contains the pose / velocity fields required by the next layer. |
+| Final output | The final output matches the chassis interface; this example uses `/cmd_vel`. |
+| Plugin loading | The plugins are built and installed; Engine can discover and load them by ROS package name. |
 
-For example, a Planner may ask whether a position is walkable, while a Map exposes
-an occupancy query. Your WorldView connects these two operations.
+Plugin packages must call `finenav_register_algo_plugin(<library_target>)` in
+CMake so `loadAlgoPlugins()` can find their libraries by package name.
+`finenav_example` already includes this configuration; custom plugins must add it.
+See [plugin registration](worldview.md#type-binding-and-plugin-registration).
 
-If a suitable WorldView is already provided with the components, use its registered
-name directly in your C++ application.
+For alternatives, see [finenav_planners](plugins/planners.md) and
+[finenav_maps](plugins/maps.md). Cloning a repository alone does not create
+the WorldView that connects a chosen Map and Planner.
 
-## Find a plugin
+Source: [line Planner](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_planner/include/dummy_line_planner.hpp),
+[follower](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_planner/include/dummy_follow_planner.hpp),
+[Map](https://github.com/FineNav/FineNav-Engine/blob/2c5bbe5/finenav_example/create_custom_map/include/dummy_map.hpp).
 
-Browse [FineNav Plugins](plugins/index.md) for implemented components and repository links.
-The [Maps](plugins/maps.md) and [Planners](plugins/planners.md) pages describe
-their capabilities and example pairings. Use each plugin's installation instructions
-when it is distributed in a separate repository.
-
-Once you have chosen your components, [write a WorldView](worldview.md).
-If you need a new algorithm or map representation, use the
-[Planner](custom-planner.md) or [Map](custom-map.md) development guides.
+Continue with [3. Write a WorldView](worldview.md).

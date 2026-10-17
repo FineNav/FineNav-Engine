@@ -12,15 +12,15 @@ Bag info
 Topics
 ------
   /tf                  tf2_msgs/msg/TFMessage    4189 msgs (~70 Hz)
-  /localization_pose   geometry_msgs/msg/PoseStamped  601 msgs (~10 Hz)
+  /localization_pose   geometry_msgs/msg/PoseWithCovarianceStamped  601 msgs (~10 Hz)
   /Odometry            nav_msgs/msg/Odometry      601 msgs (~10 Hz)
 
 Data sources
 ------------
   /Odometry            — 10 Hz body-frame odometry from FAST-LIO.
   /localization_pose   — 10 Hz absolute pose from GICP relocalisation.
-                         NOTE: PoseStamped (no covariance); eval synthesises
-                         a diagonal covariance from configuration.
+                         The stored messages include covariance, as declared
+                         in metadata.yaml; no PoseStamped conversion is required.
   /tf                  — map -> base_link transform at ~70 Hz, used as
                          ground truth reference.
 

@@ -51,8 +51,10 @@ finenav_planner/docs/ ─┘
 
 默认内容骨架为 Overview、Quickstart、使用指南和示例。插件目录、自定义组件、
 API 参考和排错页面按实际需要加入，不创建空分类。
-FineNav 主线仍为：**下载编译 → 选择 Map/Planner → 使用或编写 WorldView → C++ 配置 → 运行导航**。
-自定义 Map/Planner 放进阶指南，底层实现原理独立放架构文档。
+FineNav-Engine 当前导航采用：**如何安装 → Getting Started 五步教程 → finenav_planners → finenav_maps**。
+五步教程依次为：运行示例、选择 Map/Planner、编写 WorldView、组装控制 Pipeline、按需求配置行为树。
+教程以当前 `finenav_example` 源码为依据，命令和接口随示例更新；自定义 Planner/Map 指南放在对应组件栏目下。
+底层实现原理独立放架构文档。聚合站另为 FineNav-SlamBox、FineNav（ICRA 版本）保留占位页。
 插件具体说明由对应模块仓库维护，生态首页与 Engine 指南提供目录和通用集成入口。
 
 ## 3. 各模块的 mkdocs.yml
@@ -304,21 +306,21 @@ DocuMCP 1.0.0 的现有实验正文填充失败，C++ 上下文生成不受支�
 
 ## 9. 从当前版本迁移
 
-Engine 的已有使用指南现已整理到 `docs/` 和 `docs/guide/`，中文首页为 `index.zh.md`，
-其他页面暂时回退英文。`mkdocs.yml` 声明导航并启用语言后缀与英文回退。
+Engine 的已有使用指南现已整理到 `docs/` 和 `docs/guide/`，十个现有页面均有同名
+`.zh.md` 中文版。`mkdocs.yml` 声明导航并启用语言后缀与缺页英文回退。
 旧详细版完整保存在 `docs-detailed/`，详细版配置和 OpenWiki 导出脚本已指向该目录。
 `docs-user/` 保留为非活动的历史副本，后续修改以 `docs/` 为准。
 Engine 的远程 `gh-pages` 已删除；公开聚合仓库为 `FineNav/FineNav.github.io`，
 部署状态以聚合仓库的 Actions 运行结果为准。
 Engine 本地英文站、中文站和保留的旧详细版均已通过严格构建；
-中文首页与其余页面的英文回退已检查。聚合仓库从 Engine 的远程 `dev` 分支
+双语页面与缺页英文回退机制已检查。聚合仓库从 Engine 的远程 `dev` 分支
 导入并严格构建双语站点已通过，内部页面和资源链接已检查；线上状态查看其 Actions。
 
 实施顺序：
 
 1. 已保存本次迁移前的用户版、详细版和配置，已有备份不覆盖。
 2. 已将详细版保留到 `docs-detailed/`，同步调整配置、导出路径和维护说明。
-3. 已迁入英文指南并更新导航与相对链接；按需继续补充 `.zh.md` 翻译。
+3. 已迁入英文指南并更新导航与相对链接，现有十页的 `.zh.md` 翻译已补齐。
 4. 核对 map/planner 实际文档分支和模块导航，由各仓库维护自己的源文件。
 5. 创建或复用公开的 `FineNav/FineNav.github.io`，添加生态首页、聚合配置和 CI。
 6. 配置最小只读凭据与 Pages，先手动运行验证，再依赖定时更新。

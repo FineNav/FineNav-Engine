@@ -1,48 +1,44 @@
-# 项目总览
+# FineNav-Engine
 
-FineNav-Engine 是用于在 C++ 中构建机器人导航应用的 ROS 2 工具。
-它将环境表示与规划算法接入同一个应用，提供组件配置、规划执行和导航目标提交方式。
+[![FineNav-Engine 概览：分层控制架构、行为树分支选择，以及 Map 与 Planner 的组合。](assets/images/finenav-engine-overview.png)](assets/images/finenav-engine-overview.png)
 
-典型使用流程是：选择 Map 和 Planner，编写连接两者的 WorldView，
-再通过 C++ API 配置导航应用。
+FineNav-Engine 是一个用于组装导航应用的 ROS 2 C++ 工具。选择 Map 和 Planner，
+通过 WorldView 对接地图查询，在 C++ 中组装控制 pipeline，再通过行为树定义导航任务的执行方式。
 
-## 组件如何配合
-
-| 组件 | 在应用中的职责 |
+| 组件 | 配置内容 |
 | --- | --- |
-| **Map** | 表示环境，提供占用状态、地形信息等查询。 |
-| **Planner** | 根据机器人状态、导航输入和环境查询计算路径或运动指令。 |
-| **WorldView** | 通过 Planner 所需的接口提供所选 Map 的信息。 |
-| **FineNavEngine** | 加载插件、装配导航组件，并提供目标提交与取消接口。 |
+| Map | 环境表示方式，以及地图的数据来源。 |
+| Planner | 生成路径或运动指令的算法。 |
+| WorldView | 将所选 Map 的查询转换成 Planner 需要的环境接口。 |
+| 控制 pipeline | 各规划层的连接顺序和执行时机。 |
+| Behavior Tree（行为树） | 任务执行、完成条件、停车和故障恢复。 |
+
+## 入门教程
+
+Getting Started 以 `dev` 分支的 `finenav_example` 为基础，已核对源码版本 `2c5bbe5`。
+教程涵盖示例运行、组件选择、WorldView 适配和导航流程组装。
+
+1. [如何安装](guide/installation.md)：配置 ROS 2 环境、克隆仓库并编译。
+2. [运行示例](guide/quickstart.md)：启动仿真并发送目标点。
+3. [选择 Map 和 Planner](guide/choose-algorithms.md)：理解示例使用的组件组合。
+4. [编写 WorldView](guide/worldview.md)：把地图查询适配到 Planner 接口。
+5. [组装控制 Pipeline](guide/cpp-application.md)：通过 C++ 连接两个控制层。
+6. [按需求配置行为树](guide/behavior-tree.md)：调整任务执行和完成方式。
 
 ```mermaid
 flowchart LR
-    M[Map] -->|环境查询| W[WorldView]
-    W -->|规划接口| P[Planner]
-    G[导航输入] --> P
-    P --> O[路径或运动指令]
+    G[导航目标] --> L[直线路径规划层]
+    L -->|位姿路径| F[路径跟踪层]
+    F --> V[速度指令]
+    M[DummyMap] --> W1[DummyLineWorldView]
+    M --> W2[DummyFollowWorldView]
+    W1 --> L
+    W2 --> F
 ```
 
-WorldView 决定 Planner 如何使用环境信息。例如，可以将 Map 的占用查询转为
-Planner 所需的可通行性查询，或在规划前生成代价场。
+Dummy 组件用于演示接入流程。`DummyMap` 不包含障碍物数据，示例跟踪器也未实现终点朝向对齐和到点减速。
 
-## 使用流程
+## 组件目录
 
-1. 为机器人和环境[选择 Map 和 Planner](guide/choose-algorithms.md)。
-2. [编写 WorldView](guide/worldview.md)，适配 Map 与 Planner。
-3. [配置 C++ 应用](guide/cpp-application.md)：加载插件、选择 WorldView，设置导航与定位参数。
-4. 运行应用，通过 RViz 或 C++ API 发送目标。
-
-FineNav-Engine 提供组件装配与执行、ROS 2 集成、参数处理，以及基于行为树的导航。
-
-## 先使用现有组件，再按需扩展
-
-通过 [FineNav 插件](guide/plugins/index.md)查阅 Map 和 Planner 组件、能力与仓库链接，
-选择适合的组合，并通过 WorldView 连接它们。
-
-需要不同的算法或环境表示时，可以开发[自定义 Planner](guide/custom-planner.md)
-或[自定义 Map](guide/custom-map.md)，再通过 WorldView 接入应用。
-
-按照[快速开始](guide/quickstart.md)编译并运行仓库中的示例。
-
-当前中文首页已提供；其余页面暂时回退到英文，后续可通过同名 `.zh.md` 文件补充翻译。
+[finenav_planners](guide/plugins/planners.md) 和 [finenav_maps](guide/plugins/maps.md)
+分别介绍独立的规划、地图组件仓库及当前接入状态。需要扩展算法时，可继续阅读栏目中的自定义插件指南。

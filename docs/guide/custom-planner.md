@@ -6,9 +6,10 @@ task. Start from the
 
 ## Define the contract
 
-Declare an `IWorldView` interface containing the environment queries the
-algorithm uses. Keep those queries independent of a concrete Map type so a
-WorldView can adapt the selected Map later.
+Define an `IWorldView` interface inside each Planner containing the environment
+queries its algorithm uses. Each Planner owns its interface, even when two
+algorithms currently need the same queries. Keep those queries independent of
+a concrete Map type so a WorldView can adapt the selected Map later.
 
 Choose input and output profiles for each pipeline stage. The layered example
 uses pose input and pose output for path generation:
@@ -27,11 +28,16 @@ static constexpr finenav::core::IOProfile OutputProfile{false, true, false, fals
 
 ## Implement the algorithm
 
-`DummyLinePlanner` demonstrates the complete Planner contract:
+Inside `DummyLinePlanner`, the contract is:
 
 ```cpp
+class IWorldView {
+  public:
+    virtual ~IWorldView() = default;
+    virtual bool isWalkable(const finenav::common::Position3D& position) const = 0;
+};
+
 using ConfigType = dummy_line_planner::Params;
-using IWorldView = DummyWorldView;
 using Context = finenav::core::PlanningContext<DummyLinePlanner>;
 using Result = std::optional<finenav::core::OutputTrajectoryT<DummyLinePlanner>>;
 
@@ -43,6 +49,10 @@ Result plan(const Context& context, const IWorldView& world_view);
 Apply parameters in `configure()`, clear episode state in `reset()`, and compute
 the output from `robot_state`, `ref_traj`, and the WorldView in `plan()`. Return
 `std::nullopt` when valid input cannot produce a result.
+
+The shared library is declared with `add_library(... SHARED ...)` and installed
+to `lib`. The parent package must find `finenav_cmake` and declare it as a build
+dependency. Refer to the example CMake files for the complete setup.
 
 ## Register and publish the plugin
 
