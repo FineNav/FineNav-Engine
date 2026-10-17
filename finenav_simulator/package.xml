@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
     <name>finenav_simulator</name>
-    <version>1.0.0</version>
-    <description>FineNav independent simulation package. Provides Gazebo environment, robot model, pointcloud tools and odometry for simulation.</description>
+    <version>0.5.0</version>
+    <description>Gazebo Sim resources, ROS bridges, and helper nodes for FineNav-Engine simulation, including robot spawning, point-cloud conversion, teleoperation, and odometry.</description>
     <maintainer email="021424216@sues.edu.cn">Chenghao Wang</maintainer>
     <license>MPL-2.0</license>
     <buildtool_depend>ament_cmake</buildtool_depend>

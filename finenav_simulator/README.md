@@ -1,54 +1,76 @@
-# first start
-cd ***_ws //切换到你的工作空间
-colcon build --packages-select finenav_simulator
-source install/setup.bash
+# finenav_simulator
 
-# for real_sim
-export __NV_PRIME_RENDER_OFFLOAD=1
-export __GLX_VENDOR_LIBRARY_NAME=nvidia
-source install/setup.bash
-export DISPLAY=:0
+**Version: 0.5.0**
 
+Gazebo Sim resources, ROS bridges, and helper nodes for FineNav-Engine simulation,
+including robot spawning, point-cloud conversion, teleoperation, and odometry.
+
+## Run
+
+Use Ubuntu 22.04, ROS 2 Humble, and Gazebo Sim / Fortress with a graphical desktop.
+After [building the workspace](../README.md#build), run:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/finenav_ws/install/setup.bash
 ros2 launch finenav_simulator finenav_simulator.launch.py \
-  lio_type:=static \
+  lio_type:=gazebo_odom \
   use_sim_time:=true \
-  world_name:=flat_small_scale_maze.world \
-  publish_map_tf:=true
+  world_name:=flat_small_scale_maze.world
+```
 
-# lio_type
-lio_type:=static 纯传感器模式
-lio_type:=fast_lio fast_lio模式
+The launch entry point is
+[launch/complete/finenav_simulator.launch.py](launch/complete/finenav_simulator.launch.py).
+Gazebo odometry supplies `/odom`; helper nodes publish the corresponding TF and
+an identity `map` to `odom` transform.
 
-# 以下是可选的world，将参数替换为world_name，添加额外的world记得调整导航车出生点
-https://github.com/ZJU-FAST-Lab/uneven_planner //不平坦地形
-map_desert.world
-map_hill.world
-map_vocano.world
+## Localization modes
 
-https://ieeexplore.ieee.org/abstract/document/9636611 //小迷宫地图
-flat_small_scale_maze.world
+| `lio_type` | Behavior |
+| --- | --- |
+| `gazebo_odom` | Use Gazebo odometry without an external SLAM package. Recommended for the example. |
+| `fast_lio` | Start the external `fast_lio` package; also start `octomap_server` unless disabled in the localization launch configuration. |
 
-# 遥控操作指南
-W
-前进，线速度设为 +linear_speed
-S
-后退，线速度设为 -linear_speed
-A
-左转，角速度设为 +angular_speed
-D
-右转，角速度设为 -angular_speed
-X
-线速度和角速度都清零
-Z
-增大线速度档位，默认每次 +0.1
-C
-减小角速度档位，默认每次 -0.1
-Q
-增大角速度档位，默认每次 +0.1
-E
-减小角速度档位，默认每次 -0.1
+The launch default is `fast_lio`, so select `gazebo_odom` explicitly when those
+external packages are not installed. Legacy values `static` and `ground_truth`
+currently follow the Gazebo odometry path; `static` is not a sensors-only mode.
 
+The `publish_map_tf` argument controls the optional static `map` to `odom`
+transform in the FAST-LIO path. It is not needed for `gazebo_odom`.
 
+## Nodes and configuration
 
+- `point_cloud_converter_node`: point-cloud conversion.
+- `simulator_helper_node`: keyboard teleoperation, odometry path, and TF helpers.
+- [ros_gz_bridge.yaml](config/ros_gz_bridge.yaml): Gazebo-to-ROS topic bridges.
+- [world_spawn_poses.yaml](config/world_spawn_poses.yaml): robot spawn pose per world.
+- [fastlio_gazebo_config.yaml](config/fastlio_gazebo_config.yaml): FAST-LIO parameters.
 
+## Teleoperation
 
+The helper reads key codes from `/keyboard/keypress` (`std_msgs/Int32`) and
+publishes `/cmd_vel`. Keys must be sent by a keyboard event source; typing into
+the launch terminal alone does not publish them.
+
+| Key | Action |
+| --- | --- |
+| W / S | Forward / backward. |
+| A / D | Turn left / right. |
+| X | Stop. |
+| Z / C | Increase / decrease linear speed by 0.1 m/s. |
+| Q / E | Increase / decrease angular speed by 0.1 rad/s. |
+
+Initial speeds are 0.5 m/s and 1.0 rad/s. Use one command source at a time when
+running teleoperation and navigation.
+
+## Worlds
+
+Set `world_name` to a file under `resource/worlds/` and configure its spawn pose
+in `world_spawn_poses.yaml` when adding a world.
+
+- `map_desert.world`, `map_hill.world`, `map_vocano.world`: terrain resources
+  referenced from [uneven_planner](https://github.com/ZJU-FAST-Lab/uneven_planner).
+- `flat_small_scale_maze.world`: maze resource; see the
+  [referenced publication](https://ieeexplore.ieee.org/abstract/document/9636611).
+
+Continue with the [navigation example](../finenav_example/getting_started/README.md).

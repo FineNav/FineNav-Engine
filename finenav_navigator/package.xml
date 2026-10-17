@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
     <name>finenav_navigator</name>
-    <version>0.1.0</version>
-    <description>Rolling Grid Map used in FineNav</description>
+    <version>0.5.0</version>
+    <description>Behavior tree navigation and control pipeline execution for FineNav-Engine.</description>
 
     <maintainer email="wangjinghui@sjtu.edu.cn">Jinghui Wang</maintainer>
     <license>MPL 2.0</license>

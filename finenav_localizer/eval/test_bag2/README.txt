@@ -19,5 +19,5 @@ Characteristics
   — 200 Hz high-rate body-frame odometry for fast, responsive dead-reckoning.
   — Rapid motion profile: high-speed translation + rotation.
   — Sparse absolute-pose corrections from GICP (only ~28 frames over 57 s).
-  — Filter relies heavily on odometry integration between rare pose fixes.
-  — Excellent test for Integrator accuracy under sustained high dynamics.
+  — Exercises odometry integration between sparse absolute-pose updates.
+  — Tests state estimation under sustained high dynamics.
