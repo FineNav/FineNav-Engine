@@ -2,7 +2,6 @@
 
 WorldView 把选定 Map 的查询适配成 Planner 需要的接口。
 完整示例位于 `finenav_example/create_custom_world_view/`。
-在示例包中完成适配后，可迁移至自定义插件包。
 
 ## Planner 接口
 
@@ -23,7 +22,6 @@ class DummyLinePlanner {
 
 `DummyFollowPlanner` 也独立声明 `IWorldView`，目前包含相同的查询。
 两个接口是独立类型，适配类分别实现对应 Planner 的接口。
-Planner 只需要判断某个位置是否可通行，不需要依赖具体地图的数据存储方式。
 
 ## 实现适配类
 
@@ -46,10 +44,6 @@ class DummyLineWorldView : public DummyLinePlanner::IWorldView {
     const DummyMap& map_;
 };
 ```
-
-构造函数接收 Map，`isWalkable()` 将查询转换为 `!map_.isOccupied(position)`。
-`configure()` 用于应用适配参数，`prepare()` 可以准备本轮规划所需数据；本例中两者均为空实现。
-`DummyFollowWorldView` 采用相同写法，继承 `DummyFollowPlanner::IWorldView`。
 
 ## 类型绑定与插件注册
 

@@ -43,7 +43,7 @@ and the follower does not implement final-heading alignment or terminal braking.
 
 ## Component catalogues
 
-Browse [finenav_planners](guide/plugins/planners.md) and
-[finenav_maps](guide/plugins/maps.md) for the independent component repositories
+Browse [finenav_planner](guide/plugins/planners.md) and
+[finenav_map](guide/plugins/maps.md) for the independent component repositories
 and their current integration status. Each catalogue also links to custom
 plugin development when an existing component does not meet your needs.

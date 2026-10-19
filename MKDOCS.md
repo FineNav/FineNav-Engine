@@ -6,7 +6,7 @@ with `main`.
 Its path is: install and build, run the supplied example, choose a Map and
 Planner, write a WorldView, assemble a control pipeline, and configure its
 Behavior Tree. Getting Started follows the layered `finenav_example` source.
-The `finenav_planners` and `finenav_maps` sections catalogue the independent
+The `finenav_planner` and `finenav_map` sections catalogue the independent
 component repositories and link to custom Planner and Map development.
 
 The earlier detailed documentation remains in `docs-detailed/`, with its OpenWiki sources

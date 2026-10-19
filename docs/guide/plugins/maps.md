@@ -1,4 +1,4 @@
-# finenav_maps
+# finenav_map
 
 Map components are maintained in
 [FineNav/finenav_map](https://github.com/FineNav/finenav_map).
@@ -13,23 +13,19 @@ git clone https://github.com/FineNav/finenav_map.git src/finenav_map
 
 ## Component catalogue
 
-`stvl_map` is a rolling spatio-temporal voxel Map updated with
-`sensor_msgs/msg/PointCloud2` point clouds.
-Its registered Map name and parameter namespace are both `stvl_map`.
+| ROS package | Registered Map | Purpose |
+| --- | --- | --- |
+| `Temperal_voxel_map` | `Temperal_voxel_map` | Rolling spatio-temporal voxel Map updated from point clouds, with stale occupancy clearing. |
+| `finenav_grid_map` | — | Reusable rolling 3D grid container providing data structures and storage operations for custom Maps. |
 
-It accepts clouds in the map frame or in
-the configured input frame (default `base_link`), and removes stale occupied
-voxels according to its decay setting. See its
-[README and parameter schema](https://github.com/FineNav/finenav_map/tree/main/stvl_map).
+`finenav_grid_map` provides grid indexing, coordinate conversion, storage, and
+window shifting. It does not itself implement the framework's Map interface.
+Custom Maps can reuse it as needed; the framework does not prescribe an
+underlying data structure or require a dependency on this package.
 
-## Engine integration status
-
-The `stvl_map` CMake file does not yet publish the ament resource
-required by the new `loadAlgoPlugins({"package_name"})` API.
-Add plugin discovery registration and a WorldView for the chosen Planner before
-using it with the current Engine. The linked README still shows older engine
-assembly calls; follow the current [WorldView](../worldview.md) and
-[pipeline](../cpp-application.md) tutorials for the application API.
+Package READMEs describe their interfaces and parameters:
+[spatio-temporal voxel Map](https://github.com/FineNav/finenav_map/tree/main/Temperal_voxel_map),
+[grid container](https://github.com/FineNav/finenav_map/tree/main/finenav_grid_map).
 
 ## Example Map
 

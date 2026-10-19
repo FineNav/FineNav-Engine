@@ -56,12 +56,12 @@ flowchart LR
 | `createControlLayer(..., "follow_layer", PeriodicPolicy{10.0})` | Follows the latest path using current robot state at a target 10 Hz. |
 | `registerControlBranch("navigate", {"line_layer", "follow_layer"})` | Connects the layers in that order under branch name `navigate`. |
 
-The first layer consumes the navigation goal; the second consumes the first
-layer's pose path. Do not add `_root` to the list. Registering a branch defines
+The first layer receives the navigation goal; the second receives the first
+layer's pose path. Registering a branch defines
 the connection; the Behavior Tree activates it with `ExecuteControlBranch`.
 
 These assembly methods return `bool`. The minimal example omits error handling;
-in your application, check their return values and stop initialization on failure.
+in your application, you can check their return values to stop initialization on failure.
 
 ## Parameter configuration
 

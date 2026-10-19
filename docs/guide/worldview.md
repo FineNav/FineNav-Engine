@@ -2,7 +2,6 @@
 
 A WorldView adapts the chosen Map to the interface required by a Planner.
 The working example is in `finenav_example/create_custom_world_view/`.
-You can read or modify it in place before creating a separate plugin package.
 
 ## Planner interface
 
@@ -23,8 +22,7 @@ class DummyLinePlanner {
 
 `DummyFollowPlanner` declares a separate `IWorldView` with the same query.
 The interfaces are independent types, so each adapter implements the interface
-of its corresponding Planner. The Planner asks whether a position is walkable;
-it does not need to know how the underlying Map stores its data.
+of its corresponding Planner.
 
 ## Implement the adapter
 
@@ -47,12 +45,6 @@ class DummyLineWorldView : public DummyLinePlanner::IWorldView {
     const DummyMap& map_;
 };
 ```
-
-The constructor receives the Map. `isWalkable()` translates the query to
-`!map_.isOccupied(position)`. `configure()` applies adapter parameters and
-`prepare()` can prepare per-plan data; both are empty in this example.
-`DummyFollowWorldView` follows the same pattern and inherits
-`DummyFollowPlanner::IWorldView`.
 
 ## Type binding and plugin registration
 

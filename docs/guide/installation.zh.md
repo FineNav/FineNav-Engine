@@ -10,8 +10,7 @@
 
 ```bash
 sudo apt update
-sudo apt install -y git build-essential cmake \
-  python3-colcon-common-extensions python3-rosdep
+sudo apt install -y git build-essential cmake python3-colcon-common-extensions python3-rosdep
 source /opt/ros/humble/setup.bash
 ```
 
@@ -31,8 +30,7 @@ rosdep update
 
 cd ~/finenav_ws
 source /opt/ros/humble/setup.bash
-rosdep install --from-paths src/FineNav-Engine \
-  --ignore-src --rosdistro humble -y
+rosdep install --from-paths src/FineNav-Engine --ignore-src --rosdistro humble -y
 sudo apt install -y ros-humble-xacro python3-yaml libbenchmark-dev
 ```
 

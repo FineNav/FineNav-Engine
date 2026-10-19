@@ -109,4 +109,4 @@ ros2 launch finenav_example hello_finenav.launch.py
 源码：[示例行为树](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml)、
 [完成条件实现](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_navigator/src/plugins/condition/is_goal_reached.cpp)。
 
-组件目录：[finenav_planners](plugins/planners.md) 和 [finenav_maps](plugins/maps.md)。
+组件目录：[finenav_planner](plugins/planners.md) 和 [finenav_map](plugins/maps.md)。

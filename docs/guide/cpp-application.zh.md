@@ -55,10 +55,10 @@ flowchart LR
 | `createControlLayer(..., "follow_layer", PeriodicPolicy{10.0})` | 按目标 10 Hz，根据最新路径和机器人状态输出跟踪指令。 |
 | `registerControlBranch("navigate", {"line_layer", "follow_layer"})` | 按顺序连接两层，注册名为 `navigate` 的分支。 |
 
-第一层消费导航目标，第二层消费第一层生成的位姿路径。层名列表中不需要加入 `_root`。
+第一层接收导航目标，第二层接收第一层生成的位姿路径。
 注册分支只定义连接关系；由行为树中的 `ExecuteControlBranch` 激活执行。
 
-这些组装接口返回 `bool`。最小示例省略了错误处理；编写自己的应用时，应检查返回值，失败时停止初始化。
+这些组装接口返回 `bool`。最小示例省略了错误处理；编写自己的应用时，可以通过检查返回值，在失败时停止初始化。
 
 ## 参数配置
 

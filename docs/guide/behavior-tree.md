@@ -116,4 +116,4 @@ and retry exhaustion; normal-path execution does not validate recovery.
 Source: [example tree](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml),
 [completion checks](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_navigator/src/plugins/condition/is_goal_reached.cpp).
 
-Next, explore [finenav_planners](plugins/planners.md) and [finenav_maps](plugins/maps.md).
+Next, explore [finenav_planner](plugins/planners.md) and [finenav_map](plugins/maps.md).

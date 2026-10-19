@@ -15,8 +15,7 @@ Use Ubuntu 22.04 with ROS 2 Humble Desktop installed. Run these commands in Bash
 
 ```bash
 sudo apt update
-sudo apt install -y git build-essential cmake \
-  python3-colcon-common-extensions python3-rosdep libbenchmark-dev
+sudo apt install -y git build-essential cmake python3-colcon-common-extensions python3-rosdep libbenchmark-dev
 source /opt/ros/humble/setup.bash
 
 mkdir -p ~/finenav_ws/src

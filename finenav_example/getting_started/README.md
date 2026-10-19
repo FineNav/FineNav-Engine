@@ -41,7 +41,8 @@ The launch file uses Gazebo odometry and loads runtime settings from
 Press **Play** in Gazebo. RViz opens with the `map` frame, robot model, TF,
 odometry, and pose tools configured by
 [config/hello_finenav.rviz](../config/hello_finenav.rviz).
-Use **2D Pose Estimate** to set the initial pose and **2D Goal Pose** to select a goal.
+Gazebo odometry supplies the robot pose without manual initialization.
+Use **2D Goal Pose** to select a goal.
 
 Set `use_rviz:=false` to omit RViz. Set `world_name` to a world file in
 `finenav_simulator/resource/worlds`, or `params_file` to your application YAML.
@@ -49,8 +50,7 @@ Set `use_rviz:=false` to omit RViz. Set `world_name` to a world file in
 Alternatively, send a goal at a nearby unobstructed position:
 
 ```bash
-ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped \
-  "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}"
+ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}"
 ```
 
 The coordinates above are an example; choose them for the robot's actual spawn
