@@ -1,6 +1,6 @@
 # finenav_maps
 
-地图组件维护在 [FineNav/finenav_maps](https://github.com/FineNav/finenav_maps)。
+地图组件维护在 [FineNav/finenav_map](https://github.com/FineNav/finenav_map)。
 
 ## 组件目录
 
@@ -9,7 +9,7 @@ Map 注册名和参数命名空间均为 `stvl_map`。
 
 支持接收地图坐标系或配置的输入坐标系（默认 `base_link`）内的点云，
 并根据衰减配置清除过期占据体素。详见
-[README 与参数定义](https://github.com/FineNav/finenav_maps/tree/main/stvl_map)。
+[README 与参数定义](https://github.com/FineNav/finenav_map/tree/main/stvl_map)。
 
 ## Engine 接入状态
 

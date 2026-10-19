@@ -1,7 +1,7 @@
 # finenav_maps
 
 Map components are maintained in
-[FineNav/finenav_maps](https://github.com/FineNav/finenav_maps).
+[FineNav/finenav_map](https://github.com/FineNav/finenav_map).
 
 ## Component catalogue
 
@@ -12,7 +12,7 @@ Its registered Map name and parameter namespace are both `stvl_map`.
 It accepts clouds in the map frame or in
 the configured input frame (default `base_link`), and removes stale occupied
 voxels according to its decay setting. See its
-[README and parameter schema](https://github.com/FineNav/finenav_maps/tree/main/stvl_map).
+[README and parameter schema](https://github.com/FineNav/finenav_map/tree/main/stvl_map).
 
 ## Engine integration status
 
