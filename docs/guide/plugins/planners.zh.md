@@ -2,6 +2,14 @@
 
 规划组件集中维护在 [FineNav/finenav_planner](https://github.com/FineNav/finenav_planner)。
 
+## 下载
+
+```bash
+mkdir -p ~/finenav_ws/src
+cd ~/finenav_ws
+git clone https://github.com/FineNav/finenav_planner.git src/finenav_planner
+```
+
 ## 组件目录
 
 | ROS 包 | Planner 注册名 | 用途 |

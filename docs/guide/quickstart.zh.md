@@ -1,22 +1,8 @@
 # 1. 运行示例
 
-完成[如何安装](installation.md)后，运行原始 `finenav_example`，检查机器人运动和速度输出。
+完成[如何安装](installation.md)后，通过一个 launch 文件启动仿真、导航应用和 RViz。
 
-## 启动仿真：终端 1
-
-```bash
-cd ~/finenav_ws
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-ros2 launch finenav_simulator finenav_simulator.launch.py \
-  lio_type:=gazebo_odom use_sim_time:=true \
-  world_name:=flat_small_scale_maze.world publish_map_tf:=true
-```
-
-在 Gazebo 中点击 **Play**。`gazebo_odom` 表示使用仿真里程计，避开 Fast-LIO 定位链。
-此模式的 map 到 odom 变换由仿真辅助节点提供。
-
-## 启动导航应用：终端 2
+## 启动
 
 ```bash
 cd ~/finenav_ws
@@ -25,25 +11,30 @@ source install/setup.bash
 ros2 launch finenav_example hello_finenav.launch.py
 ```
 
-launch 文件加载 `finenav_example/config/hello_finenav.yaml`，启动
-`getting_started/hello_finenav.cpp`。等待 `FineNav-Engine ready.`，并检查它之前是否有插件加载错误；
-这行提示本身不能证明组件已经成功组装。
+启动后，在 Gazebo 中点击 **Play**。launch 文件使用 Gazebo 里程计，
+加载 `hello_finenav.yaml` 和 `hello_finenav.rviz`，并统一使用仿真时间。
+RViz 已设置 `map` 坐标系、机器人模型、TF、里程计和目标点工具。
 
-## 发送目标：终端 3
+## 发送目标
+
+1. 使用 RViz 的 **2D Pose Estimate** 设置初始位姿，与仿真中机器人位置保持一致。
+2. 使用 **2D Goal Pose** 在机器人附近设置目标点。
+
+选择一段无遮挡的直线路径，观察机器人运动。示例不发布占据地图。
+
+## 启动参数
+
+| 参数 | 默认值 | 用途 |
+| --- | --- | --- |
+| `world_name` | `flat_small_scale_maze.world` | 仿真场景。 |
+| `params_file` | `config/hello_finenav.yaml` | 导航应用配置文件。 |
+| `use_rviz` | `true` | 是否启动 RViz。 |
+
+关闭 RViz：
 
 ```bash
-source /opt/ros/humble/setup.bash
-source ~/finenav_ws/install/setup.bash
-rviz2 --ros-args -p use_sim_time:=true
+ros2 launch finenav_example hello_finenav.launch.py use_rviz:=false
 ```
-
-1. 将 **Fixed Frame** 设为 `map`。
-2. 按需添加 **RobotModel**、**TF**，通过订阅 `/odom` 的 **Odometry** 显示确定机器人位置。
-3. 使用 **2D Pose Estimate** 向 `/initialpose` 发布初始位姿，与仿真中机器人的实际位置保持一致。
-4. 使用 **2D Goal Pose** 向 `/goal_pose` 发送附近的目标；工具栏没有该项时，通过 **+** 添加。
-
-选择一段无遮挡的直线路径。预期结果：机器人沿路径开始运动。
-本示例不发布占据地图，因此 RViz 的 Map 显示为空并不代表启动失败。
 
 ## 输出检查
 

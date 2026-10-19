@@ -1,23 +1,9 @@
 # 1. Run the example
 
-Complete [Installation](installation.md) first. In this step you run the
-unmodified `finenav_example` application and observe its velocity output.
+Complete [Installation](installation.md), then use one launch file to start the
+simulator, navigation application, and RViz.
 
-## Start the simulator — terminal 1
-
-```bash
-cd ~/finenav_ws
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-ros2 launch finenav_simulator finenav_simulator.launch.py \
-  lio_type:=gazebo_odom use_sim_time:=true \
-  world_name:=flat_small_scale_maze.world publish_map_tf:=true
-```
-
-Press **Play** in Gazebo. `gazebo_odom` selects simulator odometry instead of
-the Fast-LIO chain. The simulator helper provides the map-to-odom transform in this mode.
-
-## Start the navigation application — terminal 2
+## Launch
 
 ```bash
 cd ~/finenav_ws
@@ -26,26 +12,31 @@ source install/setup.bash
 ros2 launch finenav_example hello_finenav.launch.py
 ```
 
-The launch file loads `finenav_example/config/hello_finenav.yaml` and starts
-`getting_started/hello_finenav.cpp`. Wait for `FineNav-Engine ready.` and inspect
-earlier messages for plugin-loading errors; that line alone does not confirm successful assembly.
+Press **Play** in Gazebo. The launch file uses Gazebo odometry, loads
+`hello_finenav.yaml` and `hello_finenav.rviz`, and uses simulation time.
+RViz is configured with the `map` frame, robot model, TF, odometry, and goal tools.
 
-## Send a goal — terminal 3
+## Send a goal
+
+1. Use RViz's **2D Pose Estimate** to set an initial pose consistent with the simulated robot.
+2. Use **2D Goal Pose** to select a nearby goal.
+
+Choose a short unobstructed straight path and observe the robot moving.
+The example does not publish an occupancy map.
+
+## Launch arguments
+
+| Argument | Default | Purpose |
+| --- | --- | --- |
+| `world_name` | `flat_small_scale_maze.world` | Simulator world. |
+| `params_file` | `config/hello_finenav.yaml` | Navigation application parameters. |
+| `use_rviz` | `true` | Whether to start RViz. |
+
+Launch without RViz:
 
 ```bash
-source /opt/ros/humble/setup.bash
-source ~/finenav_ws/install/setup.bash
-rviz2 --ros-args -p use_sim_time:=true
+ros2 launch finenav_example hello_finenav.launch.py use_rviz:=false
 ```
-
-1. Set **Fixed Frame** to `map`.
-2. Add **RobotModel** and **TF** displays if needed. An **Odometry** display on `/odom` helps locate the robot.
-3. Use **2D Pose Estimate** to publish an initial pose on `/initialpose`, consistent with the robot's simulated pose.
-4. Use **2D Goal Pose**, or RViz's **2D Goal Pose** tool added through **+**, to publish a nearby goal on `/goal_pose`.
-
-Choose a short unobstructed segment for this demonstration. You should see the
-robot start following the straight path. This example does not publish an occupancy
-map, so a blank Map display is expected.
 
 ## Output checks
 

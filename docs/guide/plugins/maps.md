@@ -3,6 +3,14 @@
 Map components are maintained in
 [FineNav/finenav_map](https://github.com/FineNav/finenav_map).
 
+## Download
+
+```bash
+mkdir -p ~/finenav_ws/src
+cd ~/finenav_ws
+git clone https://github.com/FineNav/finenav_map.git src/finenav_map
+```
+
 ## Component catalogue
 
 `stvl_map` is a rolling spatio-temporal voxel Map updated with

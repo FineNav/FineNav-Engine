@@ -31,27 +31,21 @@ sudo rosdep init  # Skip if already initialized.
 rosdep update
 cd ~/finenav_ws
 rosdep install --from-paths src/FineNav-Engine --ignore-src --rosdistro humble -y
-colcon build --symlink-install --packages-up-to finenav_example finenav_simulator
+colcon build --symlink-install
 source install/setup.bash
 ```
 
 ## Run the example
 
-Source ROS and the workspace in each terminal. Start the simulator:
-
-```bash
-source /opt/ros/humble/setup.bash
-source ~/finenav_ws/install/setup.bash
-ros2 launch finenav_simulator finenav_simulator.launch.py lio_type:=gazebo_odom
-```
-
-In another terminal:
+Start the simulator, FineNav-Engine application, and RViz together:
 
 ```bash
 source /opt/ros/humble/setup.bash
 source ~/finenav_ws/install/setup.bash
 ros2 launch finenav_example hello_finenav.launch.py
 ```
+
+Press **Play** in Gazebo, then use **2D Goal Pose** in RViz to select a nearby goal.
 
 See the [simulation tutorial](finenav_example/getting_started/README.md) for
 goal input, configuration, and example limitations. The example uses the plugins

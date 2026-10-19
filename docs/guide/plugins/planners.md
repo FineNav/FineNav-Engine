@@ -3,6 +3,14 @@
 The planner collection is maintained in
 [FineNav/finenav_planner](https://github.com/FineNav/finenav_planner).
 
+## Download
+
+```bash
+mkdir -p ~/finenav_ws/src
+cd ~/finenav_ws
+git clone https://github.com/FineNav/finenav_planner.git src/finenav_planner
+```
+
 ## Component catalogue
 
 | ROS package | Registered Planner | Purpose |

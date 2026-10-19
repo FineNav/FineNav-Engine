@@ -2,6 +2,14 @@
 
 地图组件维护在 [FineNav/finenav_map](https://github.com/FineNav/finenav_map)。
 
+## 下载
+
+```bash
+mkdir -p ~/finenav_ws/src
+cd ~/finenav_ws
+git clone https://github.com/FineNav/finenav_map.git src/finenav_map
+```
+
 ## 组件目录
 
 `stvl_map` 是使用 `sensor_msgs/msg/PointCloud2` 点云更新的滚动时空体素地图。
