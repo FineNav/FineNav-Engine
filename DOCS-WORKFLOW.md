@@ -45,13 +45,14 @@ finenav_planner/docs/ ─┘
 - `architecture/` 放设计与架构，`guide/` 放安装、配置和使用，`examples/` 放案例。
 - 图片放在文档目录内，尽量使用相对链接。导航引用英文文件，不单独重复列出中文页。
 - 中英文的命令、包名、参数和 API 名称保持一致。
+- Linux 终端命令每条使用单行，不使用反斜杠续行，确保可直接复制执行。
 
 组织级目录和语言方案已经确定，不重复询问。只有首次设计具体页面导航或重构导航时，
 才询问使用默认结构、现有结构还是指定结构；局部更新直接沿用现有导航。
 
 默认内容骨架为 Overview、Quickstart、使用指南和示例。插件目录、自定义组件、
 API 参考和排错页面按实际需要加入，不创建空分类。
-FineNav-Engine 当前导航采用：**如何安装 → Getting Started 五步教程 → finenav_planners → finenav_maps**。
+FineNav-Engine 当前导航采用：**如何安装 → Getting Started 五步教程 → finenav_planner → finenav_map**。
 五步教程依次为：运行示例、选择 Map/Planner、编写 WorldView、组装控制 Pipeline、按需求配置行为树。
 教程以当前 `finenav_example` 源码为依据，命令和接口随示例更新；自定义 Planner/Map 指南放在对应组件栏目下。
 底层实现原理独立放架构文档。聚合站另为 FineNav-SlamBox、FineNav（ICRA 版本）保留占位页。

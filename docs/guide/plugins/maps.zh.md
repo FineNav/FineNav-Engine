@@ -1,22 +1,29 @@
-# finenav_maps
+# finenav_map
 
-地图组件维护在 [FineNav/finenav_maps](https://github.com/FineNav/finenav_maps)。
+地图组件维护在 [FineNav/finenav_map](https://github.com/FineNav/finenav_map)。
+
+## 下载
+
+```bash
+mkdir -p ~/finenav_ws/src
+cd ~/finenav_ws
+git clone https://github.com/FineNav/finenav_map.git src/finenav_map
+```
 
 ## 组件目录
 
-`stvl_map` 是使用 `sensor_msgs/msg/PointCloud2` 点云更新的滚动时空体素地图。
-Map 注册名和参数命名空间均为 `stvl_map`。
+| ROS 包 | Map 注册名 | 用途 |
+| --- | --- | --- |
+| `Temperal_voxel_map` | `Temperal_voxel_map` | 基于点云更新的滚动时空体素地图，支持过期占据体素清除。 |
+| `finenav_grid_map` | — | 可复用的三维滚动栅格容器，为自定义 Map 提供底层数据结构与存储操作。 |
 
-支持接收地图坐标系或配置的输入坐标系（默认 `base_link`）内的点云，
-并根据衰减配置清除过期占据体素。详见
-[README 与参数定义](https://github.com/FineNav/finenav_maps/tree/main/stvl_map)。
+`finenav_grid_map` 提供栅格索引、坐标转换、存储和窗口移动等基础能力。
+它本身不是实现框架 Map 接口的地图插件；开发自定义 Map 时可按需复用，
+框架不限定 Map 的底层数据结构，也不要求依赖该包。
 
-## Engine 接入状态
-
-`stvl_map` 的 CMake 尚未发布 `loadAlgoPlugins({"package_name"})`
-所需的 ament 资源。使用前需要补充插件发现声明，并为所选 Planner 实现 WorldView。
-其 README 中仍有旧版 Engine 组装调用；应用 API 请以当前的
-[WorldView](../worldview.md) 和 [Pipeline](../cpp-application.md) 教程为准。
+具体接口和参数见对应目录的 README：
+[时空体素地图](https://github.com/FineNav/finenav_map/tree/main/Temperal_voxel_map)、
+[栅格容器](https://github.com/FineNav/finenav_map/tree/main/finenav_grid_map)。
 
 ## 示例 Map
 

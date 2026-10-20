@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>finenav_cmake</name>
-  <version>0.5.0</version>
+  <version>0.5.1</version>
   <description>CMake build helpers for FineNav algorithm plugin registration
     in the ament resource index and parameter generation.</description>
 

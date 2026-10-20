@@ -13,10 +13,7 @@ After [building the workspace](../README.md#build), run:
 ```bash
 source /opt/ros/humble/setup.bash
 source ~/finenav_ws/install/setup.bash
-ros2 launch finenav_simulator finenav_simulator.launch.py \
-  lio_type:=gazebo_odom \
-  use_sim_time:=true \
-  world_name:=flat_small_scale_maze.world
+ros2 launch finenav_simulator finenav_simulator.launch.py lio_type:=gazebo_odom use_sim_time:=true world_name:=flat_small_scale_maze.world
 ```
 
 The launch entry point is

@@ -30,31 +30,27 @@ DummyFollowWorldView --+
 
 ## Run
 
-Start the simulator:
-
-```bash
-ros2 launch finenav_simulator finenav_simulator.launch.py \
-  lio_type:=gazebo_odom \
-  use_sim_time:=true \
-  world_name:=flat_small_scale_maze.world
-```
-
-Start FineNav-Engine:
+Start the simulator, navigation application, and RViz together:
 
 ```bash
 ros2 launch finenav_example hello_finenav.launch.py
 ```
 
-The launch file loads runtime settings from
+The launch file uses Gazebo odometry and loads runtime settings from
 [config/hello_finenav.yaml](../config/hello_finenav.yaml).
+Press **Play** in Gazebo. RViz opens with the `map` frame, robot model, TF,
+odometry, and pose tools configured by
+[config/hello_finenav.rviz](../config/hello_finenav.rviz).
+Gazebo odometry supplies the robot pose without manual initialization.
+Use **2D Goal Pose** to select a goal.
 
-Gazebo supplies odometry and the simulation TF. Open RViz separately, set its
-fixed frame to `map`, and configure **2D Goal Pose** to publish on `/goal_pose`.
+Set `use_rviz:=false` to omit RViz. Set `world_name` to a world file in
+`finenav_simulator/resource/worlds`, or `params_file` to your application YAML.
+
 Alternatively, send a goal at a nearby unobstructed position:
 
 ```bash
-ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped \
-  "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}"
+ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}"
 ```
 
 The coordinates above are an example; choose them for the robot's actual spawn

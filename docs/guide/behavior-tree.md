@@ -2,7 +2,7 @@
 
 The pipeline defines how to compute commands. The Behavior Tree defines when
 to execute it, what counts as arrival, and how to respond to a failure.
-Start with `finenav_example/getting_started/behavior_trees/navigate_to_pose.xml`.
+This section uses `finenav_example/getting_started/behavior_trees/navigate_to_pose.xml` as an example to explain how to configure a Behavior Tree.
 
 ## Example behavior tree
 
@@ -43,7 +43,17 @@ Start with `finenav_example/getting_started/behavior_trees/navigate_to_pose.xml`
 </root>
 ```
 
-The C++ application chooses `GettingStartedNavigate` as its default tree.
+## Loading and execution
+
+The application entry point, `hello_finenav.cpp`, sets `GettingStartedNavigate` as the default tree:
+
+```cpp
+engine->setDefaultBehaviorTree("GettingStartedNavigate");
+```
+
+`GettingStartedNavigate` must match the main tree's `ID` in the loaded XML.
+The navigator uses this default tree when a navigation request does not specify a tree ID.
+
 The navigator loads the XML from the directory configured in YAML:
 
 ```yaml
@@ -52,6 +62,12 @@ The navigator loads the XML from the directory configured in YAML:
     behavior_trees:
       - "finenav_example/getting_started/behavior_trees"
 ```
+
+[4. Assemble a control pipeline](cpp-application.md) registers a control branch with `registerControlBranch("navigate", ...)`.
+Registering a branch defines the connections between control layers; the Behavior Tree activates it with `ExecuteControlBranch`.
+The XML attribute `branch="navigate"` must match the branch name registered in `hello_finenav.cpp`.
+
+## Node reference
 
 | Node | Purpose |
 | --- | --- |
@@ -64,9 +80,9 @@ The navigator loads the XML from the directory configured in YAML:
 | `GetFaultedControlLayer` + `RestartFromControlLayer` | Selects the faulted layer and requests restarting that layer and its downstream layers. |
 
 `ExecuteControlBranch` does not decide that a goal is reached. Keep a completion
-condition such as `IsGoalReached` so the task can finish. The recovery sequence
-is the supplied example policy; validate actual failure/restart cases with your
-selected algorithms before relying on it.
+condition such as `IsGoalReached` so the task can finish.
+
+Recovery behaviors are configured in the Behavior Tree XML file. The recovery sequence shown here is an example; configure the actual recovery behavior according to your operating scenario and task requirements.
 
 ## Task configuration
 
@@ -78,42 +94,20 @@ selected algorithms before relying on it.
 | Retry a different number of times | Change `number_of_retries`. |
 | Execute another pipeline | Register it in C++, then use its exact name in `branch`. |
 
-The supplied dummy follower has no final-yaw alignment or distance-based terminal
-braking. Its default tree requests both (`yaw_tolerance="0.1"` and
-`speed_tolerance="0.1"`), so reaching the vicinity alone may not complete the task.
+!!! note "Additional information"
 
-For a **position-only simulation exercise**, replace the existing `IsGoalReached`
-element inside `DriveToGoal` with:
+    The dummy follower is a simplified implementation for this example. It does not implement final-heading alignment or distance-based braking near the goal. The example Behavior Tree sets both `yaw_tolerance="0.1"` and `speed_tolerance="0.1"`, so the task may remain active near the goal if the heading or speed condition is not met. For a **position-only simulation exercise**, replace the existing `IsGoalReached` element inside `DriveToGoal` with:
 
-```xml
-<IsGoalReached xy_tolerance="0.25"
-               yaw_tolerance="0.0"
-               speed_tolerance="0.0"/>
-```
+    ```xml
+    <IsGoalReached xy_tolerance="0.25"
+                   yaw_tolerance="0.0"
+                   speed_tolerance="0.0"/>
+    ```
 
 For this node, zero disables the corresponding check. Once position is reached,
-the tree halts the branch and calls `StopChassisMotion`. This changes the
-exercise's acceptance criteria; it does not add braking or heading control.
+the tree halts the branch and calls `StopChassisMotion`.
 
-## Configuration validation
-
-Edit the XML in the source package. Keep its directory in the runtime YAML.
-If you rename the main tree ID, update `setDefaultBehaviorTree()` as well.
-Rebuild to update installed resources and restart:
-
-```bash
-cd ~/finenav_ws
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install --packages-up-to finenav_example
-source install/setup.bash
-ros2 launch finenav_example hello_finenav.launch.py
-```
-
-Send a new goal and check that the chosen condition ends the task and `/cmd_vel`
-receives a stop command. For recovery changes, also exercise an algorithm failure
-and retry exhaustion; normal-path execution does not validate recovery.
-
-Source: [example tree](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml),
+The relevant source code is available in the [example tree](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/behavior_trees/navigate_to_pose.xml) and
 [completion checks](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_navigator/src/plugins/condition/is_goal_reached.cpp).
 
-Next, explore [finenav_planners](plugins/planners.md) and [finenav_maps](plugins/maps.md).
+Next, explore [finenav_planner](plugins/planners.md) and [finenav_map](plugins/maps.md).

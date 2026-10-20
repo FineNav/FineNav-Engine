@@ -40,5 +40,5 @@ Dummy 组件用于演示接入流程。`DummyMap` 不包含障碍物数据，示
 
 ## 组件目录
 
-[finenav_planners](guide/plugins/planners.md) 和 [finenav_maps](guide/plugins/maps.md)
+[finenav_planner](guide/plugins/planners.md) 和 [finenav_map](guide/plugins/maps.md)
 分别介绍独立的规划、地图组件仓库及当前接入状态。需要扩展算法时，可继续阅读栏目中的自定义插件指南。

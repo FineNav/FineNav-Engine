@@ -1,34 +1,31 @@
-# finenav_planners
+# finenav_planner
 
 The planner collection is maintained in
 [FineNav/finenav_planner](https://github.com/FineNav/finenav_planner).
+
+## Download
+
+```bash
+mkdir -p ~/finenav_ws/src
+cd ~/finenav_ws
+git clone https://github.com/FineNav/finenav_planner.git src/finenav_planner
+```
 
 ## Component catalogue
 
 | ROS package | Registered Planner | Purpose |
 | --- | --- | --- |
 | `finenav_route_planner` | `astar_planner` | Grid A* route search. |
-| `finenav_route_planner` | `bfs_planner` | Grid search with a zero heuristic. |
-| `finenav_route_planner` | `route_planner` | Topological route planning using a road graph. |
+| `finenav_route_planner` | `bfs_planner` | Dijkstra grid search with a zero heuristic. |
+| `finenav_route_planner` | `dstarlite_planner` | D* Lite incremental replanning after obstacle changes. |
+| `finenav_route_planner` | `detour_planner` | Detects blockages along a reference path and generates a local 2D detour. |
 | `finenav_mppi_SE2` | `finenav_mppi_SE2` | MPPI local planning for ground robots. |
-| `finenav_rotate_heading_aligner` | `finenav_rotate_shim` | Heading alignment component. |
+| `finenav_rotate_shim` | `finenav_rotate_shim` | Heading alignment before path tracking. |
 
 Package READMEs describe their interfaces and parameters:
 [route planners](https://github.com/FineNav/finenav_planner/tree/main/finenav_route_planner),
 [MPPI](https://github.com/FineNav/finenav_planner/tree/main/finenav_mppi_SE2),
 [heading alignment](https://github.com/FineNav/finenav_planner/tree/main/finenav_rotate_heading_aligner).
-
-## Engine integration status
-
-These packages are a component catalogue, not a preassembled navigation application.
-These components do not yet declare `finenav_register_algo_plugin()`
-resources for the new package-name discovery API. Before using a component,
-publish its shared library through `finenav_cmake`, implement the required
-WorldView if it reads a Map, and verify pipeline input/output compatibility.
-
-In particular, check the heading aligner's completion semantics when porting it:
-current Engine treats `std::nullopt` from a Planner as a failure, not successful
-stage completion. Do not copy old TrackingPolicy-based instructions into the new pipeline.
 
 ## Example Planners
 

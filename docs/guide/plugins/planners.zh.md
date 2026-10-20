@@ -1,31 +1,30 @@
-# finenav_planners
+# finenav_planner
 
 规划组件集中维护在 [FineNav/finenav_planner](https://github.com/FineNav/finenav_planner)。
+
+## 下载
+
+```bash
+mkdir -p ~/finenav_ws/src
+cd ~/finenav_ws
+git clone https://github.com/FineNav/finenav_planner.git src/finenav_planner
+```
 
 ## 组件目录
 
 | ROS 包 | Planner 注册名 | 用途 |
 | --- | --- | --- |
 | `finenav_route_planner` | `astar_planner` | 栅格 A* 路径搜索。 |
-| `finenav_route_planner` | `bfs_planner` | 使用零启发函数的栅格搜索。 |
-| `finenav_route_planner` | `route_planner` | 基于拓扑路网的路径规划。 |
+| `finenav_route_planner` | `bfs_planner` | 使用零启发函数的 Dijkstra 栅格搜索。 |
+| `finenav_route_planner` | `dstarlite_planner` | 障碍变化后的 D* Lite 增量重规划。 |
+| `finenav_route_planner` | `detour_planner` | 检测参考路径堵塞并生成二维局部绕行路径。 |
 | `finenav_mppi_SE2` | `finenav_mppi_SE2` | 面向地面机器人的 MPPI 局部规划。 |
-| `finenav_rotate_heading_aligner` | `finenav_rotate_shim` | 航向对齐组件。 |
+| `finenav_rotate_shim` | `finenav_rotate_shim` | 路径跟踪前的航向对齐。 |
 
 具体接口和参数见对应目录的 README：
 [路径规划](https://github.com/FineNav/finenav_planner/tree/main/finenav_route_planner)、
 [MPPI](https://github.com/FineNav/finenav_planner/tree/main/finenav_mppi_SE2)、
 [航向对齐](https://github.com/FineNav/finenav_planner/tree/main/finenav_rotate_heading_aligner)。
-
-## Engine 接入状态
-
-以下组件需完成接入后组装为导航应用。
-这些组件尚未为包名发现 API 声明 `finenav_register_algo_plugin()` 资源。
-使用前需要通过 `finenav_cmake` 发布共享库；读取地图的算法还需配套 WorldView，
-并检查上下游的输入、输出是否匹配。
-
-迁移航向对齐组件时，还要核对完成语义：当前 Engine 将 Planner 返回的 `std::nullopt`
-视为失败，不表示该阶段成功完成。不能直接把旧 TrackingPolicy 的切换流程套进新 pipeline。
 
 ## 示例 Planner
 

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
     <name>finenav_engine_cpp</name>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
     <description>C++ orchestration library for FineNav-Engine localization, behavior tree navigation, and control pipelines.</description>
 
     <maintainer email="wangjinghui@sjtu.edu.cn">Jinghui Wang</maintainer>
