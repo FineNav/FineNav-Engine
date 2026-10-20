@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
     <name>finenav_simulator</name>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
     <description>Gazebo Sim resources, ROS bridges, and helper nodes for FineNav-Engine simulation, including robot spawning, point-cloud conversion, teleoperation, and odometry.</description>
     <maintainer email="021424216@sues.edu.cn">Chenghao Wang</maintainer>
     <license>MPL-2.0</license>

@@ -19,7 +19,7 @@ source /opt/ros/humble/setup.bash
 ```bash
 mkdir -p ~/finenav_ws/src
 cd ~/finenav_ws
-git clone --branch main https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
+git clone https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
 ```
 
 ## 3. 安装依赖
@@ -30,8 +30,8 @@ rosdep update
 
 cd ~/finenav_ws
 source /opt/ros/humble/setup.bash
+sudo apt install -y ros-humble-xacro python3-yaml
 rosdep install --from-paths src/FineNav-Engine --ignore-src --rosdistro humble -y
-sudo apt install -y ros-humble-xacro python3-yaml libbenchmark-dev
 ```
 
 ## 4. 编译
@@ -39,16 +39,8 @@ sudo apt install -y ros-humble-xacro python3-yaml libbenchmark-dev
 ```bash
 cd ~/finenav_ws
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install
+colcon build --symlink-install --cmake-args -DBUILD_TESTING=OFF
 source install/setup.bash
 ```
 
-## 5. 启动示例
-
-通过 launch 文件同时启动仿真、导航应用和 RViz：
-
-```bash
-ros2 launch finenav_example hello_finenav.launch.py
-```
-
-仿真配置与目标发送见 [1. 运行示例](quickstart.md)。
+启动示例、仿真配置与目标发送见 [1. 运行示例](quickstart.md)。

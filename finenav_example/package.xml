@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>finenav_example</name>
-  <version>0.5.0</version>
+  <version>0.5.1</version>
   <description>Getting-started FineNav-Engine application and example map, planner, and world-view plugins.</description>
   <maintainer email="wangjinghui@sjtu.edu.cn">Jinghui Wang</maintainer>
   <license>MPL-2.0</license>

@@ -33,10 +33,11 @@ ros2 launch finenav_example hello_finenav.launch.py
 | 找不到包或可执行文件 | 确认编译成功，并已加载 `install/setup.bash`。 |
 | 机器人不动 | 确认 Gazebo 已点击 **Play**，并已在 RViz 中发送目标。 |
 
-源码入口：[示例应用](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/hello_finenav.cpp)、
-[启动配置](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/config/hello_finenav.yaml)。
+示例的源代码以及相应的参数配置在
+[hello_finenav.cpp](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/hello_finenav.cpp) 和
+[hello_finenav.yaml](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/config/hello_finenav.yaml) 中。
 
-后续教程将介绍示例项目的组织与构建过程：
+后续教程将详细介绍如何从 0 开始构造示例项目：
 
 - [2. 选择 Map 和 Planner](choose-algorithms.md)
 - [3. 编写 WorldView](worldview.md)

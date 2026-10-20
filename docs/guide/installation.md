@@ -20,7 +20,7 @@ source /opt/ros/humble/setup.bash
 ```bash
 mkdir -p ~/finenav_ws/src
 cd ~/finenav_ws
-git clone --branch main https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
+git clone https://github.com/FineNav/FineNav-Engine.git src/FineNav-Engine
 ```
 
 ## 3. Install dependencies
@@ -31,8 +31,8 @@ rosdep update
 
 cd ~/finenav_ws
 source /opt/ros/humble/setup.bash
+sudo apt install -y ros-humble-xacro python3-yaml
 rosdep install --from-paths src/FineNav-Engine --ignore-src --rosdistro humble -y
-sudo apt install -y ros-humble-xacro python3-yaml libbenchmark-dev
 ```
 
 ## 4. Build
@@ -40,16 +40,8 @@ sudo apt install -y ros-humble-xacro python3-yaml libbenchmark-dev
 ```bash
 cd ~/finenav_ws
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install
+colcon build --symlink-install --cmake-args -DBUILD_TESTING=OFF
 source install/setup.bash
 ```
 
-## 5. Launch the example
-
-Start the simulator, navigation application, and RViz together:
-
-```bash
-ros2 launch finenav_example hello_finenav.launch.py
-```
-
-See [1. Run the example](quickstart.md) for simulator configuration and goal input.
+See [1. Run the example](quickstart.md) for launching the example, simulator configuration, and goal input.

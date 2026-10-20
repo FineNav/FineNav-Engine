@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
     <name>finenav_visualizer</name>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
     <description>ROS 2 visualization channels for publishing RViz markers and point clouds in FineNav-Engine.</description>
     <maintainer email="wangjinghui@sjtu.edu.cn">Jinghui Wang</maintainer>
     <license>MPL 2.0</license>

@@ -34,10 +34,11 @@ Choose a short unobstructed straight path and observe the robot moving.
 | Package or executable not found | Confirm the build succeeded and `install/setup.bash` was sourced. |
 | Robot remains still | Confirm Gazebo is playing and a goal has been sent from RViz. |
 
-Source: [example application](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/hello_finenav.cpp),
-[launch configuration](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/config/hello_finenav.yaml).
+The example source code and its parameter configuration are in
+[hello_finenav.cpp](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/getting_started/hello_finenav.cpp) and
+[hello_finenav.yaml](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/config/hello_finenav.yaml).
 
-The following tutorials describe how the example project is organized and assembled:
+The following tutorials explain in detail how to build the example project from scratch:
 
 - [2. Choose Map and Planner](choose-algorithms.md)
 - [3. Write a WorldView](worldview.md)

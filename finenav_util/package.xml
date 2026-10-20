@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
     <name>finenav_util</name>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
     <description>Reusable ROS 2 node threads, action servers, logging, and timing utilities for FineNav-Engine.</description>
 
     <maintainer email="wangjinghui@sjtu.edu.cn">Jinghui Wang</maintainer>

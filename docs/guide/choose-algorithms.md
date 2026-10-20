@@ -22,9 +22,10 @@ into a pose path, then into velocity commands.
 | Inputs and outputs | The Planner accepts upstream data and produces the output required by the next layer. |
 | Final output | The final output matches the chassis interface; this example uses `/cmd_vel`. |
 
+The source code for the example's Map and Planner components is in
+[Map](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_map/include/dummy_map.hpp),
+[line Planner](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_planner/include/dummy_line_planner.hpp), and
+[tracking Planner](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_planner/include/dummy_follow_planner.hpp).
+
 For alternatives, see [finenav_planner](plugins/planners.md) and
 [finenav_map](plugins/maps.md).
-
-Source: [line Planner](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_planner/include/dummy_line_planner.hpp),
-[follower](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_planner/include/dummy_follow_planner.hpp),
-[Map](https://github.com/FineNav/FineNav-Engine/blob/main/finenav_example/create_custom_map/include/dummy_map.hpp).
