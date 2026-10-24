@@ -30,9 +30,8 @@ namespace finenav::navigator {
  *   node     (rclcpp::Node::SharedPtr,         默认 "{@_node}")       仅用于错误日志。
  */
 class RestartControlBranch : public BT::SyncActionNode {
-public:
-    RestartControlBranch(const std::string& name, const BT::NodeConfig& config)
-        : BT::SyncActionNode(name, config) {}
+  public:
+    RestartControlBranch(const std::string& name, const BT::NodeConfig& config) : BT::SyncActionNode(name, config) {}
 
     static BT::PortsList providedPorts();
 

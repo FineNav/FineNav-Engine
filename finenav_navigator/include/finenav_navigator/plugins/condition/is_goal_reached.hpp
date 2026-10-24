@@ -37,14 +37,13 @@ namespace finenav::navigator {
  * Returns SUCCESS when all enabled checks pass simultaneously.
  */
 class IsGoalReached : public BT::ConditionNode {
-public:
+  public:
     IsGoalReached(const std::string& name, const BT::NodeConfig& config);
     static BT::PortsList providedPorts();
     BT::NodeStatus tick() override;
 
-private:
-    static void quaternionToRPY(const geometry_msgs::msg::Quaternion& q,
-                                double& roll, double& pitch, double& yaw);
+  private:
+    static void quaternionToRPY(const geometry_msgs::msg::Quaternion& q, double& roll, double& pitch, double& yaw);
     static double normalizeAngle(double angle);
 };
 

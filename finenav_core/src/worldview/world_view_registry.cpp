@@ -17,10 +17,9 @@ void WorldViewRegistry::registerEntry(std::string name, Entry entry) {
     bool inserted = insertOrKeep(name, std::move(entry));
     if (!inserted) {
         FINENAV_LOG_ERROR(rclcpp::get_logger("WorldViewRegistry"),
-            "WorldView '{}' already registered — keeping the FIRST registrant.", name);
+                          "WorldView '{}' already registered — keeping the FIRST registrant.", name);
     } else {
-        FINENAV_LOG_DEBUG(rclcpp::get_logger("WorldViewRegistry"),
-            "WorldView '{}' registered.", name);
+        FINENAV_LOG_DEBUG(rclcpp::get_logger("WorldViewRegistry"), "WorldView '{}' registered.", name);
     }
 }
 

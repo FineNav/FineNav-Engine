@@ -31,7 +31,7 @@ namespace finenav::navigator {
  * Returns SUCCESS when the robot is within tolerance of the k-th waypoint.
  */
 class IsWaypointReached : public BT::ConditionNode {
-public:
+  public:
     IsWaypointReached(const std::string& name, const BT::NodeConfig& config);
     static BT::PortsList providedPorts();
     BT::NodeStatus tick() override;

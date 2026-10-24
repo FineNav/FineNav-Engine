@@ -47,10 +47,10 @@ namespace finenav::viz::detail {
 /// publish() a caller could reach: reading an algorithm tells you where its data
 /// goes — nowhere, until FineNavVisualizer::publish(channel, frame) is called.
 class VizChannel {
-public:
+  public:
     virtual ~VizChannel() = default;
 
-protected:
+  protected:
     /// A channel is its topic (see topic_), and nothing else.
     explicit VizChannel(std::string topic) : topic_(std::move(topic)) {}
 
@@ -69,8 +69,7 @@ protected:
     /// window for another thread to stage into, and that staging would then be
     /// thrown away by the clear.  Locks mutex_ itself; called only by
     /// FineNavVisualizer::publish(channel, frame).
-    virtual void publishStaged(rclcpp::Node& node, common::Frame frame,
-                               const rclcpp::Time& stamp) = 0;
+    virtual void publishStaged(rclcpp::Node& node, common::Frame frame, const rclcpp::Time& stamp) = 0;
 
     /// The exact ROS topic this channel publishes on — its identity, and the key
     /// FineNavVisualizer keeps it under.  Nothing is ever appended to it.
@@ -87,7 +86,7 @@ protected:
     /// one lock per sub-shape.
     std::mutex mutex_;
 
-private:
+  private:
     friend class finenav::viz::FineNavVisualizer;
 
     /// Locked wrapper: discard everything staged, publishing nothing.  The
@@ -114,7 +113,7 @@ private:
 /// watched one is what it always was.
 template <typename MsgT>
 class TypedChannel : public VizChannel {
-protected:
+  protected:
     explicit TypedChannel(std::string topic) : VizChannel(std::move(topic)) {}
 
     /// The staged data AS a message, stamped with @p frame and @p stamp — and
@@ -128,9 +127,8 @@ protected:
     /// held — from publishStaged() — so it locks nothing itself.
     virtual MsgT takeMessage(common::Frame frame, const rclcpp::Time& stamp) = 0;
 
-private:
-    void publishStaged(rclcpp::Node& node, common::Frame frame,
-                       const rclcpp::Time& stamp) final {
+  private:
+    void publishStaged(rclcpp::Node& node, common::Frame frame, const rclcpp::Time& stamp) final {
         // One boundary, one atomic step: the staged check, the publisher,
         // the subscription count, the take and the send all happen with the
         // channel locked, and a cycle that sends nothing still drains it below.
@@ -155,14 +153,13 @@ private:
         // for the publisher, and every cycle after it is already gated.  Both
         // counts matter — a subscriber in this process is invisible to the
         // DDS-level count, so testing that one alone would starve it forever.
-        const bool watched = pub_->get_subscription_count() > 0 ||
-                             pub_->get_intra_process_subscription_count() > 0;
+        const bool watched = pub_->get_subscription_count() > 0 || pub_->get_intra_process_subscription_count() > 0;
         if (!watched) {
             // Debug, not warn: staging into a viewer nobody has open is the
             // normal state of a robot at rest, not a fault.  Throttled and
             // level-gated, so a cycle that publishes pays nothing for it.
-            FINENAV_LOG_DEBUG_THROTTLE(node.get_logger(), 5000,
-                                       "Nothing subscribed to '{}' — publish skipped.", topic_);
+            FINENAV_LOG_DEBUG_THROTTLE(node.get_logger(), 5000, "Nothing subscribed to '{}' — publish skipped.",
+                                       topic_);
             // The gate skips the send, not the boundary: a publish boundary
             // drains the channel whether or not anyone was watching, so what a
             // caller staged is consumed either way.

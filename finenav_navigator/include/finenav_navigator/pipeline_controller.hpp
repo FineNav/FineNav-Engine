@@ -9,12 +9,12 @@
 #include <unordered_set>
 #include <vector>
 
-#include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include "finenav_core/plan/branch_table.hpp"
-#include "finenav_interfaces/msg/task_feedback.hpp"
 #include "finenav_core/task_bus/task_bus.hpp"
+#include "finenav_interfaces/msg/task_feedback.hpp"
 
 namespace finenav::navigator {
 
@@ -28,12 +28,11 @@ namespace finenav::navigator {
  * 设计规格）。逐层启停自由度已删除，只保留支路级激活与整管清停。
  */
 class PipelineController {
-public:
+  public:
     using FeedbackMsg = finenav_interfaces::msg::TaskFeedback;
     using Pose = geometry_msgs::msg::Pose;
 
-    PipelineController(rclcpp::Node::SharedPtr node,
-                       finenav::core::TaskMaster* master,
+    PipelineController(rclcpp::Node::SharedPtr node, finenav::core::TaskMaster* master,
                        finenav::core::BranchTable* pipe);
 
     /// 注入导航目标：把 goal_poses[] 发布到 _root/__feedback（开始导航）。
@@ -76,7 +75,7 @@ public:
     /// 即根因，从它重启即可覆盖整条故障后缀。
     void restartFrom(const std::string& control_layer);
 
-private:
+  private:
     rclcpp::Node::SharedPtr node_;
     finenav::core::TaskMaster* master_;
     finenav::core::BranchTable* pipe_;

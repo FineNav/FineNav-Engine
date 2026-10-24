@@ -28,9 +28,8 @@ namespace finenav::navigator {
  *   pipeline      (finenav::navigator::PipelineController*, 默认 "{@_pipeline}") 控制流水线。
  */
 class RestartFromControlLayer : public BT::SyncActionNode {
-public:
-    RestartFromControlLayer(const std::string& name, const BT::NodeConfig& config)
-        : BT::SyncActionNode(name, config) {}
+  public:
+    RestartFromControlLayer(const std::string& name, const BT::NodeConfig& config) : BT::SyncActionNode(name, config) {}
 
     static BT::PortsList providedPorts();
 

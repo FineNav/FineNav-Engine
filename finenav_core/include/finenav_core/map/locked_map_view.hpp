@@ -5,6 +5,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include "finenav_core/map/map_concept.hpp"
+
 namespace finenav::core {
 /**
  * @brief LockedMapRO — RAII read-only view holding a shared_lock.
@@ -15,9 +16,8 @@ namespace finenav::core {
  */
 template <Map MapT>
 class LockedMapRO {
-public:
-    LockedMapRO(const MapT& map, std::shared_mutex& mutex)
-        : map_(map), lock_(mutex) {}
+  public:
+    LockedMapRO(const MapT& map, std::shared_mutex& mutex) : map_(map), lock_(mutex) {}
 
     LockedMapRO(const LockedMapRO&) = delete;
     LockedMapRO& operator=(const LockedMapRO&) = delete;
@@ -25,12 +25,14 @@ public:
     LockedMapRO& operator=(LockedMapRO&&) = default;
 
     const MapT* operator->() const { return &map_; }
+
     const MapT& get() const { return map_; }
 
-private:
+  private:
     const MapT& map_;
     std::shared_lock<std::shared_mutex> lock_;
 };
+
 /**
  * @brief LockedMapRW — RAII read-write view holding a unique_lock.
  *
@@ -41,9 +43,8 @@ private:
  */
 template <Map MapT>
 class LockedMapRW {
-public:
-    LockedMapRW(MapT& map, std::shared_mutex& mutex)
-        : map_(map), lock_(mutex) {}
+  public:
+    LockedMapRW(MapT& map, std::shared_mutex& mutex) : map_(map), lock_(mutex) {}
 
     LockedMapRW(const LockedMapRW&) = delete;
     LockedMapRW& operator=(const LockedMapRW&) = delete;
@@ -51,10 +52,11 @@ public:
     LockedMapRW& operator=(LockedMapRW&&) = default;
 
     MapT* operator->() { return &map_; }
+
     MapT& get() { return map_; }
 
-private:
+  private:
     MapT& map_;
     std::unique_lock<std::shared_mutex> lock_;
 };
-} // namespace finenav::core
+}  // namespace finenav::core

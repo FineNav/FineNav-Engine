@@ -7,8 +7,7 @@
 #include <string>
 #include "behaviortree_cpp/control_node.h"
 
-namespace finenav::navigator
-{
+namespace finenav::navigator {
 /**
  * @brief The RecoveryNode has only two children and returns SUCCESS if and only if the first child
  * returns SUCCESS.
@@ -27,49 +26,41 @@ namespace finenav::navigator
  * </RecoveryNode>
  * @endcode
  */
-class RecoveryNode : public BT::ControlNode
-{
-public:
-  /**
+class RecoveryNode : public BT::ControlNode {
+  public:
+    /**
    * @brief A constructor for finenav::RecoveryNode
    * @param name Name for the XML tag for this node
    * @param conf BT node configuration
    */
-  RecoveryNode(
-    const std::string & name,
-    const BT::NodeConfig & conf);
+    RecoveryNode(const std::string& name, const BT::NodeConfig& conf);
 
-  /**
+    /**
    * @brief A destructor for finenav::RecoveryNode
    */
-  ~RecoveryNode() override = default;
+    ~RecoveryNode() override = default;
 
-  /**
+    /**
    * @brief Creates list of BT ports
    * @return BT::PortsList Containing basic ports along with node-specific ports
    */
-  static BT::PortsList providedPorts()
-  {
-    return {
-      BT::InputPort<int>("number_of_retries", 1, "Number of retries")
-    };
-  }
+    static BT::PortsList providedPorts() { return {BT::InputPort<int>("number_of_retries", 1, "Number of retries")}; }
 
-private:
-  unsigned int current_child_idx_;
-  unsigned int number_of_retries_;
-  unsigned int retry_count_;
+  private:
+    unsigned int current_child_idx_;
+    unsigned int number_of_retries_;
+    unsigned int retry_count_;
 
-  /**
+    /**
    * @brief The main override required by a BT action
    * @return BT::NodeStatus Status of tick execution
    */
-  BT::NodeStatus tick() override;
+    BT::NodeStatus tick() override;
 
-  /**
+    /**
    * @brief The other (optional) override required by a BT action to reset node state
    */
-  void halt() override;
+    void halt() override;
 };
 
 }  // namespace finenav::navigator

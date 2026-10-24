@@ -8,19 +8,19 @@
 #include <mutex>
 #include <string>
 
-#include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "rclcpp/rclcpp.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 
 #include "finenav_core/robot_state/robot_state.hpp"
-#include "finenav_localizer/sources/world_anchor.hpp"
-#include "finenav_localizer/sources/odometry_cache.hpp"
-#include "finenav_localizer/sources/integrator.hpp"
-#include "finenav_localizer/sources/velocity_provider.hpp"
-#include "finenav_util/ros/node_thread.hpp"
 #include "finenav_localizer/localizer_params.hpp"
+#include "finenav_localizer/sources/integrator.hpp"
+#include "finenav_localizer/sources/odometry_cache.hpp"
+#include "finenav_localizer/sources/velocity_provider.hpp"
+#include "finenav_localizer/sources/world_anchor.hpp"
+#include "finenav_util/ros/node_thread.hpp"
 
 namespace finenav::localizer {
 
@@ -38,31 +38,30 @@ namespace finenav::localizer {
  * (state_history_duration) bounds how far back a stamped query can resolve.
  */
 class FineNavLocalizer : public finenav::core::RobotStateProvider {
-public:
-    using Params        = finenav_localizer::Params;
+  public:
+    using Params = finenav_localizer::Params;
     using ParamListener = finenav_localizer::ParamListener;
 
     explicit FineNavLocalizer(rclcpp::Node::SharedPtr parent_node,
-                              rclcpp::NodeOptions pnode_overrides =
-                                  rclcpp::NodeOptions());
+                              rclcpp::NodeOptions pnode_overrides = rclcpp::NodeOptions());
 
-    FineNavLocalizer(const FineNavLocalizer&)            = delete;
+    FineNavLocalizer(const FineNavLocalizer&) = delete;
     FineNavLocalizer& operator=(const FineNavLocalizer&) = delete;
     ~FineNavLocalizer() override = default;
 
-private:
-    using PoseMsg  = geometry_msgs::msg::PoseWithCovarianceStamped;
+  private:
+    using PoseMsg = geometry_msgs::msg::PoseWithCovarianceStamped;
     using TwistMsg = geometry_msgs::msg::TwistWithCovarianceStamped;
-    using OdomMsg  = nav_msgs::msg::Odometry;
+    using OdomMsg = nav_msgs::msg::Odometry;
 
     struct Routing {
         enum class PoseSrc { None, Pose };
         enum class IntegSrc { None, Twist, RelPose };
-        enum class VelSrc  { None, Twist, Odom, AutoDiff };
+        enum class VelSrc { None, Twist, Odom, AutoDiff };
 
-        PoseSrc  pose;
+        PoseSrc pose;
         IntegSrc integration;
-        VelSrc   velocity;
+        VelSrc velocity;
     };
 
     /// Build routing table from params + validate.  Throws on conflict.
@@ -93,28 +92,28 @@ private:
     mutable std::mutex state_mutex_;
 
     // Effect sources
-    Routing                    routing_;
-    WorldAnchor                world_anchor_;
-    OdometryCache              odom_cache_;
-    Integrator                 integrator_;
-    VelocityProvider           velocity_;
+    Routing routing_;
+    WorldAnchor world_anchor_;
+    OdometryCache odom_cache_;
+    Integrator integrator_;
+    VelocityProvider velocity_;
 
     // ROS infrastructure
-    rclcpp::Node::SharedPtr        parent_node_;
-    rclcpp::Node::SharedPtr        pnode_;
+    rclcpp::Node::SharedPtr parent_node_;
+    rclcpp::Node::SharedPtr pnode_;
     std::unique_ptr<ParamListener> param_listener_;
-    Params                         params_;
+    Params params_;
 
-    std::shared_ptr<tf2_ros::TransformBroadcaster>        tf_br_;
+    std::shared_ptr<tf2_ros::TransformBroadcaster> tf_br_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr nav_state_pub_;
 
-    rclcpp::TimerBase::SharedPtr               update_timer_;
+    rclcpp::TimerBase::SharedPtr update_timer_;
     std::unique_ptr<finenav::util::NodeThread> pnode_thread_;
 
-    rclcpp::Subscription<PoseMsg>::SharedPtr  initial_pose_sub_;
-    rclcpp::Subscription<PoseMsg>::SharedPtr  pose_sub_;
+    rclcpp::Subscription<PoseMsg>::SharedPtr initial_pose_sub_;
+    rclcpp::Subscription<PoseMsg>::SharedPtr pose_sub_;
     rclcpp::Subscription<TwistMsg>::SharedPtr twist_sub_;
-    rclcpp::Subscription<OdomMsg>::SharedPtr  odom_sub_;
+    rclcpp::Subscription<OdomMsg>::SharedPtr odom_sub_;
 };
 
 }  // namespace finenav::localizer

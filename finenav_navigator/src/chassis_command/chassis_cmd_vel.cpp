@@ -8,14 +8,12 @@
 
 namespace finenav::navigator {
 
-ChassisCmdVel::ChassisCmdVel(rclcpp::Node::SharedPtr node,
-                             const std::string& topic) {
+ChassisCmdVel::ChassisCmdVel(rclcpp::Node::SharedPtr node, const std::string& topic) {
     pub_ = node->create_publisher<geometry_msgs::msg::Twist>(topic, 10);
 }
 
 bool ChassisCmdVel::validate(const finenav_interfaces::msg::Trajectory& traj) const {
-    return !traj.twists.empty() &&
-           (traj.valid_fields & finenav_interfaces::msg::Trajectory::TRAJ_VEL);
+    return !traj.twists.empty() && (traj.valid_fields & finenav_interfaces::msg::Trajectory::TRAJ_VEL);
 }
 
 void ChassisCmdVel::publish(const finenav_interfaces::msg::Trajectory& traj) {

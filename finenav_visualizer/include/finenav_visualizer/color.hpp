@@ -13,10 +13,27 @@ namespace finenav::viz {
 /// A ColorName converts to it implicitly, so a name is still written plainly at
 /// the call site.
 enum class ColorName {
-    BLACK, BROWN, BLUE, CYAN, GREY, DARK_GREY, GREEN, LIME_GREEN,
-    MAGENTA, ORANGE, PURPLE, RED, PINK, WHITE, YELLOW,
-    TRANSLUCENT, TRANSLUCENT_LIGHT, TRANSLUCENT_DARK,
-    RAND, CLEAR, DEFAULT
+    BLACK,
+    BROWN,
+    BLUE,
+    CYAN,
+    GREY,
+    DARK_GREY,
+    GREEN,
+    LIME_GREEN,
+    MAGENTA,
+    ORANGE,
+    PURPLE,
+    RED,
+    PINK,
+    WHITE,
+    YELLOW,
+    TRANSLUCENT,
+    TRANSLUCENT_LIGHT,
+    TRANSLUCENT_DARK,
+    RAND,
+    CLEAR,
+    DEFAULT
 };
 
 /// An RGBA colour, one component per channel, each in [0, 1].
@@ -75,11 +92,9 @@ enum class ColorMap {
 /// is drawn through.  A value object — configure it once per dataset, then hand
 /// it to every point so the range and the band are said once, not per point.
 class ColorScale {
-public:
+  public:
     /// Two-stop linear ramp: @p low at vmin, @p high at vmax.
-    ColorScale(double vmin, double vmax,
-               const Color& low = ColorName::BLUE,
-               const Color& high = ColorName::RED);
+    ColorScale(double vmin, double vmax, const Color& low = ColorName::BLUE, const Color& high = ColorName::RED);
 
     /// A named multi-stop colormap over [vmin, vmax].
     explicit ColorScale(double vmin, double vmax, ColorMap map);
@@ -90,7 +105,7 @@ public:
     /// colour.
     Color at(double value) const;
 
-private:
+  private:
     // Stop positions in [0, 1], ascending, one colour each; size >= 2.
     std::vector<double> positions_;
     std::vector<Color> colors_;

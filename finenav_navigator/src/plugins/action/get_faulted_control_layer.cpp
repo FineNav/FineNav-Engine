@@ -16,9 +16,9 @@ using FeedbackMsg = finenav_interfaces::msg::TaskFeedback;
 BT::PortsList GetFaultedControlLayer::providedPorts() {
     return {
         BT::OutputPort<std::string>("control_layer",
-            "Name of the most-upstream FAULTED ControlLayer of the active branch"),
+                                    "Name of the most-upstream FAULTED ControlLayer of the active branch"),
         BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
-            "PipelineController holding the control pipeline state"),
+                                           "PipelineController holding the control pipeline state"),
     };
 }
 
@@ -29,7 +29,8 @@ BT::NodeStatus GetFaultedControlLayer::tick() {
     }
 
     const auto& stages = pipeline->activeStages();
-    if (stages.empty()) return BT::NodeStatus::FAILURE;
+    if (stages.empty())
+        return BT::NodeStatus::FAILURE;
 
     // 故障沿管线向下游传播，故活跃支路上的故障层构成 [根因 .. leaf] 的一段后缀：
     // 顺序扫到的第一个 FAULTED 就是根因。

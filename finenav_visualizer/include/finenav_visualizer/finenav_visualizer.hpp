@@ -68,7 +68,7 @@ class PointCloudViz;
 /// A plugin that only receives the handle in setVisualizer() — the common case
 /// — pays for neither.
 class FineNavVisualizer {
-public:
+  public:
     /// A handle with no backend: it was built without a node, so there is
     /// nowhere to publish to.
     ///
@@ -134,7 +134,7 @@ public:
     void clear(MarkerViz& channel);
     void clear(PointCloudViz& channel);
 
-private:
+  private:
     struct Impl;
     std::shared_ptr<Impl> impl_;
 };

@@ -4,12 +4,12 @@
 
 #include <gtest/gtest.h>
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 
 // Pulled in by the finenav header below, so it has to be parsed BEFORE the
 // access hack (see marker_viz_test.cpp for the same pattern).

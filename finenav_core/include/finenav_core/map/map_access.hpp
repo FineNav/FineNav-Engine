@@ -34,7 +34,7 @@ struct MapHandle {
  * mistyped dependency raises a clear error instead of silently casting.
  */
 class MapAccess {
-public:
+  public:
     explicit MapAccess(std::vector<MapHandle> handles) : handles_(std::move(handles)) {}
 
     /** @brief Recover a depended-on map by concrete type.  Throws if absent. */
@@ -45,12 +45,11 @@ public:
                 return *static_cast<const MapT*>(h.data);
             }
         }
-        throw std::runtime_error(
-            "MapAccess: this WorldView's dependencies do not include a map of type '" +
-            std::string(typeid(MapT).name()) + "'.");
+        throw std::runtime_error("MapAccess: this WorldView's dependencies do not include a map of type '" +
+                                 std::string(typeid(MapT).name()) + "'.");
     }
 
-private:
+  private:
     std::vector<MapHandle> handles_;
 };
 

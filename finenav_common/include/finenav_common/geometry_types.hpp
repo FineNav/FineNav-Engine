@@ -67,12 +67,15 @@ struct Region3D {
 constexpr Position3D operator+(const Position3D& a, const Position3D& b) noexcept {
     return {a.x + b.x, a.y + b.y, a.z + b.z};
 }
+
 constexpr Position3D operator-(const Position3D& a, const Position3D& b) noexcept {
     return {a.x - b.x, a.y - b.y, a.z - b.z};
 }
+
 constexpr Position3D operator*(const Position3D& a, double s) noexcept {
     return {a.x * s, a.y * s, a.z * s};
 }
+
 constexpr Position3D operator*(double s, const Position3D& a) noexcept {
     return {a.x * s, a.y * s, a.z * s};
 }
@@ -90,15 +93,11 @@ inline Position3D abs(const Position3D& a) noexcept {
 
 /// True when @p p lies in @p r, faces inclusive.
 constexpr bool contains(const Region3D& r, const Position3D& p) noexcept {
-    return p.x >= r.min.x && p.x <= r.max.x &&
-           p.y >= r.min.y && p.y <= r.max.y &&
-           p.z >= r.min.z && p.z <= r.max.z;
+    return p.x >= r.min.x && p.x <= r.max.x && p.y >= r.min.y && p.y <= r.max.y && p.z >= r.min.z && p.z <= r.max.z;
 }
 
 constexpr Position3D center(const Region3D& r) noexcept {
-    return {(r.min.x + r.max.x) * 0.5,
-            (r.min.y + r.max.y) * 0.5,
-            (r.min.z + r.max.z) * 0.5};
+    return {(r.min.x + r.max.x) * 0.5, (r.min.y + r.max.y) * 0.5, (r.min.z + r.max.z) * 0.5};
 }
 
 /// Extent along each axis — never negative, since min is the low corner.

@@ -10,8 +10,9 @@
 namespace finenav::core {
 
 class IMapResource {
-public:
+  public:
     virtual ~IMapResource() = default;
+
     std::string resourceName() const { return name_; }
 
     // ── Type-erased introspection for WorldView assembly ─────────────────────
@@ -31,8 +32,9 @@ public:
      */
     virtual std::uint64_t revision() const noexcept = 0;
 
-protected:
+  protected:
     explicit IMapResource(std::string name) : name_(std::move(name)) {}
+
     std::string name_;
 };
 

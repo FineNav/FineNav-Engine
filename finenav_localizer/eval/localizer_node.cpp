@@ -10,8 +10,7 @@
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
 
-    auto opts = rclcpp::NodeOptions()
-        .automatically_declare_parameters_from_overrides(true);
+    auto opts = rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true);
     opts.append_parameter_override("use_sim_time", true);
 
     auto node = rclcpp::Node::make_shared("localizer_eval_node", opts);

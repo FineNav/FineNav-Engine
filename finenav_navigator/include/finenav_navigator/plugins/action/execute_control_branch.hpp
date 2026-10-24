@@ -29,7 +29,7 @@ namespace finenav::navigator {
  *   node     (rclcpp::Node::SharedPtr,         默认 "{@_node}")       仅用于错误日志。
  */
 class ExecuteControlBranch : public BT::StatefulActionNode {
-public:
+  public:
     ExecuteControlBranch(const std::string& name, const BT::NodeConfig& config)
         : BT::StatefulActionNode(name, config) {}
 
@@ -39,7 +39,7 @@ public:
     BT::NodeStatus onRunning() override;
     void onHalted() override;
 
-private:
+  private:
     std::string branch_;
 };
 

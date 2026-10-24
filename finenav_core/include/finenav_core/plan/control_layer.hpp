@@ -32,22 +32,19 @@ namespace finenav::core {
  */
 template <Planner PlannerT>
 class ControlLayer : public PipelineNode<PlannerT> {
-public:
-    explicit ControlLayer(
-        rclcpp::Node::SharedPtr node,
-        const std::string& algo_name,
-        const std::string& layer_name,
-        ExecutionPolicyVariant policy = EventDrivenPolicy{},
-        RobotStateProvider* state_provider = nullptr);
+  public:
+    explicit ControlLayer(rclcpp::Node::SharedPtr node, const std::string& algo_name, const std::string& layer_name,
+                          ExecutionPolicyVariant policy = EventDrivenPolicy{},
+                          RobotStateProvider* state_provider = nullptr);
 
     ~ControlLayer() override;
 
-protected:
+  protected:
     void onPlanRef(std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg) override;
 
-private:
+  private:
     // ── construction: one policy → one plumbing set + one episode body ──────
-    void startWorker(std::function<void()> episode_body);   // both policies
+    void startWorker(std::function<void()> episode_body);  // both policies
     bool waitForState();
 
     // ── episode bodies ──────────────────────────────────────────────────────
@@ -66,14 +63,14 @@ private:
 
     // commanded plumbing (shared by both policies); worker_ itself is
     // inherited from PipelineNode.
-    std::thread        worker_thread_;
-    std::atomic<bool>  stop_{false};
+    std::thread worker_thread_;
+    std::atomic<bool> stop_{false};
 
     // Event gating: set by onPlanRef() when a new upstream reference arrives,
     // consumed (and cleared) by the EventDriven episode body on the worker thread.
-    std::atomic<bool>  ref_pending_{false};
+    std::atomic<bool> ref_pending_{false};
 };
 
-} // namespace finenav::core
+}  // namespace finenav::core
 
 #include "finenav_core/plan/detail/control_layer_impl.hpp"

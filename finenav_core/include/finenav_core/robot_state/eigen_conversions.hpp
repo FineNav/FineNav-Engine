@@ -24,8 +24,8 @@ inline void toMsg(const Eigen::Vector3d& pos, finenav_interfaces::msg::RobotStat
 }
 
 inline void fromMsg(const finenav_interfaces::msg::RobotState& msg, Eigen::Quaterniond& ori) {
-    ori = Eigen::Quaterniond(msg.pose.orientation.w, msg.pose.orientation.x,
-                              msg.pose.orientation.y, msg.pose.orientation.z);
+    ori = Eigen::Quaterniond(msg.pose.orientation.w, msg.pose.orientation.x, msg.pose.orientation.y,
+                             msg.pose.orientation.z);
 }
 
 inline void toMsg(const Eigen::Quaterniond& ori, finenav_interfaces::msg::RobotState& msg) {
@@ -59,8 +59,7 @@ inline void toMsgAngularVel(const Eigen::Vector3d& w, finenav_interfaces::msg::R
     msg.twist.angular.z = w.z();
 }
 
-inline void fromMsg(const finenav_interfaces::msg::RobotState& msg,
-                    Eigen::Vector3d& pos, Eigen::Quaterniond& ori,
+inline void fromMsg(const finenav_interfaces::msg::RobotState& msg, Eigen::Vector3d& pos, Eigen::Quaterniond& ori,
                     Eigen::Vector3d& lin_vel, Eigen::Vector3d& ang_vel) {
     fromMsg(msg, pos);
     fromMsg(msg, ori);
@@ -68,9 +67,8 @@ inline void fromMsg(const finenav_interfaces::msg::RobotState& msg,
     fromMsgAngularVel(msg, ang_vel);
 }
 
-inline void toMsg(const Eigen::Vector3d& pos, const Eigen::Quaterniond& ori,
-                  const Eigen::Vector3d& lin_vel, const Eigen::Vector3d& ang_vel,
-                  finenav_interfaces::msg::RobotState& msg) {
+inline void toMsg(const Eigen::Vector3d& pos, const Eigen::Quaterniond& ori, const Eigen::Vector3d& lin_vel,
+                  const Eigen::Vector3d& ang_vel, finenav_interfaces::msg::RobotState& msg) {
     toMsg(pos, msg);
     toMsg(ori, msg);
     toMsgLinearVel(lin_vel, msg);

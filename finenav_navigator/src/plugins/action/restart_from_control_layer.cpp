@@ -13,9 +13,9 @@ namespace finenav::navigator {
 BT::PortsList RestartFromControlLayer::providedPorts() {
     return {
         BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
-            "PipelineController driving the control branches"),
+                                           "PipelineController driving the control branches"),
         BT::InputPort<std::string>("control_layer",
-            "ControlLayer name to restart the pipeline suffix from (inclusive)"),
+                                   "ControlLayer name to restart the pipeline suffix from (inclusive)"),
     };
 }
 

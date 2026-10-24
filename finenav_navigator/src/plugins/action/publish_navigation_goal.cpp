@@ -4,9 +4,9 @@
 
 #include "finenav_navigator/plugins/action/publish_navigation_goal.hpp"
 
-#include <vector>
-#include <geometry_msgs/msg/pose.hpp>
 #include <behaviortree_cpp/bt_factory.h>
+#include <geometry_msgs/msg/pose.hpp>
+#include <vector>
 
 #include "finenav_navigator/pipeline_controller.hpp"
 
@@ -15,9 +15,9 @@ namespace finenav::navigator {
 BT::PortsList PublishNavigationGoal::providedPorts() {
     return {
         BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
-            "PipelineController to publish the navigation goal to"),
+                                           "PipelineController to publish the navigation goal to"),
         BT::InputPort<std::vector<geometry_msgs::msg::Pose>>("goal_poses", "{@goal_poses}",
-            "Goal poses injected into the control pipeline root"),
+                                                             "Goal poses injected into the control pipeline root"),
     };
 }
 

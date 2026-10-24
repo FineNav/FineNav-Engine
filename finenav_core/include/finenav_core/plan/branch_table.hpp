@@ -31,7 +31,7 @@ namespace finenav::core {
  * branch, and a unique branch name.
  */
 class BranchTable {
-public:
+  public:
     // ── 写入（FineNavEngine / JSON parser）──────────────────────────────────
 
     /// Add one named branch.  Returns false (without modifying the table) if
@@ -62,7 +62,7 @@ public:
 
     bool hasNode(const std::string& s) const;
 
-private:
+  private:
     void registerNode(const std::string& s);
     static void appendUnique(std::vector<std::string>& list, const std::string& s);
 

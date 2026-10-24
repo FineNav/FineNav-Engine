@@ -40,8 +40,7 @@ namespace finenav::common::detail {
 /// Type-erased parameter loader shared by planner / map / world_view registries.
 /// (node, void* instance) → IParamPollable; `instance` is cast back to the
 /// concrete algorithm type inside the loader closure.
-using ConfigLoader = std::function<std::shared_ptr<IParamPollable>(
-    rclcpp::Node::SharedPtr, void*)>;
+using ConfigLoader = std::function<std::shared_ptr<IParamPollable>(rclcpp::Node::SharedPtr, void*)>;
 
 /**
  * @brief Header-only base for a name-keyed registry table.
@@ -59,7 +58,7 @@ using ConfigLoader = std::function<std::shared_ptr<IParamPollable>(
  */
 template <typename Entry>
 class RegistryTable {
-public:
+  public:
     /// Insert @p entry under @p name.  Returns false (keeping the FIRST
     /// registrant) if the name already exists.
     bool insertOrKeep(std::string name, Entry entry) {
@@ -72,7 +71,8 @@ public:
     std::optional<Entry> lookup(std::string_view name) const {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = entries_.find(std::string{name});
-        if (it == entries_.end()) return std::nullopt;
+        if (it == entries_.end())
+            return std::nullopt;
         return it->second;
     }
 
@@ -81,12 +81,13 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         std::vector<std::string> out;
         out.reserve(entries_.size());
-        for (const auto& [name, _] : entries_) out.push_back(name);
+        for (const auto& [name, _] : entries_)
+            out.push_back(name);
         std::sort(out.begin(), out.end());
         return out;
     }
 
-protected:
+  protected:
     std::unordered_map<std::string, Entry> entries_;
     mutable std::mutex mutex_;
 };
@@ -110,7 +111,8 @@ protected:
 inline std::string joinNames(const std::vector<std::string>& names) {
     std::string joined;
     for (size_t i = 0; i < names.size(); ++i) {
-        if (i) joined += ", ";
+        if (i)
+            joined += ", ";
         joined += names[i];
     }
     return joined;

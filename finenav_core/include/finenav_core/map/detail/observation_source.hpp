@@ -9,10 +9,10 @@
 #include <mutex>
 #include <string>
 
-#include "rclcpp/rclcpp.hpp"
 #include "finenav_core/map/observation_buffer_policy.hpp"
 #include "finenav_core/robot_state/robot_state.hpp"
 #include "finenav_util/common/log_macros.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 namespace finenav::core::detail {
 
@@ -22,11 +22,10 @@ namespace finenav::core::detail {
  * Non-template so MapRuntime can store a heterogeneous collection.
  */
 class IObservationSource {
-public:
+  public:
     virtual ~IObservationSource() = default;
 
-    virtual void applyBuffered(const rclcpp::Time& now,
-                                RobotStateProvider* state_provider) = 0;
+    virtual void applyBuffered(const rclcpp::Time& now, RobotStateProvider* state_provider) = 0;
 };
 
 /**
@@ -40,25 +39,20 @@ public:
  */
 template <typename MsgT>
 class ObservationSource final : public IObservationSource {
-public:
+  public:
+    using Fuser = std::function<void(const MsgT& msg, const rclcpp::Time& stamp, const RobotState& state)>;
 
-    using Fuser = std::function<void(
-        const MsgT& msg, const rclcpp::Time& stamp,
-        const RobotState& state)>;
-
-    ObservationSource(const std::string& source_name, ObservationBufferPolicy policy,
-                      Fuser fuser, rclcpp::Logger logger);
+    ObservationSource(const std::string& source_name, ObservationBufferPolicy policy, Fuser fuser,
+                      rclcpp::Logger logger);
 
     void enqueueThreadSafe(MsgT&& msg, const rclcpp::Time& stamp);
 
     /// Drain buffered messages and fuse each one into the map.
     /// Skips messages whose timestamped robot state is unavailable.
-    void applyBuffered(const rclcpp::Time& now,
-                       RobotStateProvider* state_provider) override;
+    void applyBuffered(const rclcpp::Time& now, RobotStateProvider* state_provider) override;
 
-private:
-
-    struct BufferedMessage { // Explicitly use RCL_ROS_TIME to prevent time source mismatch
+  private:
+    struct BufferedMessage {  // Explicitly use RCL_ROS_TIME to prevent time source mismatch
         rclcpp::Time stamp{0, 0, RCL_ROS_TIME};
         MsgT msg;
     };

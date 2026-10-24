@@ -19,7 +19,11 @@ struct OptedIn {
     int visualizer_calls = 0;
 
     void setLogger(const rclcpp::Logger& l) { logger = l; }
-    void setVisualizer(const finenav::viz::FineNavVisualizer& v) { viz = v; ++visualizer_calls; }
+
+    void setVisualizer(const finenav::viz::FineNavVisualizer& v) {
+        viz = v;
+        ++visualizer_calls;
+    }
 };
 
 /// An algorithm that OPTS OUT.  The injectors are still called on it, so they
@@ -28,8 +32,9 @@ struct OptedIn {
 struct OptedOut {};
 
 class AlgoRegisterDetailsTest : public ::testing::Test {
-protected:
+  protected:
     void SetUp() override { rclcpp::init(0, nullptr); }
+
     void TearDown() override { rclcpp::shutdown(); }
 };
 
@@ -40,8 +45,7 @@ protected:
 // are private — so it was always false and injection silently never ran: every
 // algorithm kept the logger it made for itself.  Asking about the TYPE with
 // declval is the only form that works, and this test is what says so.
-TEST_F(AlgoRegisterDetailsTest, InjectsNodeScopedLogger)
-{
+TEST_F(AlgoRegisterDetailsTest, InjectsNodeScopedLogger) {
     auto node = std::make_shared<rclcpp::Node>("probe_node");
 
     OptedIn algo;
@@ -53,8 +57,7 @@ TEST_F(AlgoRegisterDetailsTest, InjectsNodeScopedLogger)
     EXPECT_EQ(std::string{algo.logger.get_name()}, "probe_node.dummy_map");
 }
 
-TEST_F(AlgoRegisterDetailsTest, InjectsVisualizerAndReturnsIt)
-{
+TEST_F(AlgoRegisterDetailsTest, InjectsVisualizerAndReturnsIt) {
     auto node = std::make_shared<rclcpp::Node>("probe_node");
 
     OptedIn algo;
@@ -68,8 +71,7 @@ TEST_F(AlgoRegisterDetailsTest, InjectsVisualizerAndReturnsIt)
 
 // An algorithm without the setters must be left alone, not rejected: the
 // injectors run for every registered algorithm.
-TEST_F(AlgoRegisterDetailsTest, SkipsAlgorithmWithoutSetters)
-{
+TEST_F(AlgoRegisterDetailsTest, SkipsAlgorithmWithoutSetters) {
     auto node = std::make_shared<rclcpp::Node>("probe_node");
 
     OptedOut algo;

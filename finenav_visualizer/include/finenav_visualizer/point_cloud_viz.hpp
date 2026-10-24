@@ -35,9 +35,8 @@ namespace finenav::viz {
 ///
 /// Publishes to the topic it was created with, as sensor_msgs/PointCloud2.
 class PointCloudViz : public detail::TypedChannel<sensor_msgs::msg::PointCloud2> {
-public:
-    explicit PointCloudViz(std::string topic)
-        : detail::TypedChannel<sensor_msgs::msg::PointCloud2>(std::move(topic)) {}
+  public:
+    explicit PointCloudViz(std::string topic) : detail::TypedChannel<sensor_msgs::msg::PointCloud2>(std::move(topic)) {}
 
     /// Promise room for @p n points.  Purely an optimisation and never
     /// required — a buffer grows on its own — so it is here for the one caller
@@ -59,7 +58,7 @@ public:
     /// dataset, so it is built once and reused; each point names only its value.
     void addScalarPoint(float x, float y, float z, double value, const ColorScale& scale);
 
-private:
+  private:
     /// The staged points AS a message, stamped — and handed over.  The points
     /// genuinely cannot move into the wire form (PCL's own conversion rewrites
     /// them, field by field, into PointCloud2's layout), so this is the one
@@ -68,8 +67,7 @@ private:
     /// keeps only its capacity for the next cycle.
     ///
     /// Called with mutex_ held (from publishStaged), so it locks nothing itself.
-    sensor_msgs::msg::PointCloud2 takeMessage(common::Frame frame,
-                                              const rclcpp::Time& stamp) override;
+    sensor_msgs::msg::PointCloud2 takeMessage(common::Frame frame, const rclcpp::Time& stamp) override;
 
     bool empty() const override { return cloud_.empty(); }
 

@@ -53,10 +53,8 @@ void injectLogger(rclcpp::Node::SharedPtr node, AlgoT& algo, std::string_view na
 }
 
 template <typename AlgoT>
-std::shared_ptr<finenav::viz::FineNavVisualizer> injectVisualizer(
-    rclcpp::Node::SharedPtr node, AlgoT& algo) {
-    if constexpr (requires { algo.setVisualizer(
-            std::declval<finenav::viz::FineNavVisualizer&>()); }) {
+std::shared_ptr<finenav::viz::FineNavVisualizer> injectVisualizer(rclcpp::Node::SharedPtr node, AlgoT& algo) {
+    if constexpr (requires { algo.setVisualizer(std::declval<finenav::viz::FineNavVisualizer&>()); }) {
         auto viz = std::make_shared<finenav::viz::FineNavVisualizer>(node);
         algo.setVisualizer(*viz);
         return viz;
@@ -72,8 +70,8 @@ std::shared_ptr<finenav::viz::FineNavVisualizer> injectVisualizer(
  * @tparam ListenerT generate_parameter_library ParamListener (PARAM_NS::ParamListener).
  */
 template <typename AlgoT, typename ParamsT, typename ListenerT>
-std::shared_ptr<common::IParamPollable> makeParamPollable(
-    rclcpp::Node::SharedPtr node, AlgoT& algo, std::string_view algo_name) {
+std::shared_ptr<common::IParamPollable> makeParamPollable(rclcpp::Node::SharedPtr node, AlgoT& algo,
+                                                          std::string_view algo_name) {
     // Inject framework resources FIRST — configure() may already rely on the
     // logger / visualizer being present.
     injectLogger(node, algo, algo_name);
@@ -91,11 +89,9 @@ std::shared_ptr<common::IParamPollable> makeParamPollable(
         ParamsT params;
         std::string algo_name;
 
-        ParamPollable(std::shared_ptr<ListenerT> l,
-                      std::shared_ptr<finenav::viz::FineNavVisualizer> v,
-                      AlgoT* a, ParamsT p, std::string n)
-            : listener(std::move(l)), viz(std::move(v)),
-              algo_ptr(a), params(std::move(p)), algo_name(std::move(n)) {}
+        ParamPollable(std::shared_ptr<ListenerT> l, std::shared_ptr<finenav::viz::FineNavVisualizer> v, AlgoT* a,
+                      ParamsT p, std::string n)
+            : listener(std::move(l)), viz(std::move(v)), algo_ptr(a), params(std::move(p)), algo_name(std::move(n)) {}
 
         // algo_ptr is a non-owning borrow of the algorithm.  The keeper may
         // outlive the algorithm (it also owns the visualizer), so clear it here
@@ -106,8 +102,7 @@ std::shared_ptr<common::IParamPollable> makeParamPollable(
             if (listener->is_old(params)) {
                 params = listener->get_params();
                 RCLCPP_DEBUG(rclcpp::get_logger(algo_name),
-                    "Algo '{}': dynamic params updated, forwarding to configure().",
-                    algo_name);
+                             "Algo '{}': dynamic params updated, forwarding to configure().", algo_name);
                 algo_ptr->configure(params);
             }
         }
@@ -125,10 +120,8 @@ std::shared_ptr<common::IParamPollable> makeParamPollable(
  */
 template <typename AlgoT, typename ParamsT, typename ListenerT>
 common::detail::ConfigLoader makeConfigLoader(std::string_view algo_name) {
-    return [algo_name](rclcpp::Node::SharedPtr node, void* instance)
-        -> std::shared_ptr<common::IParamPollable> {
-        return makeParamPollable<AlgoT, ParamsT, ListenerT>(
-            node, *static_cast<AlgoT*>(instance), algo_name);
+    return [algo_name](rclcpp::Node::SharedPtr node, void* instance) -> std::shared_ptr<common::IParamPollable> {
+        return makeParamPollable<AlgoT, ParamsT, ListenerT>(node, *static_cast<AlgoT*>(instance), algo_name);
     };
 }
 

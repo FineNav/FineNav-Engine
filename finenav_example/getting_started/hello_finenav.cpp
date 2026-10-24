@@ -19,10 +19,8 @@ int main(int argc, char** argv) {
     engine->setDefaultBehaviorTree("GettingStartedNavigate");
 
     engine->loadAlgoPlugins({"finenav_example"});
-    engine->createControlLayer(
-        "dummy_line_world_view", "line_layer", core::EventDrivenPolicy{});
-    engine->createControlLayer(
-        "dummy_follow_world_view", "follow_layer", core::PeriodicPolicy{10.0});
+    engine->createControlLayer("dummy_line_world_view", "line_layer", core::EventDrivenPolicy{});
+    engine->createControlLayer("dummy_follow_world_view", "follow_layer", core::PeriodicPolicy{10.0});
     engine->registerControlBranch("navigate", {"line_layer", "follow_layer"});
 
     RCLCPP_INFO(node->get_logger(), "FineNav-Engine ready.");

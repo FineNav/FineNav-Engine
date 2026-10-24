@@ -8,17 +8,14 @@
 
 namespace finenav::localizer {
 
-void VelocityProvider::setFromTwist(const Eigen::Vector3d& v_body,
-                                     const Eigen::Vector3d& omega_body,
-                                     finenav::core::RobotState& state) const {
+void VelocityProvider::setFromTwist(const Eigen::Vector3d& v_body, const Eigen::Vector3d& omega_body,
+                                    finenav::core::RobotState& state) const {
     core::toMsgLinearVel(v_body, state);
     core::toMsgAngularVel(omega_body, state);
 }
 
-void VelocityProvider::autoDiffFromPose(const Eigen::Vector3d& p,
-                                         const Eigen::Quaterniond& q,
-                                         const rclcpp::Time& stamp,
-                                         finenav::core::RobotState& state) {
+void VelocityProvider::autoDiffFromPose(const Eigen::Vector3d& p, const Eigen::Quaterniond& q,
+                                        const rclcpp::Time& stamp, finenav::core::RobotState& state) {
     const rclcpp::Time stamp_ros(stamp.nanoseconds(), RCL_ROS_TIME);
     if (has_prev_) {
         const double dt = (stamp_ros - prev_stamp_).seconds();
@@ -32,10 +29,10 @@ void VelocityProvider::autoDiffFromPose(const Eigen::Vector3d& p,
             core::toMsgAngularVel(ang_vel, state);
         }
     }
-    prev_p_      = p;
-    prev_q_      = q;
-    prev_stamp_  = stamp_ros;
-    has_prev_    = true;
+    prev_p_ = p;
+    prev_q_ = q;
+    prev_stamp_ = stamp_ros;
+    has_prev_ = true;
 }
 
 }  // namespace finenav::localizer

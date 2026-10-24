@@ -8,9 +8,7 @@
 
 namespace finenav::example {
 
-DummyMap::DummyMap()
-    : bounds_{finenav::common::Position3D{-50, -50, -5},
-              finenav::common::Position3D{ 50,  50,  5}} {}
+DummyMap::DummyMap() : bounds_{finenav::common::Position3D{-50, -50, -5}, finenav::common::Position3D{50, 50, 5}} {}
 
 void DummyMap::configure(const ConfigType& cfg) {
     RCLCPP_INFO(logger_, "DummyMap configured: window_size=%.1f", cfg.window_size);
@@ -21,7 +19,9 @@ bool DummyMap::isInside(const finenav::common::Position3D& p) const {
     return contains(bounds_, p);
 }
 
-finenav::common::Region3D DummyMap::getWindowBounds() const { return bounds_; }
+finenav::common::Region3D DummyMap::getWindowBounds() const {
+    return bounds_;
+}
 
 finenav::common::Position3D DummyMap::getWindowCenter() const {
     return center(bounds_);

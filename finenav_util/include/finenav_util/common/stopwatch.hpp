@@ -25,14 +25,11 @@ namespace finenav::util {
  */
 
 class Stopwatch {
-public:
+  public:
     Stopwatch(rclcpp::Logger logger, std::string name)
-        : logger_(std::move(logger)), name_(std::move(name)),
-          start_(std::chrono::steady_clock::now()) {}
+        : logger_(std::move(logger)), name_(std::move(name)), start_(std::chrono::steady_clock::now()) {}
 
-    ~Stopwatch() {
-        FINENAV_LOG_DEBUG(logger_, "{}: {:.2f} ms", name_, elapsed_ms());
-    }
+    ~Stopwatch() { FINENAV_LOG_DEBUG(logger_, "{}: {:.2f} ms", name_, elapsed_ms()); }
 
     /**
      * @brief Elapsed wall-clock time in milliseconds since construction.
@@ -50,9 +47,8 @@ public:
     bool warn_if_over(double threshold_ms) {
         double elapsed = elapsed_ms();
         if (elapsed > threshold_ms) {
-            FINENAV_LOG_WARN_THROTTLE(logger_, 1000,
-                "{}: {:.2f} ms > {:.1f} ms threshold — timer overrun",
-                name_, elapsed, threshold_ms);
+            FINENAV_LOG_WARN_THROTTLE(logger_, 1000, "{}: {:.2f} ms > {:.1f} ms threshold — timer overrun", name_,
+                                      elapsed, threshold_ms);
             return true;
         }
         return false;
@@ -63,7 +59,7 @@ public:
     Stopwatch(Stopwatch&&) = delete;
     Stopwatch& operator=(Stopwatch&&) = delete;
 
-private:
+  private:
     rclcpp::Logger logger_;
     std::string name_;
     std::chrono::steady_clock::time_point start_;

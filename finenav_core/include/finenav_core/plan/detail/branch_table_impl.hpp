@@ -11,26 +11,32 @@
 namespace finenav::core {
 
 inline void BranchTable::registerNode(const std::string& s) {
-    if (node_set_.count(s)) return;
+    if (node_set_.count(s))
+        return;
     nodes_.push_back(s);
     node_set_.insert(s);
 }
 
 inline void BranchTable::appendUnique(std::vector<std::string>& list, const std::string& s) {
     for (const auto& existing : list) {
-        if (existing == s) return;
+        if (existing == s)
+            return;
     }
     list.push_back(s);
 }
 
 inline bool BranchTable::addBranch(const std::string& name, std::vector<std::string> stages) {
-    if (name.empty() || branches_.count(name)) return false;
-    if (stages.empty()) return false;
+    if (name.empty() || branches_.count(name))
+        return false;
+    if (stages.empty())
+        return false;
 
     std::unordered_set<std::string> seen;
     for (const auto& s : stages) {
-        if (s.empty() || s == "_root") return false;   // _root is implicit, not an element
-        if (seen.count(s)) return false;               // duplicate stage within a branch
+        if (s.empty() || s == "_root")
+            return false;  // _root is implicit, not an element
+        if (seen.count(s))
+            return false;  // duplicate stage within a branch
         seen.insert(s);
     }
 
@@ -57,8 +63,7 @@ inline const std::vector<std::string>& BranchTable::branch(const std::string& na
     return (it != branches_.end()) ? it->second : empty;
 }
 
-inline const std::unordered_map<std::string, std::vector<std::string>>&
-BranchTable::branches() const {
+inline const std::unordered_map<std::string, std::vector<std::string>>& BranchTable::branches() const {
     return branches_;
 }
 
@@ -80,7 +85,8 @@ inline std::vector<std::string> BranchTable::leaves() const {
     std::vector<std::string> result;
     for (const auto& name : nodes_) {
         auto it = succs_.find(name);
-        if (it == succs_.end() || it->second.empty()) result.push_back(name);
+        if (it == succs_.end() || it->second.empty())
+            result.push_back(name);
     }
     return result;
 }

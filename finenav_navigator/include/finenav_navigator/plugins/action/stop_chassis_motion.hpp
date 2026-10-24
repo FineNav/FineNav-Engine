@@ -18,9 +18,8 @@ namespace finenav::navigator {
  *   chassis_cmd (finenav::navigator::IChassisCommand*, 默认 "{@_chassis_cmd}") 底盘指令接口。
  */
 class StopChassisMotion : public BT::SyncActionNode {
-public:
-    StopChassisMotion(const std::string& name, const BT::NodeConfig& config)
-        : BT::SyncActionNode(name, config) {}
+  public:
+    StopChassisMotion(const std::string& name, const BT::NodeConfig& config) : BT::SyncActionNode(name, config) {}
 
     static BT::PortsList providedPorts();
 

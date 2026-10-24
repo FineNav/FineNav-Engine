@@ -54,7 +54,7 @@ enum class PlanRefState { kNoInput, kValid, kUpstreamFaulted };
  */
 template <Planner PlannerT>
 class PipelineNode : public IPipelineNode {
-public:
+  public:
     // ── IPipelineNode ─────────────────────────────────────────────────────
 
     void connectFrom(const std::string& parent_name) override;
@@ -62,19 +62,14 @@ public:
     rclcpp::Node::SharedPtr getPrivateNode() const override;
 
     /// IPipelineNode — attach a pre-built WorldView plus its backing map resources.
-    void attachWorldView(
-        BuiltWorldView built,
-        std::vector<std::shared_ptr<IMapResource>> maps) override;
+    void attachWorldView(BuiltWorldView built, std::vector<std::shared_ptr<IMapResource>> maps) override;
 
     /// IPipelineNode — whether this planner reads a map (declares IWorldView).
     bool requiresWorldView() const noexcept override { return HasWorldView<PlannerT>; }
 
-protected:
-    PipelineNode(
-        rclcpp::Node::SharedPtr node,
-        const std::string& algo_name,
-        const std::string& layer_name,
-        RobotStateProvider* state_provider);
+  protected:
+    PipelineNode(rclcpp::Node::SharedPtr node, const std::string& algo_name, const std::string& layer_name,
+                 RobotStateProvider* state_provider);
 
     ~PipelineNode() override;
 
@@ -111,8 +106,8 @@ protected:
 
     // ── ROS infrastructure ─────────────────────────────────────────────────
 
-    rclcpp::Node::SharedPtr      node_;
-    rclcpp::Node::SharedPtr      pnode_;
+    rclcpp::Node::SharedPtr node_;
+    rclcpp::Node::SharedPtr pnode_;
     std::unique_ptr<finenav::util::NodeThread> pnode_thread_;
 
     // ── Framework resource (visualizer lives here) ─────────────────────────
@@ -122,13 +117,13 @@ protected:
 
     // ── Planner state ──────────────────────────────────────────────────────
 
-    PlannerT      planner_instance_;
-    std::string   planner_name_;
+    PlannerT planner_instance_;
+    std::string planner_name_;
 
     // ── World view ─────────────────────────────────────────────────────────
 
-    std::shared_ptr<void>       view_;              ///< type-erased IWorldView (map-reading planners only)
-    BuiltWorldView::PrepareFn   prepare_;           ///< per-plan hook, run under the map read lock
+    std::shared_ptr<void> view_;                                ///< type-erased IWorldView (map-reading planners only)
+    BuiltWorldView::PrepareFn prepare_;                         ///< per-plan hook, run under the map read lock
     std::vector<std::shared_ptr<IMapResource>> map_resources_;  ///< maps to read-lock per plan
     /**
      * @brief Backing-map revisions cached at the previous prepare().
@@ -136,8 +131,8 @@ protected:
      * Empty means "not yet prepared", so the first prepare() reports
      * maps_changed = true.
      */
-    std::vector<std::uint64_t>  last_map_revisions_;
-    RobotStateProvider*         state_provider_{nullptr};
+    std::vector<std::uint64_t> last_map_revisions_;
+    RobotStateProvider* state_provider_{nullptr};
 
     // ── Data ───────────────────────────────────────────────────────────────
 
@@ -149,16 +144,16 @@ protected:
 
     /// Mutable so the const accessor planRefState() can lock it (same idiom as
     /// RobotState::history_mutex_).
-    mutable std::mutex               plan_ref_mutex_;
+    mutable std::mutex plan_ref_mutex_;
     std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> plan_ref_msg_;
 
     /// Converted reference (msg → planner InputTrajectoryT), rebuilt only when a
     /// new upstream reference arrives.  planOnce() hands the planner a const view
     /// into this, so the per-tick deep copy of the reference is eliminated.
     InputTrajectoryT<PlannerT> cached_ref_;
-    const void*                cached_ref_src_{nullptr};  ///< identity of plan_ref_msg_ at last conversion
+    const void* cached_ref_src_{nullptr};  ///< identity of plan_ref_msg_ at last conversion
 };
 
-} // namespace finenav::core
+}  // namespace finenav::core
 
 #include "finenav_core/plan/detail/pipeline_node_impl.hpp"

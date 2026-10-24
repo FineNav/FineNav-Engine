@@ -22,9 +22,8 @@ using FeedbackMsg = finenav_interfaces::msg::TaskFeedback;
 BT::PortsList ExecuteControlBranch::providedPorts() {
     return {
         BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
-            "PipelineController driving the control branches"),
-        BT::InputPort<rclcpp::Node::SharedPtr>("node", "{@_node}",
-            "Node used for error logging"),
+                                           "PipelineController driving the control branches"),
+        BT::InputPort<rclcpp::Node::SharedPtr>("node", "{@_node}", "Node used for error logging"),
         BT::InputPort<std::string>("branch", "Name of the pipeline branch to activate"),
     };
 }
@@ -35,16 +34,17 @@ BT::NodeStatus ExecuteControlBranch::onStart() {
         return BT::NodeStatus::FAILURE;
     }
 
-    if (!getInput("branch", branch_)) return BT::NodeStatus::FAILURE;
+    if (!getInput("branch", branch_))
+        return BT::NodeStatus::FAILURE;
 
     if (!pipeline->hasBranch(branch_)) {
         std::string candidates;
-        for (const auto& name : pipeline->branchNames()) candidates += " " + name;
+        for (const auto& name : pipeline->branchNames())
+            candidates += " " + name;
         rclcpp::Node::SharedPtr node;
         if (getInput("node", node) && node) {
-            FINENAV_LOG_ERROR(node->get_logger(),
-                "ExecuteControlBranch: unknown branch '{}'. Known branches:{}",
-                branch_, candidates);
+            FINENAV_LOG_ERROR(node->get_logger(), "ExecuteControlBranch: unknown branch '{}'. Known branches:{}",
+                              branch_, candidates);
         }
         return BT::NodeStatus::FAILURE;
     }
@@ -60,7 +60,8 @@ BT::NodeStatus ExecuteControlBranch::onRunning() {
     }
 
     const auto stages = pipeline->branchStages(branch_);
-    if (stages.empty()) return BT::NodeStatus::FAILURE;
+    if (stages.empty())
+        return BT::NodeStatus::FAILURE;
 
     // 任一 layer FAULTED → FAILURE；否则一直 RUNNING。
     // 分支的"完成"不由这里判定 —— 由 task_master（IsGoalReached 等条件）下达 STOP，

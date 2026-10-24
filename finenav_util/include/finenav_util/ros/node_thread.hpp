@@ -13,7 +13,6 @@ namespace finenav::util {
 
 class NodeThread {
   public:
-
     explicit NodeThread(rclcpp::Node::SharedPtr node);
 
     explicit NodeThread(rclcpp::executors::SingleThreadedExecutor::SharedPtr executor);

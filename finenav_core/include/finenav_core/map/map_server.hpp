@@ -57,8 +57,7 @@ namespace finenav::core {
  */
 template <Map MapT>
 class MapServer : public IMapResource {
-public:
-
+  public:
     /**
      * @brief MapServer Constructor.
      * @param node           Parent ROS node
@@ -66,11 +65,8 @@ public:
      * @param server_name    Unique name
      * @param state_provider Source of robot pose
      */
-    explicit MapServer(
-        rclcpp::Node::SharedPtr node,
-        const std::string& algo_name,
-        const std::string& server_name,
-        RobotStateProvider* state_provider);
+    explicit MapServer(rclcpp::Node::SharedPtr node, const std::string& algo_name, const std::string& server_name,
+                       RobotStateProvider* state_provider);
 
     MapServer(const MapServer&) = delete;
     MapServer& operator=(const MapServer&) = delete;
@@ -79,10 +75,10 @@ public:
     ~MapServer() = default;
 
     // ── IMapResource introspection (type-erased, for WorldView assembly) ─────
-    std::string       mapTypeId() const override;
-    const void*       mapData() const override;
+    std::string mapTypeId() const override;
+    const void* mapData() const override;
     std::shared_ptr<void> lockRead() override;
-    std::uint64_t     revision() const noexcept override;
+    std::uint64_t revision() const noexcept override;
 
     /**
      * @brief Acquire a RAII read-only view of the map.
@@ -96,14 +92,14 @@ public:
      */
     LockedMapRW<MapT> getLockedWriteView();
 
-private:
+  private:
     void runUpdateCycle(const rclcpp::Time& now);
     void runShiftCycle(const rclcpp::Time& now);
 
     // ---- ROS infrastructure ----
-    rclcpp::Node::SharedPtr     node_;
-    std::string                 server_name_;
-    rclcpp::Node::SharedPtr     pnode_;
+    rclcpp::Node::SharedPtr node_;
+    std::string server_name_;
+    rclcpp::Node::SharedPtr pnode_;
     std::unique_ptr<finenav::util::NodeThread> pnode_thread_;
 
     // ---- Framework resource (visualizer lives here) ----
@@ -113,7 +109,7 @@ private:
 
     // ---- Map data & lock ----
     std::unique_ptr<MapT> map_instance_;
-    std::shared_mutex     rw_mutex_;
+    std::shared_mutex rw_mutex_;
 
     // ---- Framework-owned change counter (see IMapResource::revision) ----
     std::atomic<std::uint64_t> revision_{0};
@@ -122,13 +118,13 @@ private:
     MapRuntime runtime_;
 
     // ---- Optional robot state provider for map shifting ----
-    RobotStateProvider*         state_provider_{nullptr};
+    RobotStateProvider* state_provider_{nullptr};
     rclcpp::TimerBase::SharedPtr shift_timer_;
 
-    double                                           update_rate_hz_{10.0};
-    double                                           shift_rate_hz_{50.0};
-    double                                           shift_margin_ratio_{0.5};
-    rclcpp::TimerBase::SharedPtr                     update_timer_;
+    double update_rate_hz_{10.0};
+    double shift_rate_hz_{50.0};
+    double shift_margin_ratio_{0.5};
+    rclcpp::TimerBase::SharedPtr update_timer_;
 };
 
 }  // namespace finenav::core

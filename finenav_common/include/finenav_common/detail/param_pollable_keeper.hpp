@@ -24,18 +24,20 @@ namespace finenav::common::detail {
  * borrowed pointer into the visualizer its pollable owns).
  */
 class ParamPollableKeeper {
-public:
+  public:
     /// Take ownership of a pollable parameter object.
     void keep_alive(std::shared_ptr<IParamPollable> pollable) {
-        if (pollable) pollables_.push_back(std::move(pollable));
+        if (pollable)
+            pollables_.push_back(std::move(pollable));
     }
 
     /// Poll all registered objects.
     void pollAll() {
-        for (auto& p : pollables_) p->poll();
+        for (auto& p : pollables_)
+            p->poll();
     }
 
-private:
+  private:
     std::vector<std::shared_ptr<IParamPollable>> pollables_;
 };
 

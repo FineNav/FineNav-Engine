@@ -12,13 +12,14 @@ namespace finenav::navigator {
 BT::PortsList StopChassisMotion::providedPorts() {
     return {
         BT::InputPort<IChassisCommand*>("chassis_cmd", "{@_chassis_cmd}",
-            "Chassis command interface used to stop the robot"),
+                                        "Chassis command interface used to stop the robot"),
     };
 }
 
 BT::NodeStatus StopChassisMotion::tick() {
     IChassisCommand* cmd = nullptr;
-    if (!getInput("chassis_cmd", cmd) || !cmd) return BT::NodeStatus::FAILURE;
+    if (!getInput("chassis_cmd", cmd) || !cmd)
+        return BT::NodeStatus::FAILURE;
     cmd->stop();
     return BT::NodeStatus::SUCCESS;
 }

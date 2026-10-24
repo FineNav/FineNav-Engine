@@ -6,8 +6,8 @@
 #include <Eigen/Geometry>
 #include <rclcpp/rclcpp.hpp>
 
-#include "finenav_localizer/sources/velocity_provider.hpp"
 #include "finenav_core/robot_state/eigen_conversions.hpp"
+#include "finenav_localizer/sources/velocity_provider.hpp"
 
 namespace finenav::localizer {
 namespace {
@@ -47,8 +47,7 @@ TEST(VelocityProvider, AutoDiffFirstCallNoOp) {
     s.twist.linear.y = 9.0;
     s.twist.linear.z = 9.0;
 
-    vp.autoDiffFromPose(Eigen::Vector3d(0, 0, 0), Eigen::Quaterniond::Identity(),
-                        t(0), s);
+    vp.autoDiffFromPose(Eigen::Vector3d(0, 0, 0), Eigen::Quaterniond::Identity(), t(0), s);
 
     EXPECT_NEAR(s.twist.linear.x, 9.0, kEps);
 }
@@ -57,10 +56,8 @@ TEST(VelocityProvider, AutoDiffComputesVelocity) {
     VelocityProvider vp;
     auto s = makeState();
 
-    vp.autoDiffFromPose(Eigen::Vector3d(0, 0, 0), Eigen::Quaterniond::Identity(),
-                        t(0), s);
-    vp.autoDiffFromPose(Eigen::Vector3d(2, 0, 0), Eigen::Quaterniond::Identity(),
-                        t(1), s);
+    vp.autoDiffFromPose(Eigen::Vector3d(0, 0, 0), Eigen::Quaterniond::Identity(), t(0), s);
+    vp.autoDiffFromPose(Eigen::Vector3d(2, 0, 0), Eigen::Quaterniond::Identity(), t(1), s);
 
     EXPECT_NEAR(s.twist.linear.x, 2.0, kEps);
 }

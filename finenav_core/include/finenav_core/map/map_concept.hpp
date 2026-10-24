@@ -35,10 +35,7 @@ class MapRuntime;
  */
 template <typename T>
 concept Map =
-    std::default_initializable<T> &&
-    requires(T map,
-             const typename T::ConfigType& config,
-             MapRuntime& runtime) {
+    std::default_initializable<T> && requires(T map, const typename T::ConfigType& config, MapRuntime& runtime) {
         typename T::ConfigType;
         typename T::DataType;
 
@@ -58,12 +55,11 @@ concept Map =
  * detect the robot escaping the window and to re-centre it.
  */
 template <typename T>
-concept ShiftableMap = Map<T> &&
-    requires(T map, const common::Position3D& pos) {
-        { std::as_const(map).isInside(pos) }     -> std::same_as<bool>;
-        { std::as_const(map).getWindowBounds() } -> std::convertible_to<common::Region3D>;
-        { std::as_const(map).getWindowCenter() } -> std::convertible_to<common::Position3D>;
-        { map.shiftWindowTo(pos) }               -> std::same_as<void>;
-    };
+concept ShiftableMap = Map<T> && requires(T map, const common::Position3D& pos) {
+    { std::as_const(map).isInside(pos) } -> std::same_as<bool>;
+    { std::as_const(map).getWindowBounds() } -> std::convertible_to<common::Region3D>;
+    { std::as_const(map).getWindowCenter() } -> std::convertible_to<common::Position3D>;
+    { map.shiftWindowTo(pos) } -> std::same_as<void>;
+};
 
 }  // namespace finenav::core

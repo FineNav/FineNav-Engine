@@ -12,14 +12,10 @@
 
 namespace finenav::navigator {
 
-PipelineController::PipelineController(
-    rclcpp::Node::SharedPtr node,
-    finenav::core::TaskMaster* master,
-    finenav::core::BranchTable* pipe)
-    : node_(std::move(node)), master_(master), pipe_(pipe)
-{
-    root_feedback_pub_ = node_->create_publisher<FeedbackMsg>(
-        finenav::core::TaskChannel::feedbackTopic("_root"), 10);
+PipelineController::PipelineController(rclcpp::Node::SharedPtr node, finenav::core::TaskMaster* master,
+                                       finenav::core::BranchTable* pipe)
+    : node_(std::move(node)), master_(master), pipe_(pipe) {
+    root_feedback_pub_ = node_->create_publisher<FeedbackMsg>(finenav::core::TaskChannel::feedbackTopic("_root"), 10);
 }
 
 void PipelineController::publishNavigationGoal(std::vector<Pose> poses) {
@@ -35,25 +31,28 @@ void PipelineController::publishNavigationGoal(std::vector<Pose> poses) {
 void PipelineController::activateBranch(const std::string& branch_name) {
     if (!pipe_->hasBranch(branch_name)) {
         std::string candidates;
-        for (const auto& [name, _] : pipe_->branches()) candidates += " " + name;
-        FINENAV_LOG_ERROR(node_->get_logger(),
-            "activateBranch: unknown branch '{}'. Known branches:{}", branch_name, candidates);
+        for (const auto& [name, _] : pipe_->branches())
+            candidates += " " + name;
+        FINENAV_LOG_ERROR(node_->get_logger(), "activateBranch: unknown branch '{}'. Known branches:{}", branch_name,
+                          candidates);
         return;
     }
 
-    const auto& stages = pipe_->branch(branch_name);   // never contains "_root"
+    const auto& stages = pipe_->branch(branch_name);  // never contains "_root"
     std::unordered_set<std::string> new_set(stages.begin(), stages.end());
 
     // 1) 停旧：逆序（下游先停），只停不在新支路里的。
     for (auto it = active_.rbegin(); it != active_.rend(); ++it) {
-        if (!new_set.count(*it)) master_->stop(*it);
+        if (!new_set.count(*it))
+            master_->stop(*it);
     }
     // 2) 起新：顺序（上游先起），只起之前没开的。
     for (const auto& s : stages) {
-        if (!active_set_.count(s)) master_->start(s);
+        if (!active_set_.count(s))
+            master_->start(s);
     }
 
-    active_     = stages;
+    active_ = stages;
     active_set_ = std::move(new_set);
 }
 
@@ -63,8 +62,7 @@ void PipelineController::stopAll() {
     active_set_.clear();
 }
 
-std::shared_ptr<const PipelineController::FeedbackMsg>
-PipelineController::feedback(const std::string& name) const {
+std::shared_ptr<const PipelineController::FeedbackMsg> PipelineController::feedback(const std::string& name) const {
     return master_->feedback(name);
 }
 
@@ -74,7 +72,8 @@ bool PipelineController::hasBranch(const std::string& branch_name) const {
 
 std::vector<std::string> PipelineController::branchNames() const {
     std::vector<std::string> names;
-    for (const auto& [name, _] : pipe_->branches()) names.push_back(name);
+    for (const auto& [name, _] : pipe_->branches())
+        names.push_back(name);
     return names;
 }
 
@@ -88,7 +87,7 @@ bool PipelineController::isActive(const std::string& branch_name) const {
 }
 
 void PipelineController::stopBranch(const std::string& branch_name) {
-    const auto& stages = pipe_->branch(branch_name);   // 未知 branch → 空，自然 no-op
+    const auto& stages = pipe_->branch(branch_name);  // 未知 branch → 空，自然 no-op
     for (auto it = stages.rbegin(); it != stages.rend(); ++it) {
         master_->stop(*it);
     }
@@ -103,7 +102,7 @@ void PipelineController::restartBranch(const std::string& branch_name) {
 
     // 显式整条重启同样建立激活态：该 branch 现在是活跃支路，restartFrom() 与
     // BT 的 GetFaultedControlLayer 据此定位「当前跑的是哪条支路」。
-    active_     = stages;
+    active_ = stages;
     active_set_ = std::unordered_set<std::string>(stages.begin(), stages.end());
 }
 
@@ -111,10 +110,11 @@ void PipelineController::restartFrom(const std::string& control_layer) {
     const auto it = std::find(active_.begin(), active_.end(), control_layer);
     if (it == active_.end()) {
         std::string stages;
-        for (const auto& s : active_) stages += " " + s;
+        for (const auto& s : active_)
+            stages += " " + s;
         FINENAV_LOG_ERROR(node_->get_logger(),
-            "restartFrom: ControlLayer '{}' is not in the active branch (stages[{}]). No-op.",
-            control_layer, stages);
+                          "restartFrom: ControlLayer '{}' is not in the active branch (stages[{}]). No-op.",
+                          control_layer, stages);
         return;
     }
 

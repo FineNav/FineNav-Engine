@@ -19,21 +19,12 @@ namespace finenav::core {
 // ==============================================================================
 
 template <Planner PlannerT>
-PipelineNode<PlannerT>::PipelineNode(
-    rclcpp::Node::SharedPtr node,
-    const std::string& algo_name,
-    const std::string& layer_name,
-    RobotStateProvider* state_provider)
-    : IPipelineNode(layer_name),
-      node_(std::move(node)),
-      layer_name_(layer_name),
-      state_provider_(state_provider)
-{
+PipelineNode<PlannerT>::PipelineNode(rclcpp::Node::SharedPtr node, const std::string& algo_name,
+                                     const std::string& layer_name, RobotStateProvider* state_provider)
+    : IPipelineNode(layer_name), node_(std::move(node)), layer_name_(layer_name), state_provider_(state_provider) {
     // ── Private node ──────────────────────────────────────────────────────
     rclcpp::NodeOptions pnode_opts;
-    pnode_opts.append_parameter_override(
-        "use_sim_time",
-        node_->get_parameter("use_sim_time").as_bool());
+    pnode_opts.append_parameter_override("use_sim_time", node_->get_parameter("use_sim_time").as_bool());
     pnode_opts.use_intra_process_comms(true);
     pnode_ = rclcpp::Node::make_shared(layer_name, node_->get_name(), pnode_opts);
     pnode_thread_ = std::make_unique<finenav::util::NodeThread>(pnode_);
@@ -44,19 +35,17 @@ PipelineNode<PlannerT>::PipelineNode(
 
     // ── Planner instance + parameter wiring ───────────────────────────────
     planner_name_ = algo_name;
-    auto pollable = detail::PlanRegistry::instance().loadPlannerParams(
-        algo_name, pnode_, &planner_instance_);
+    auto pollable = detail::PlanRegistry::instance().loadPlannerParams(algo_name, pnode_, &planner_instance_);
     if (!pollable) {
         // No FINENAV_REGISTER_PLANNER entry reached the registry for this name.
         // Parameters will NOT load; the planner still runs with defaults.
         FINENAV_LOG_WARN(pnode_->get_logger(),
-            "PipelineNode '{}': no params registered under '{}' — parameters will NOT "
-            "be loaded. Register it in its .cpp with FINENAV_REGISTER_PLANNER.",
-            layer_name_, algo_name);
+                         "PipelineNode '{}': no params registered under '{}' — parameters will NOT "
+                         "be loaded. Register it in its .cpp with FINENAV_REGISTER_PLANNER.",
+                         layer_name_, algo_name);
     }
     param_keeper_.keep_alive(std::move(pollable));
-    FINENAV_LOG_INFO(pnode_->get_logger(), "Loading planner '{}' (layer '{}').",
-        planner_name_, layer_name_);
+    FINENAV_LOG_INFO(pnode_->get_logger(), "Loading planner '{}' (layer '{}').", planner_name_, layer_name_);
 }
 
 template <Planner PlannerT>
@@ -68,20 +57,18 @@ PipelineNode<PlannerT>::~PipelineNode() = default;
 
 template <Planner PlannerT>
 void PipelineNode<PlannerT>::connectFrom(const std::string& parent_name) {
-    worker_->connectFrom(parent_name,
-        [this](std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg) {
-            onPlanRef(std::move(msg));
-        });
+    worker_->connectFrom(parent_name, [this](std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg) {
+        onPlanRef(std::move(msg));
+    });
 }
 
 template <Planner PlannerT>
-rclcpp::Node::SharedPtr PipelineNode<PlannerT>::getPrivateNode() const { return pnode_; }
+rclcpp::Node::SharedPtr PipelineNode<PlannerT>::getPrivateNode() const {
+    return pnode_;
+}
 
 template <Planner PlannerT>
-void PipelineNode<PlannerT>::attachWorldView(
-    BuiltWorldView built,
-    std::vector<std::shared_ptr<IMapResource>> maps)
-{
+void PipelineNode<PlannerT>::attachWorldView(BuiltWorldView built, std::vector<std::shared_ptr<IMapResource>> maps) {
     if constexpr (HasWorldView<PlannerT>) {
         // Stored type-erased: the pointer already targets the PlannerT::IWorldView
         // base subobject (WorldViewRegistry upcasts before erasing), so planOnce
@@ -98,9 +85,8 @@ void PipelineNode<PlannerT>::attachWorldView(
         // (a WorldView can never be registered against it either).
         (void)built;
         (void)maps;
-        FINENAV_LOG_WARN(pnode_->get_logger(),
-            "attachWorldView ignored: '{}' (layer '{}') is a map-less planner.",
-            planner_name_, layer_name_);
+        FINENAV_LOG_WARN(pnode_->get_logger(), "attachWorldView ignored: '{}' (layer '{}') is a map-less planner.",
+                         planner_name_, layer_name_);
     }
 }
 
@@ -109,16 +95,12 @@ void PipelineNode<PlannerT>::attachWorldView(
 // ==============================================================================
 
 template <Planner PlannerT>
-void PipelineNode<PlannerT>::onPlanRef(
-    std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg)
-{
+void PipelineNode<PlannerT>::onPlanRef(std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg) {
     storePlanRef(std::move(msg));
 }
 
 template <Planner PlannerT>
-void PipelineNode<PlannerT>::storePlanRef(
-    std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg)
-{
+void PipelineNode<PlannerT>::storePlanRef(std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg) {
     std::lock_guard<std::mutex> lock(plan_ref_mutex_);
     plan_ref_msg_ = std::move(msg);  // zero-copy: shared_ptr pass-through
 }
@@ -126,11 +108,15 @@ void PipelineNode<PlannerT>::storePlanRef(
 template <Planner PlannerT>
 PlanRefState PipelineNode<PlannerT>::planRefState() const {
     std::lock_guard<std::mutex> lock(plan_ref_mutex_);
-    if (!plan_ref_msg_) return PlanRefState::kNoInput;
+    if (!plan_ref_msg_)
+        return PlanRefState::kNoInput;
     switch (plan_ref_msg_->status) {
-        case FeedbackMsg::FAULTED: return PlanRefState::kUpstreamFaulted;
-        case FeedbackMsg::RUNNING: return PlanRefState::kValid;
-        default: return PlanRefState::kNoInput;   // IDLE / STOPPED / unknown
+        case FeedbackMsg::FAULTED:
+            return PlanRefState::kUpstreamFaulted;
+        case FeedbackMsg::RUNNING:
+            return PlanRefState::kValid;
+        default:
+            return PlanRefState::kNoInput;  // IDLE / STOPPED / unknown
     }
 }
 
@@ -158,25 +144,23 @@ void PipelineNode<PlannerT>::resetPlanner() {
 // ==============================================================================
 
 template <Planner PlannerT>
-std::optional<finenav_interfaces::msg::Trajectory>
-PipelineNode<PlannerT>::planOnce() {
+std::optional<finenav_interfaces::msg::Trajectory> PipelineNode<PlannerT>::planOnce() {
     if constexpr (HasWorldView<PlannerT>) {
         if (!view_) {
             FINENAV_LOG_ERROR(pnode_->get_logger(),
-                "WorldView not attached — call attachWorldView() or createControlLayer() first.");
+                              "WorldView not attached — call attachWorldView() or createControlLayer() first.");
             return std::nullopt;
         }
     }
     if (!state_provider_) {
-        FINENAV_LOG_ERROR(pnode_->get_logger(),
-            "RobotStateProvider not set — cannot plan without robot state.");
+        FINENAV_LOG_ERROR(pnode_->get_logger(), "RobotStateProvider not set — cannot plan without robot state.");
         return std::nullopt;
     }
 
     auto maybe_state = state_provider_->getRobotState();
     if (!maybe_state.has_value()) {
         FINENAV_LOG_ERROR(pnode_->get_logger(),
-            "Failed to get current robot state — localizer may not be initialized yet.");
+                          "Failed to get current robot state — localizer may not be initialized yet.");
         return std::nullopt;
     }
     RobotState current_robot_state = *maybe_state;
@@ -201,14 +185,13 @@ PipelineNode<PlannerT>::planOnce() {
     // (`ref_traj.poses.back()`), so a missing reference means "no goal yet".
     if constexpr (PlannerT::InputProfile.pose) {
         if (!has_ref) {
-            FINENAV_LOG_WARN(pnode_->get_logger(),
-                "planOnce: no reference trajectory received yet (layer '{}').",
-                layer_name_);
+            FINENAV_LOG_WARN(pnode_->get_logger(), "planOnce: no reference trajectory received yet (layer '{}').",
+                             layer_name_);
             return std::nullopt;
         }
     }
 
-    param_keeper_.pollAll(); // Apply pending dynamic parameter updates
+    param_keeper_.pollAll();  // Apply pending dynamic parameter updates
 
     // Acquire read locks on every map this view reads, held until plan() returns.
     std::vector<std::shared_ptr<void>> map_locks;
@@ -232,7 +215,8 @@ PipelineNode<PlannerT>::planOnce() {
     // WorldView heavy-derivation hook: once per plan, inside the map read lock
     // and before plan().  This is where inflation / terrain analysis / cost-field
     // construction belongs; plan() must only read what prepare() left behind.
-    if (prepare_) prepare_(std::addressof(ctx));
+    if (prepare_)
+        prepare_(std::addressof(ctx));
     last_map_revisions_ = std::move(current_revs);
 
     auto result = [&]() -> std::optional<OutputTrajectoryT<PlannerT>> {
@@ -256,4 +240,4 @@ PipelineNode<PlannerT>::planOnce() {
     return output_traj_msg;
 }
 
-} // namespace finenav::core
+}  // namespace finenav::core

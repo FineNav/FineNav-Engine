@@ -20,9 +20,8 @@ namespace finenav::navigator {
  *   pipeline   (finenav::navigator::PipelineController*,  默认 "{@_pipeline}") 控制流水线。
  */
 class PublishNavigationGoal : public BT::SyncActionNode {
-public:
-    PublishNavigationGoal(const std::string& name, const BT::NodeConfig& config)
-        : BT::SyncActionNode(name, config) {}
+  public:
+    PublishNavigationGoal(const std::string& name, const BT::NodeConfig& config) : BT::SyncActionNode(name, config) {}
 
     static BT::PortsList providedPorts();
 

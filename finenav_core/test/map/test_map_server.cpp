@@ -13,29 +13,24 @@ using namespace finenav::core;
 using finenav::common::Position3D;
 
 class MapServerTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        rclcpp::init(0, nullptr);
-    }
-    void TearDown() override {
-        rclcpp::shutdown();
-    }
+  protected:
+    void SetUp() override { rclcpp::init(0, nullptr); }
+
+    void TearDown() override { rclcpp::shutdown(); }
 };
 
 TEST_F(MapServerTest, ConstructWithValidStateProvider) {
     auto node = rclcpp::Node::make_shared("test_node");
     MockStateProvider provider;
 
-    auto server = std::make_shared<MapServer<SmokeMap>>(
-        node, "smoke_map", "test_server", &provider);
+    auto server = std::make_shared<MapServer<SmokeMap>>(node, "smoke_map", "test_server", &provider);
     EXPECT_TRUE(server != nullptr);
 }
 
 TEST_F(MapServerTest, GetLockedReadView) {
     auto node = rclcpp::Node::make_shared("test_node");
     MockStateProvider provider;
-    auto server = std::make_shared<MapServer<SmokeMap>>(
-        node, "smoke_map", "test_server", &provider);
+    auto server = std::make_shared<MapServer<SmokeMap>>(node, "smoke_map", "test_server", &provider);
 
     auto view = server->getLockedReadView();
     EXPECT_TRUE(view->isInside(Position3D{}));
@@ -44,8 +39,7 @@ TEST_F(MapServerTest, GetLockedReadView) {
 TEST_F(MapServerTest, GetLockedWriteView) {
     auto node = rclcpp::Node::make_shared("test_node");
     MockStateProvider provider;
-    auto server = std::make_shared<MapServer<SmokeMap>>(
-        node, "smoke_map", "test_server", &provider);
+    auto server = std::make_shared<MapServer<SmokeMap>>(node, "smoke_map", "test_server", &provider);
 
     auto view = server->getLockedWriteView();
     EXPECT_TRUE(view->isInside(Position3D{}));

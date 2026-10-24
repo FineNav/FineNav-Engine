@@ -6,8 +6,8 @@
 #include <thread>
 
 #include <gtest/gtest.h>
-#include <rclcpp/rclcpp.hpp>
 #include <rclcpp/executors/single_threaded_executor.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include "finenav_core/task_bus/task_bus.hpp"
 #include "finenav_interfaces/msg/task_feedback.hpp"
@@ -22,16 +22,13 @@ using finenav_interfaces::msg::Trajectory;
 // shared_ptr.  If anyone reverts the publish to a by-value publish, or disables
 // intra-process comms, the received poses vector is a fresh allocation and this
 // address assertion fails.
-TEST(TaskBusIntra, FeedbackIsZeroCopy)
-{
+TEST(TaskBusIntra, FeedbackIsZeroCopy) {
     rclcpp::init(0, nullptr);
 
-    auto node1 = std::make_shared<rclcpp::Node>(
-        "task_master_test_node",
-        rclcpp::NodeOptions().use_intra_process_comms(true));
-    auto node2 = std::make_shared<rclcpp::Node>(
-        "task_worker_test_node",
-        rclcpp::NodeOptions().use_intra_process_comms(true));
+    auto node1 =
+        std::make_shared<rclcpp::Node>("task_master_test_node", rclcpp::NodeOptions().use_intra_process_comms(true));
+    auto node2 =
+        std::make_shared<rclcpp::Node>("task_worker_test_node", rclcpp::NodeOptions().use_intra_process_comms(true));
 
     TaskMaster master(node1);
     TaskWorker worker(node2, "test_layer");
@@ -48,7 +45,8 @@ TEST(TaskBusIntra, FeedbackIsZeroCopy)
 
     Trajectory traj;
     traj.poses.resize(128);
-    for (auto& p : traj.poses) p.position.x = 1.0;
+    for (auto& p : traj.poses)
+        p.position.x = 1.0;
     const auto* sent_ptr = traj.poses.data();
 
     worker.publishRunning(std::move(traj));
@@ -61,8 +59,7 @@ TEST(TaskBusIntra, FeedbackIsZeroCopy)
     // longer enough: the IDLE seed satisfies it immediately).
     auto fb = master.feedback("test_layer");
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    while ((fb == nullptr || fb->status != TaskFeedback::RUNNING) &&
-           std::chrono::steady_clock::now() < deadline) {
+    while ((fb == nullptr || fb->status != TaskFeedback::RUNNING) && std::chrono::steady_clock::now() < deadline) {
         exec.spin_some();
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         fb = master.feedback("test_layer");

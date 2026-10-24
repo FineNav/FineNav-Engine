@@ -22,7 +22,7 @@ namespace finenav::common {
  * in it: it names no map, no planner and no trajectory.
  */
 class IParamPollable {
-public:
+  public:
     virtual ~IParamPollable() = default;
     virtual void poll() = 0;
 };

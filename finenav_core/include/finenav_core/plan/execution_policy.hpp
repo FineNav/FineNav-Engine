@@ -26,16 +26,14 @@ struct PeriodicPolicy {
 
     void declare_parameters(rclcpp::Node& node) {
         rcl_interfaces::msg::ParameterDescriptor desc;
-        desc.description =
-            "Control loop frequency for PeriodicPolicy (Hz). Must be > 0.0.";
+        desc.description = "Control loop frequency for PeriodicPolicy (Hz). Must be > 0.0.";
 
         node.declare_parameter<double>("frequency_hz", frequency_hz, desc);
         frequency_hz = node.get_parameter("frequency_hz").as_double();
 
         if (frequency_hz <= 0.0) {
-            FINENAV_LOG_WARN(node.get_logger(),
-                "frequency_hz must be > 0.0 (got {:.1f}). Using default 10.0.",
-                frequency_hz);
+            FINENAV_LOG_WARN(node.get_logger(), "frequency_hz must be > 0.0 (got {:.1f}). Using default 10.0.",
+                             frequency_hz);
             frequency_hz = 10.0;
         }
     }
@@ -56,7 +54,6 @@ struct EventDrivenPolicy {
     static void declare_parameters(rclcpp::Node&) {}
 };
 
-using ExecutionPolicyVariant =
-    std::variant<PeriodicPolicy, EventDrivenPolicy>;
+using ExecutionPolicyVariant = std::variant<PeriodicPolicy, EventDrivenPolicy>;
 
-} // namespace finenav::core
+}  // namespace finenav::core

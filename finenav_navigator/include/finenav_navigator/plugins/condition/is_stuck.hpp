@@ -23,13 +23,13 @@ namespace finenav::navigator {
  * Returns SUCCESS when stuck, FAILURE when moving normally.
  */
 class IsStuck : public BT::ConditionNode {
-public:
+  public:
     IsStuck(const std::string& name, const BT::NodeConfig& config);
     static BT::PortsList providedPorts();
     BT::NodeStatus tick() override;
 
-private:
-    bool   ref_set_{false};
+  private:
+    bool ref_set_{false};
     double ref_x_{0.0}, ref_y_{0.0};
     std::chrono::steady_clock::time_point window_start_;
     std::chrono::steady_clock::time_point last_tick_time_;

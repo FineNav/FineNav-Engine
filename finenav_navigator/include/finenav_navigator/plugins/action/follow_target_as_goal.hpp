@@ -14,8 +14,7 @@
 
 #include "behaviortree_cpp/action_node.h"
 
-namespace finenav::navigator
-{
+namespace finenav::navigator {
 
 /**
  * @brief FollowTargetAsGoal — 动态目标跟随 Action 节点。
@@ -54,61 +53,57 @@ namespace finenav::navigator
  *                     update_distance="0.1"/>
  * @endcode
  */
-class FollowTargetAsGoal : public BT::StatefulActionNode
-{
-public:
-  FollowTargetAsGoal(
-    const std::string & name,
-    const BT::NodeConfig & conf);
+class FollowTargetAsGoal : public BT::StatefulActionNode {
+  public:
+    FollowTargetAsGoal(const std::string& name, const BT::NodeConfig& conf);
 
-  ~FollowTargetAsGoal() override = default;
+    ~FollowTargetAsGoal() override = default;
 
-  static BT::PortsList providedPorts();
+    static BT::PortsList providedPorts();
 
-  BT::NodeStatus onStart() override;
-  BT::NodeStatus onRunning() override;
-  void onHalted() override;
+    BT::NodeStatus onStart() override;
+    BT::NodeStatus onRunning() override;
+    void onHalted() override;
 
-private:
-  /**
+  private:
+    /**
    * @brief 创建 ROS 订阅（独立 callback_group + 独立 executor），在 onStart 时调用
    */
-  void initialize();
+    void initialize();
 
-  /**
+    /**
    * @brief 计算跟随目标点位姿
    * @param robot_pose  当前机器人位姿
    * @param target_pose 话题接收到的目标位姿
    * @return 偏移后的跟随目标位姿
    */
-  geometry_msgs::msg::Pose computeFollowGoal(
-    const geometry_msgs::msg::Pose & robot_pose,
-    const geometry_msgs::msg::Pose & target_pose) const;
+    geometry_msgs::msg::Pose computeFollowGoal(const geometry_msgs::msg::Pose& robot_pose,
+                                               const geometry_msgs::msg::Pose& target_pose) const;
 
-  /**
+    /**
    * @brief 判断是否需要更新 blackboard goal_poses
    * @param new_goal 新计算的跟随目标
    * @return true 若与上次 goal 距离超过 update_distance
    */
-  bool shouldUpdate(const geometry_msgs::msg::Pose & new_goal) const;
+    bool shouldUpdate(const geometry_msgs::msg::Pose& new_goal) const;
 
-  /**
+    /**
    * @brief 话题订阅回调
    */
-  void onTargetPose(const geometry_msgs::msg::PoseStamped::ConstSharedPtr & msg);
+    void onTargetPose(const geometry_msgs::msg::PoseStamped::ConstSharedPtr& msg);
 
-  // ROS
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_;
-  rclcpp::CallbackGroup::SharedPtr callback_group_;
-  rclcpp::executors::SingleThreadedExecutor callback_executor_;
+    // ROS
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_;
+    rclcpp::CallbackGroup::SharedPtr callback_group_;
+    rclcpp::executors::SingleThreadedExecutor callback_executor_;
 
-  // 最近一次接收到的原始目标消息
-  geometry_msgs::msg::PoseStamped last_msg_;
-  bool last_msg_received_{false};
+    // 最近一次接收到的原始目标消息
+    geometry_msgs::msg::PoseStamped last_msg_;
+    bool last_msg_received_{false};
 
-  // 上次写入 blackboard 的 goal（用于 update_distance 抖动抑制）
-  geometry_msgs::msg::Pose last_goal_;
-  bool has_last_goal_{false};
+    // 上次写入 blackboard 的 goal（用于 update_distance 抖动抑制）
+    geometry_msgs::msg::Pose last_goal_;
+    bool has_last_goal_{false};
 };
 
 }  // namespace finenav::navigator

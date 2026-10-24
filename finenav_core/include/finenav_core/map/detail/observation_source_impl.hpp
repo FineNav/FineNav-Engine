@@ -11,11 +11,9 @@
 namespace finenav::core::detail {
 
 template <typename MsgT>
-ObservationSource<MsgT>::ObservationSource(
-    const std::string& source_name, ObservationBufferPolicy policy,
-    Fuser fuser, rclcpp::Logger logger)
-    : source_name_(source_name), policy_(policy), fuser_(std::move(fuser)),
-      logger_(std::move(logger)) {}
+ObservationSource<MsgT>::ObservationSource(const std::string& source_name, ObservationBufferPolicy policy, Fuser fuser,
+                                           rclcpp::Logger logger)
+    : source_name_(source_name), policy_(policy), fuser_(std::move(fuser)), logger_(std::move(logger)) {}
 
 template <typename MsgT>
 void ObservationSource<MsgT>::enqueueThreadSafe(MsgT&& msg, const rclcpp::Time& stamp) {
@@ -24,8 +22,7 @@ void ObservationSource<MsgT>::enqueueThreadSafe(MsgT&& msg, const rclcpp::Time& 
 }
 
 template <typename MsgT>
-void ObservationSource<MsgT>::applyBuffered(
-    const rclcpp::Time& now, RobotStateProvider* state_provider) {
+void ObservationSource<MsgT>::applyBuffered(const rclcpp::Time& now, RobotStateProvider* state_provider) {
 
     std::deque<BufferedMessage> pending;
     {
@@ -35,9 +32,8 @@ void ObservationSource<MsgT>::applyBuffered(
             const auto elapsed = (now - last_seen_stamp_).seconds();
             if (elapsed > policy_.source_timeout_sec) {
                 if (!buffer_.empty()) {
-                    FINENAV_LOG_WARN(logger_,
-                        "ObservationSource '{}' has timed out ({} s). Buffer cleared.",
-                        source_name_, elapsed);
+                    FINENAV_LOG_WARN(logger_, "ObservationSource '{}' has timed out ({} s). Buffer cleared.",
+                                     source_name_, elapsed);
                 }
                 buffer_.clear();
             }
@@ -48,10 +44,9 @@ void ObservationSource<MsgT>::applyBuffered(
             const double expected_period = 1.0 / policy_.expected_update_rate_hz;
             if (since_last > expected_period) {
                 FINENAV_LOG_WARN_THROTTLE(logger_, 5000,
-                    "ObservationSource '{}': no data for {:.2f} s (expected every "
-                    "{:.2f} s at {:.1f} Hz). Sensor may be offline.",
-                    source_name_, since_last, expected_period,
-                    policy_.expected_update_rate_hz);
+                                          "ObservationSource '{}': no data for {:.2f} s (expected every "
+                                          "{:.2f} s at {:.1f} Hz). Sensor may be offline.",
+                                          source_name_, since_last, expected_period, policy_.expected_update_rate_hz);
             }
         }
 
@@ -60,25 +55,23 @@ void ObservationSource<MsgT>::applyBuffered(
 
     if (!fuser_) {
         FINENAV_LOG_WARN_ONCE(logger_,
-            "ObservationSource '{}': no Fuser was provided — messages are "
-            "enqueued but never applied.", source_name_);
+                              "ObservationSource '{}': no Fuser was provided — messages are "
+                              "enqueued but never applied.",
+                              source_name_);
         return;
     }
     if (!pending.empty()) {
-        FINENAV_LOG_DEBUG(logger_,
-            "ObservationSource '{}' applying {} buffered messages.",
-            source_name_, pending.size());
+        FINENAV_LOG_DEBUG(logger_, "ObservationSource '{}' applying {} buffered messages.", source_name_,
+                          pending.size());
     }
 
     for (const auto& item : pending) {
-        auto maybe_state = state_provider
-            ? state_provider->getRobotState(item.stamp)
-            : std::nullopt;
+        auto maybe_state = state_provider ? state_provider->getRobotState(item.stamp) : std::nullopt;
         if (!maybe_state) {
             FINENAV_LOG_WARN_THROTTLE(logger_, 5000,
-                "ObservationSource '{}': no robot state available at stamp "
-                "{:.3f} s — message dropped.",
-                source_name_, item.stamp.seconds());
+                                      "ObservationSource '{}': no robot state available at stamp "
+                                      "{:.3f} s — message dropped.",
+                                      source_name_, item.stamp.seconds());
             continue;
         }
         fuser_(item.msg, item.stamp, *maybe_state);
@@ -89,19 +82,20 @@ template <typename MsgT>
 void ObservationSource<MsgT>::enqueue(MsgT&& msg, const rclcpp::Time& stamp) {
     if (policy_.max_buffer_size > 0 && buffer_.size() >= policy_.max_buffer_size) {
         FINENAV_LOG_WARN_THROTTLE(logger_, 2000,
-            "ObservationSource '{}': buffer full ({}/{}); oldest message dropped. "
-            "Increase max_buffer_size or the update rate.",
-            source_name_, buffer_.size(), policy_.max_buffer_size);
+                                  "ObservationSource '{}': buffer full ({}/{}); oldest message dropped. "
+                                  "Increase max_buffer_size or the update rate.",
+                                  source_name_, buffer_.size(), policy_.max_buffer_size);
         buffer_.pop_front();
     }
     buffer_.push_back(BufferedMessage{stamp, std::move(msg)});
-    last_seen_stamp_  = stamp;
+    last_seen_stamp_ = stamp;
     has_seen_message_ = true;
 }
 
 template <typename MsgT>
 void ObservationSource<MsgT>::pruneExpired(const rclcpp::Time& now) {
-    if (policy_.observation_keep_time_sec <= 0.0) return;
+    if (policy_.observation_keep_time_sec <= 0.0)
+        return;
     size_t n = 0;
     while (!buffer_.empty()) {
         if ((now - buffer_.front().stamp).seconds() <= policy_.observation_keep_time_sec)
@@ -111,10 +105,10 @@ void ObservationSource<MsgT>::pruneExpired(const rclcpp::Time& now) {
     }
     if (n > 0) {
         FINENAV_LOG_WARN_THROTTLE(logger_, 2000,
-            "ObservationSource '{}': {} message(s) expired (keep time {:.1f} s). "
-            "The update rate may be too slow for the incoming observation rate.",
-            source_name_, n, policy_.observation_keep_time_sec);
+                                  "ObservationSource '{}': {} message(s) expired (keep time {:.1f} s). "
+                                  "The update rate may be too slow for the incoming observation rate.",
+                                  source_name_, n, policy_.observation_keep_time_sec);
     }
 }
 
-} // namespace finenav::core::detail
+}  // namespace finenav::core::detail

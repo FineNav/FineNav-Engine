@@ -52,7 +52,7 @@ namespace finenav::viz {
 ///
 /// Publishes to the topic it was created with, as visualization_msgs/MarkerArray.
 class MarkerViz : public detail::TypedChannel<visualization_msgs::msg::MarkerArray> {
-public:
+  public:
     explicit MarkerViz(std::string topic)
         : detail::TypedChannel<visualization_msgs::msg::MarkerArray>(std::move(topic)) {}
 
@@ -69,47 +69,44 @@ public:
     // Every shape is stamped with the namespace of its kind (Sphere, Arrow,
     // Cuboid, …), which is how the viewer groups and toggles them.
 
-    void addSphere(const Eigen::Vector3d& center, double radius,
-                   const Color& color = ColorName::DEFAULT);
+    void addSphere(const Eigen::Vector3d& center, double radius, const Color& color = ColorName::DEFAULT);
 
-    void addArrow(const Eigen::Vector3d& start, const Eigen::Vector3d& end,
-                  double shaft_d = 0.02, double head_d = 0.06, double head_len = 0.08,
-                  const Color& color = ColorName::DEFAULT);
+    void addArrow(const Eigen::Vector3d& start, const Eigen::Vector3d& end, double shaft_d = 0.02, double head_d = 0.06,
+                  double head_len = 0.08, const Color& color = ColorName::DEFAULT);
 
     void addCuboid(const Eigen::Isometry3d& pose, double depth, double width, double height,
                    const Color& color = ColorName::DEFAULT);
 
-    void addWireframeCuboid(const Eigen::Isometry3d& pose, double depth, double width,
-                            double height, const Color& color = ColorName::DEFAULT);
+    void addWireframeCuboid(const Eigen::Isometry3d& pose, double depth, double width, double height,
+                            const Color& color = ColorName::DEFAULT);
 
     /// Cone along +Z (body-frame sensor axis), opening angle from Z-axis.
     void addCone(const Eigen::Isometry3d& pose, double angle, double max_range,
                  const Color& color = ColorName::DEFAULT);
 
     /// Cylinder from p1 to p2.
-    void addCylinder(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2,
-                     double radius = 0.02, const Color& color = ColorName::DEFAULT);
+    void addCylinder(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, double radius = 0.02,
+                     const Color& color = ColorName::DEFAULT);
 
-    void addLine(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2,
-                 double width = 0.02, const Color& color = ColorName::DEFAULT);
+    void addLine(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, double width = 0.02,
+                 const Color& color = ColorName::DEFAULT);
 
     /// Connected line strip represented by one Marker.
-    void addLineStrip(const std::vector<Eigen::Vector3d>& points,
-                      double width = 0.02,
+    void addLineStrip(const std::vector<Eigen::Vector3d>& points, double width = 0.02,
                       const Color& color = ColorName::DEFAULT);
 
     /// Connected cylinders along points.
-    void addPath(const std::vector<Eigen::Vector3d>& points,
-                 double radius = 0.02, const Color& color = ColorName::DEFAULT);
+    void addPath(const std::vector<Eigen::Vector3d>& points, double radius = 0.02,
+                 const Color& color = ColorName::DEFAULT);
 
     /// RGB axis (X=red, Y=green, Z=blue) — the one shape whose color IS its
     /// meaning, so it takes no color argument.
     void addAxis(const Eigen::Isometry3d& pose, double length = 0.3, double radius = 0.02);
 
-    void addText(const Eigen::Vector3d& pos, const std::string& text,
-                 double height = 0.1, const Color& color = ColorName::DEFAULT);
+    void addText(const Eigen::Vector3d& pos, const std::string& text, double height = 0.1,
+                 const Color& color = ColorName::DEFAULT);
 
-private:
+  private:
     // ── Staging buffer — machinery, reached only through detail::VizChannel ──
 
     /// The staged markers as a message, stamped — and handed over: the array
@@ -119,8 +116,7 @@ private:
     /// that leads the message, not by the numbering.  Called with mutex_ held
     /// (from publishStaged), so it locks nothing itself — and the hand-over below
     /// is what drains the channel on a cycle that published.
-    visualization_msgs::msg::MarkerArray takeMessage(common::Frame frame,
-                                                     const rclcpp::Time& stamp) override;
+    visualization_msgs::msg::MarkerArray takeMessage(common::Frame frame, const rclcpp::Time& stamp) override;
 
     bool empty() const override { return markers_.markers.empty(); }
 
@@ -138,12 +134,10 @@ private:
     // are the same code the public method runs.  No defaults here on purpose —
     // these are called from inside, where every argument is already in hand.
 
-    void addArrowUnlocked(const Eigen::Vector3d& start, const Eigen::Vector3d& end,
-                          double shaft_d, double head_d, double head_len,
-                          const Color& color);
+    void addArrowUnlocked(const Eigen::Vector3d& start, const Eigen::Vector3d& end, double shaft_d, double head_d,
+                          double head_len, const Color& color);
 
-    void addCylinderUnlocked(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2,
-                             double radius, const Color& color);
+    void addCylinderUnlocked(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, double radius, const Color& color);
 
     /// Next marker id.  Unlocked: called with mutex_ held, from the shape bodies.
     std::int32_t allocateId();

@@ -16,18 +16,19 @@
 #include <string>
 #include <unordered_map>
 
-#include "rclcpp/rclcpp.hpp"
 #include "finenav_interfaces/msg/task_cmd.hpp"
 #include "finenav_interfaces/msg/task_feedback.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 namespace finenav::core {
 
 struct TaskChannel {
-    static std::string cmdTopic(const std::string& name)      { return name + "/__cmd"; }
+    static std::string cmdTopic(const std::string& name) { return name + "/__cmd"; }
+
     static std::string feedbackTopic(const std::string& name) { return name + "/__feedback"; }
 };
 
-using CmdMsg      = finenav_interfaces::msg::TaskCmd;
+using CmdMsg = finenav_interfaces::msg::TaskCmd;
 using FeedbackMsg = finenav_interfaces::msg::TaskFeedback;
 
 /**
@@ -36,7 +37,7 @@ using FeedbackMsg = finenav_interfaces::msg::TaskFeedback;
  * Owned by BtNavigator.  Each ControlLayer gets one channel.
  */
 class TaskMaster {
-public:
+  public:
     explicit TaskMaster(std::shared_ptr<rclcpp::Node> node);
 
     /**
@@ -77,12 +78,13 @@ public:
      */
     std::vector<std::string> layers() const;
 
-private:
+  private:
     struct Channel {
-        std::shared_ptr<rclcpp::Publisher<CmdMsg>>      cmd_pub;
+        std::shared_ptr<rclcpp::Publisher<CmdMsg>> cmd_pub;
         std::shared_ptr<rclcpp::Subscription<FeedbackMsg>> feedback_sub;
-        std::shared_ptr<const FeedbackMsg>             latest_fb;
+        std::shared_ptr<const FeedbackMsg> latest_fb;
     };
+
     Channel& getOrThrow(const std::string& name);
     const Channel& getOrThrow(const std::string& name) const;
 
@@ -94,14 +96,13 @@ private:
  * @brief TaskWorker — Worker side
  */
 class TaskWorker {
-public:
+  public:
     /**
      * @brief Constructor
      * @param node Shared pointer to a ROS node
      * @param channel_name A specifier for the task channel
      */
-    TaskWorker(std::shared_ptr<rclcpp::Node> node,
-               const std::string& channel_name);
+    TaskWorker(std::shared_ptr<rclcpp::Node> node, const std::string& channel_name);
 
     /**
      * @brief Register a possible predecessor's __feedback as a reference input.
@@ -113,8 +114,7 @@ public:
      * @param parent_name  Name of a possible upstream layer.
      * @param on_ref       Invoked with each new reference (zero-copy shared_ptr).
      */
-    void connectFrom(const std::string& parent_name,
-                     std::function<void(std::shared_ptr<const FeedbackMsg>)> on_ref);
+    void connectFrom(const std::string& parent_name, std::function<void(std::shared_ptr<const FeedbackMsg>)> on_ref);
 
     /**
      * @brief Worker loop helpers
@@ -142,16 +142,16 @@ public:
     void publishStopped();
     void publishFaulted();
 
-private:
+  private:
     std::shared_ptr<rclcpp::Node> node_;
 
-    std::shared_ptr<rclcpp::Subscription<CmdMsg>>    cmd_sub_;
+    std::shared_ptr<rclcpp::Subscription<CmdMsg>> cmd_sub_;
     // One subscription per possible predecessor (fan-out): a shared stage may
     // be fed by different upstreams on different branches.  Only the upstream
     // of the ACTIVE branch publishes, so at most one ref is live at a time
     // (last-writer-wins switches when the active branch changes).
     std::unordered_map<std::string, std::shared_ptr<rclcpp::Subscription<FeedbackMsg>>> ref_subs_;
-    std::shared_ptr<rclcpp::Publisher<FeedbackMsg>>  feedback_pub_;
+    std::shared_ptr<rclcpp::Publisher<FeedbackMsg>> feedback_pub_;
 
     std::atomic<bool> start_{false};
     std::atomic<bool> should_stop_{false};

@@ -8,8 +8,7 @@
 
 namespace finenav::core {
 
-std::optional<RobotState> RobotStateProvider::getRobotState() const
-{
+std::optional<RobotState> RobotStateProvider::getRobotState() const {
     std::lock_guard<std::mutex> lk(history_mutex_);
     if (history_.empty()) {
         return std::nullopt;
@@ -17,8 +16,7 @@ std::optional<RobotState> RobotStateProvider::getRobotState() const
     return history_.back();
 }
 
-std::optional<RobotState> RobotStateProvider::getRobotState(const rclcpp::Time & t) const
-{
+std::optional<RobotState> RobotStateProvider::getRobotState(const rclcpp::Time& t) const {
     const rclcpp::Time t_ros(t.nanoseconds(), RCL_ROS_TIME);
 
     std::lock_guard<std::mutex> lk(history_mutex_);
@@ -29,16 +27,15 @@ std::optional<RobotState> RobotStateProvider::getRobotState(const rclcpp::Time &
         return std::nullopt;
     }
 
-    auto it = std::lower_bound(
-        history_.begin(), history_.end(), t_ros,
-        [](const RobotState & s, const rclcpp::Time & q) { return stampOf(s) < q; });
+    auto it = std::lower_bound(history_.begin(), history_.end(), t_ros,
+                               [](const RobotState& s, const rclcpp::Time& q) { return stampOf(s) < q; });
 
     if (stampOf(*it) == t_ros) {
         return *it;
     }
 
-    const RobotState & s2 = *it;
-    const RobotState & s1 = *(it - 1);
+    const RobotState& s2 = *it;
+    const RobotState& s1 = *(it - 1);
     const double span = (stampOf(s2) - stampOf(s1)).seconds();
     if (span <= 0.0) {
         return s1;
@@ -47,8 +44,7 @@ std::optional<RobotState> RobotStateProvider::getRobotState(const rclcpp::Time &
     return interpolate(s1, s2, alpha);
 }
 
-std::optional<rclcpp::Time> RobotStateProvider::oldestStamp() const
-{
+std::optional<rclcpp::Time> RobotStateProvider::oldestStamp() const {
     std::lock_guard<std::mutex> lk(history_mutex_);
     if (history_.empty()) {
         return std::nullopt;
@@ -56,8 +52,7 @@ std::optional<rclcpp::Time> RobotStateProvider::oldestStamp() const
     return stampOf(history_.front());
 }
 
-std::optional<rclcpp::Time> RobotStateProvider::newestStamp() const
-{
+std::optional<rclcpp::Time> RobotStateProvider::newestStamp() const {
     std::lock_guard<std::mutex> lk(history_mutex_);
     if (history_.empty()) {
         return std::nullopt;
@@ -65,8 +60,7 @@ std::optional<rclcpp::Time> RobotStateProvider::newestStamp() const
     return stampOf(history_.back());
 }
 
-void RobotStateProvider::pushState(const RobotState & s)
-{
+void RobotStateProvider::pushState(const RobotState& s) {
     const rclcpp::Time stamp = stampOf(s);
     std::lock_guard<std::mutex> lk(history_mutex_);
     if (!history_.empty() && stamp < stampOf(history_.back())) {
@@ -76,14 +70,12 @@ void RobotStateProvider::pushState(const RobotState & s)
     prune(stamp);
 }
 
-void RobotStateProvider::resetHistory()
-{
+void RobotStateProvider::resetHistory() {
     std::lock_guard<std::mutex> lk(history_mutex_);
     history_.clear();
 }
 
-void RobotStateProvider::setHistoryDuration(double sec)
-{
+void RobotStateProvider::setHistoryDuration(double sec) {
     std::lock_guard<std::mutex> lk(history_mutex_);
     history_duration_sec_ = sec;
     if (!history_.empty()) {
@@ -91,10 +83,10 @@ void RobotStateProvider::setHistoryDuration(double sec)
     }
 }
 
-void RobotStateProvider::prune(const rclcpp::Time & newest)
-{
+void RobotStateProvider::prune(const rclcpp::Time& newest) {
     if (history_duration_sec_ <= 0.0) {
-        while (history_.size() > 1) history_.pop_front();
+        while (history_.size() > 1)
+            history_.pop_front();
         return;
     }
     const rclcpp::Time cutoff = newest - rclcpp::Duration::from_seconds(history_duration_sec_);
@@ -103,13 +95,11 @@ void RobotStateProvider::prune(const rclcpp::Time & newest)
     }
 }
 
-rclcpp::Time RobotStateProvider::stampOf(const RobotState & s)
-{
+rclcpp::Time RobotStateProvider::stampOf(const RobotState& s) {
     return rclcpp::Time(s.header.stamp.sec, s.header.stamp.nanosec, RCL_ROS_TIME);
 }
 
-RobotState RobotStateProvider::interpolate(const RobotState & a, const RobotState & b, double alpha)
-{
+RobotState RobotStateProvider::interpolate(const RobotState& a, const RobotState& b, double alpha) {
     RobotState out;
     out.header = a.header;
 

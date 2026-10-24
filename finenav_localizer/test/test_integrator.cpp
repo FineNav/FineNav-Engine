@@ -6,8 +6,8 @@
 #include <Eigen/Geometry>
 #include <rclcpp/rclcpp.hpp>
 
-#include "finenav_localizer/sources/integrator.hpp"
 #include "finenav_core/robot_state/eigen_conversions.hpp"
+#include "finenav_localizer/sources/integrator.hpp"
 
 namespace finenav::localizer {
 namespace {

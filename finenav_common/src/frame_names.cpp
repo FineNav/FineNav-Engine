@@ -52,19 +52,18 @@ namespace detail {
 bool setFrameNames(FrameNames names) {
     if (wasSet()) {
         FINENAV_LOG_ERROR(rclcpp::get_logger("finenav"),
-            "setFrameNames() ignored — the frame names were already set to "
-            "world_fixed='{}', robot='{}'.  Frames are set once, during setup, "
-            "before any layer, map or plugin is created.",
-            storage().world_fixed, storage().robot);
+                          "setFrameNames() ignored — the frame names were already set to "
+                          "world_fixed='{}', robot='{}'.  Frames are set once, during setup, "
+                          "before any layer, map or plugin is created.",
+                          storage().world_fixed, storage().robot);
         return false;
     }
 
     storage() = std::move(names);
     wasSet() = true;
 
-    FINENAV_LOG_INFO(rclcpp::get_logger("finenav"),
-        "Frame names: world_fixed='{}', robot='{}'",
-        storage().world_fixed, storage().robot);
+    FINENAV_LOG_INFO(rclcpp::get_logger("finenav"), "Frame names: world_fixed='{}', robot='{}'", storage().world_fixed,
+                     storage().robot);
     return true;
 }
 

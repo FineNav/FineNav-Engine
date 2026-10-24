@@ -24,24 +24,20 @@ namespace finenav::localizer {
 ///              observations via finite difference.
 
 class VelocityProvider {
-public:
+  public:
     /// Overwrite velocity on @p state from a twist source.
-    void setFromTwist(const Eigen::Vector3d& v_body,
-                      const Eigen::Vector3d& omega_body,
+    void setFromTwist(const Eigen::Vector3d& v_body, const Eigen::Vector3d& omega_body,
                       finenav::core::RobotState& state) const;
 
     /// Finite-difference velocity from consecutive absolute-pose observations.
-    void autoDiffFromPose(const Eigen::Vector3d& p,
-                          const Eigen::Quaterniond& q,
-                          const rclcpp::Time& stamp,
+    void autoDiffFromPose(const Eigen::Vector3d& p, const Eigen::Quaterniond& q, const rclcpp::Time& stamp,
                           finenav::core::RobotState& state);
 
-private:
-
+  private:
     // ── AutoDiff state ───────────────────────────────────────────────────
     bool has_prev_{false};
-    rclcpp::Time       prev_stamp_{0, 0, RCL_ROS_TIME};  // Explicitly use RCL_ROS_TIME to prevent time source mismatch
-    Eigen::Vector3d    prev_p_{0, 0, 0};
+    rclcpp::Time prev_stamp_{0, 0, RCL_ROS_TIME};  // Explicitly use RCL_ROS_TIME to prevent time source mismatch
+    Eigen::Vector3d prev_p_{0, 0, 0};
     Eigen::Quaterniond prev_q_{1, 0, 0, 0};
 };
 

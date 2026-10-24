@@ -16,18 +16,20 @@
 
 // ── Minimal self-managing Map for testing ───────────────────────────────────
 
-struct SmokeCell { double value = 0.0; };
+struct SmokeCell {
+    double value = 0.0;
+};
 
 struct SmokeMap {
     using ConfigType = int;
-    using DataType   = SmokeCell;
+    using DataType = SmokeCell;
 
     void configure(const int&) {}
 
-    bool isInside(const finenav::common::Position3D& p) const {
-        return contains(bounds_, p);
-    }
+    bool isInside(const finenav::common::Position3D& p) const { return contains(bounds_, p); }
+
     finenav::common::Region3D getWindowBounds() const { return bounds_; }
+
     finenav::common::Position3D getWindowCenter() const { return center(bounds_); }
 
     void shiftWindowTo(const finenav::common::Position3D& center) {
@@ -38,10 +40,9 @@ struct SmokeMap {
     // selfManage — minimal no-op for tests that don't need data sources
     void selfManage(finenav::core::MapRuntime&) {}
 
-private:
-    finenav::common::Region3D bounds_{
-        finenav::common::Position3D{-50, -50, -5},
-        finenav::common::Position3D{ 50,  50,  5}};
+  private:
+    finenav::common::Region3D bounds_{finenav::common::Position3D{-50, -50, -5},
+                                      finenav::common::Position3D{50, 50, 5}};
 };
 
 static_assert(finenav::core::Map<SmokeMap>);
@@ -52,11 +53,7 @@ static_assert(finenav::core::ShiftableMap<SmokeMap>);
 struct MockStateProvider : finenav::core::RobotStateProvider {
     finenav::core::RobotState state{};
 
-    std::optional<finenav::core::RobotState> getRobotState() const override {
-        return state;
-    }
-    std::optional<finenav::core::RobotState> getRobotState(
-        const rclcpp::Time&) const override {
-        return state;
-    }
+    std::optional<finenav::core::RobotState> getRobotState() const override { return state; }
+
+    std::optional<finenav::core::RobotState> getRobotState(const rclcpp::Time&) const override { return state; }
 };

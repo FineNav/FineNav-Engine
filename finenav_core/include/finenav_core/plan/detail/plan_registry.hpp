@@ -24,18 +24,19 @@
 
 namespace finenav::core {
 
-template <Planner PlannerT> class ControlLayer;  // full definition in control_layer.hpp
+template <Planner PlannerT>
+class ControlLayer;  // full definition in control_layer.hpp
 
 namespace detail {
 
 /// One planner's registry row: name → { factory, config loader, type }.
 struct PlanEntry {
-    using Factory = std::function<std::shared_ptr<IPipelineNode>(
-        rclcpp::Node::SharedPtr, const std::string&, ExecutionPolicyVariant, RobotStateProvider*)>;
+    using Factory = std::function<std::shared_ptr<IPipelineNode>(rclcpp::Node::SharedPtr, const std::string&,
+                                                                 ExecutionPolicyVariant, RobotStateProvider*)>;
 
-    Factory                      factory;  ///< (node, layer_name, policy, state) → IPipelineNode
-    common::detail::ConfigLoader loader;   ///< (node, void* planner) → IParamPollable
-    std::string                  type;     ///< typeid(PlannerT).name()
+    Factory factory;                      ///< (node, layer_name, policy, state) → IPipelineNode
+    common::detail::ConfigLoader loader;  ///< (node, void* planner) → IParamPollable
+    std::string type;                     ///< typeid(PlannerT).name()
 };
 
 /**
@@ -50,9 +51,9 @@ struct PlanEntry {
  * finenav_common; only the Entry shape is navigation vocabulary and stays here.
  */
 class PlanRegistry : public common::detail::RegistryTable<PlanEntry> {
-public:
+  public:
     using Factory = PlanEntry::Factory;
-    using Entry   = PlanEntry;
+    using Entry = PlanEntry;
 
     static PlanRegistry& instance();
 
@@ -62,37 +63,33 @@ public:
 
     /// Build a ControlLayer for the planner registered under @p algo_name.
     /// Returns nullptr + ERROR log on unknown name.
-    std::shared_ptr<IPipelineNode> createLayer(
-        rclcpp::Node::SharedPtr node,
-        const std::string& algo_name, const std::string& layer_name,
-        ExecutionPolicyVariant policy, RobotStateProvider* state);
+    std::shared_ptr<IPipelineNode> createLayer(rclcpp::Node::SharedPtr node, const std::string& algo_name,
+                                               const std::string& layer_name, ExecutionPolicyVariant policy,
+                                               RobotStateProvider* state);
 
     /// Look up the config loader registered under @p algo_name (nullptr if unknown).
-    std::shared_ptr<common::IParamPollable> loadPlannerParams(
-        const std::string& algo_name, rclcpp::Node::SharedPtr node, void* instance);
+    std::shared_ptr<common::IParamPollable> loadPlannerParams(const std::string& algo_name,
+                                                              rclcpp::Node::SharedPtr node, void* instance);
 
     std::vector<std::string> plannerNames() const;
 
     /// Resolve the registered NAME for a concrete planner type (typeid(PlannerT).name()).
     std::optional<std::string> findPlannerNameByType(const std::string& type_name) const;
 
-private:
-    void registerPlannerImpl(std::string name, Factory factory,
-                             common::detail::ConfigLoader loader, std::string type_name);
+  private:
+    void registerPlannerImpl(std::string name, Factory factory, common::detail::ConfigLoader loader,
+                             std::string type_name);
 };
 
 template <Planner PlannerT>
 void PlanRegistry::registerPlanner(std::string name, common::detail::ConfigLoader loader) {
     registerPlannerImpl(
         name,
-        [name](rclcpp::Node::SharedPtr node, const std::string& layer_name,
-               ExecutionPolicyVariant policy, RobotStateProvider* state)
-            -> std::shared_ptr<IPipelineNode> {
-            return std::make_shared<ControlLayer<PlannerT>>(
-                node, name, layer_name, std::move(policy), state);
+        [name](rclcpp::Node::SharedPtr node, const std::string& layer_name, ExecutionPolicyVariant policy,
+               RobotStateProvider* state) -> std::shared_ptr<IPipelineNode> {
+            return std::make_shared<ControlLayer<PlannerT>>(node, name, layer_name, std::move(policy), state);
         },
-        std::move(loader),
-        typeid(PlannerT).name());
+        std::move(loader), typeid(PlannerT).name());
 }
 
 /// Self-registrar for a planner; instantiated as `inline static` in the macro.

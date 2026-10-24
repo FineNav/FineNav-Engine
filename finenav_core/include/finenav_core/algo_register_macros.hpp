@@ -17,13 +17,13 @@
 // cannot move down into finenav_common, because it injects the visualizer, and
 // the visualizer sits above finenav_common.
 #include "finenav_core/detail/algo_register_details.hpp"
-#include "finenav_core/plan/detail/plan_registry.hpp"
 #include "finenav_core/map/detail/map_registry.hpp"
+#include "finenav_core/plan/detail/plan_registry.hpp"
 #include "finenav_core/worldview/detail/world_view_registry.hpp"
 
 // Guarantees complete definitions are visible at expansion time
-#include "finenav_core/plan/control_layer.hpp"
 #include "finenav_core/map/map_server.hpp"
+#include "finenav_core/plan/control_layer.hpp"
 #include "finenav_core/worldview/world_view_concept.hpp"
 
 /**
@@ -34,15 +34,16 @@
  *                  parameter namespace for this algorithm (the top-level key of
  *                  its .yaml parameter file).
  */
-#define FINENAV_REGISTER_PLANNER(ALGO_TYPE, PARAM_NS) \
-namespace finenav::core { \
-template <> \
-struct detail::RegistrationSlot<ALGO_TYPE> { \
-    static_assert(Planner<ALGO_TYPE>, "FINENAV_REGISTER_PLANNER: ALGO_TYPE must satisfy finenav::core::Planner. ");  \
-    inline static detail::PlannerSelfRegistrar<ALGO_TYPE> _algo_registrar{ \
-        #PARAM_NS, detail::makeConfigLoader<ALGO_TYPE, PARAM_NS::Params, PARAM_NS::ParamListener>(#PARAM_NS)}; \
-}; \
-}
+#define FINENAV_REGISTER_PLANNER(ALGO_TYPE, PARAM_NS)                                                              \
+    namespace finenav::core {                                                                                      \
+    template <>                                                                                                    \
+    struct detail::RegistrationSlot<ALGO_TYPE> {                                                                   \
+        static_assert(Planner<ALGO_TYPE>,                                                                          \
+                      "FINENAV_REGISTER_PLANNER: ALGO_TYPE must satisfy finenav::core::Planner. ");                \
+        inline static detail::PlannerSelfRegistrar<ALGO_TYPE> _algo_registrar{                                     \
+            #PARAM_NS, detail::makeConfigLoader<ALGO_TYPE, PARAM_NS::Params, PARAM_NS::ParamListener>(#PARAM_NS)}; \
+    };                                                                                                             \
+    }
 
 /**
  * @brief Registers a MAP into the FineNav-Engine framework.
@@ -52,15 +53,15 @@ struct detail::RegistrationSlot<ALGO_TYPE> { \
  *                  parameter namespace for this algorithm (the top-level key of
  *                  its .yaml parameter file).
  */
-#define FINENAV_REGISTER_MAP(ALGO_TYPE, PARAM_NS) \
-namespace finenav::core { \
-template <> \
-struct detail::RegistrationSlot<ALGO_TYPE> { \
-    static_assert(Map<ALGO_TYPE>, "FINENAV_REGISTER_MAP: ALGO_TYPE must satisfy finenav::core::Map."); \
-    inline static detail::MapSelfRegistrar<ALGO_TYPE> _algo_registrar{ \
-        #PARAM_NS, detail::makeConfigLoader<ALGO_TYPE, PARAM_NS::Params, PARAM_NS::ParamListener>(#PARAM_NS)}; \
-}; \
-}
+#define FINENAV_REGISTER_MAP(ALGO_TYPE, PARAM_NS)                                                                  \
+    namespace finenav::core {                                                                                      \
+    template <>                                                                                                    \
+    struct detail::RegistrationSlot<ALGO_TYPE> {                                                                   \
+        static_assert(Map<ALGO_TYPE>, "FINENAV_REGISTER_MAP: ALGO_TYPE must satisfy finenav::core::Map.");         \
+        inline static detail::MapSelfRegistrar<ALGO_TYPE> _algo_registrar{                                         \
+            #PARAM_NS, detail::makeConfigLoader<ALGO_TYPE, PARAM_NS::Params, PARAM_NS::ParamListener>(#PARAM_NS)}; \
+    };                                                                                                             \
+    }
 
 /**
  * @brief Registers a WorldView (a planner↔map bridge) into the framework.
@@ -88,26 +89,23 @@ struct detail::RegistrationSlot<ALGO_TYPE> { \
  * configure() to PARAM_NS, and additionally mints the type-erased prepare()
  * invoker the framework calls once per plan() inside the map read lock.
  */
-#define FINENAV_REGISTER_WORLDVIEW(VIEW_TYPE, PARAM_NS, PLANNER_TYPE, ...) \
-    namespace finenav::core { \
-    template <> \
-    struct detail::WorldViewRegistrationSlot<VIEW_TYPE> { \
-        static_assert(WorldView<VIEW_TYPE, PLANNER_TYPE>, \
-            "FINENAV_REGISTER_WORLDVIEW: VIEW_TYPE must satisfy finenav::core::WorldView " \
-            "— it must declare ConfigType, configure(const ConfigType&) and " \
-            "prepare(const PlanningContext<PlannerT>&)."); \
-        inline static detail::WorldViewSelfRegistrar _world_view_registrar{ \
-            #PARAM_NS, \
-            detail::WorldViewRegistry::Entry{ \
-                detail::typeName<PLANNER_TYPE>(), \
-                detail::typeNames<__VA_ARGS__>(), \
-                [](MapAccess& maps, rclcpp::Node::SharedPtr node) -> BuiltWorldView { \
-                    auto [view, prepare] = \
-                        detail::makeWorldView<VIEW_TYPE, PLANNER_TYPE, __VA_ARGS__>(maps, node); \
-                    auto params = detail::makeWorldViewParams< \
-                        VIEW_TYPE, PARAM_NS::Params, PARAM_NS::ParamListener, PLANNER_TYPE>( \
-                            node, view, #PARAM_NS); \
-                    return BuiltWorldView{std::move(view), std::move(params), std::move(prepare)}; \
-                }}}; \
-    }; \
+#define FINENAV_REGISTER_WORLDVIEW(VIEW_TYPE, PARAM_NS, PLANNER_TYPE, ...)                                          \
+    namespace finenav::core {                                                                                       \
+    template <>                                                                                                     \
+    struct detail::WorldViewRegistrationSlot<VIEW_TYPE> {                                                           \
+        static_assert(WorldView<VIEW_TYPE, PLANNER_TYPE>,                                                           \
+                      "FINENAV_REGISTER_WORLDVIEW: VIEW_TYPE must satisfy finenav::core::WorldView "                \
+                      "— it must declare ConfigType, configure(const ConfigType&) and "                             \
+                      "prepare(const PlanningContext<PlannerT>&).");                                                \
+        inline static detail::WorldViewSelfRegistrar _world_view_registrar{                                         \
+            #PARAM_NS,                                                                                              \
+            detail::WorldViewRegistry::Entry{                                                                       \
+                detail::typeName<PLANNER_TYPE>(), detail::typeNames<__VA_ARGS__>(),                                 \
+                [](MapAccess& maps, rclcpp::Node::SharedPtr node) -> BuiltWorldView {                               \
+                    auto [view, prepare] = detail::makeWorldView<VIEW_TYPE, PLANNER_TYPE, __VA_ARGS__>(maps, node); \
+                    auto params = detail::makeWorldViewParams<VIEW_TYPE, PARAM_NS::Params, PARAM_NS::ParamListener, \
+                                                              PLANNER_TYPE>(node, view, #PARAM_NS);                 \
+                    return BuiltWorldView{std::move(view), std::move(params), std::move(prepare)};                  \
+                }}};                                                                                                \
+    };                                                                                                              \
     }

@@ -18,9 +18,8 @@ namespace finenav::navigator {
 BT::PortsList RestartControlBranch::providedPorts() {
     return {
         BT::InputPort<PipelineController*>("pipeline", "{@_pipeline}",
-            "PipelineController driving the control branches"),
-        BT::InputPort<rclcpp::Node::SharedPtr>("node", "{@_node}",
-            "Node used for error logging"),
+                                           "PipelineController driving the control branches"),
+        BT::InputPort<rclcpp::Node::SharedPtr>("node", "{@_node}", "Node used for error logging"),
         BT::InputPort<std::string>("branch", "Name of the pipeline branch to restart"),
     };
 }
@@ -38,12 +37,13 @@ BT::NodeStatus RestartControlBranch::tick() {
 
     if (!pipeline->hasBranch(branch)) {
         std::string candidates;
-        for (const auto& name : pipeline->branchNames()) candidates += " " + name;
+        for (const auto& name : pipeline->branchNames())
+            candidates += " " + name;
         rclcpp::Node::SharedPtr node;
         if (getInput("node", node) && node) {
             FINENAV_LOG_ERROR(node->get_logger(),
-                "RestartControlBranch: unknown branch '{}'. Known branches:{}. No-op.",
-                branch, candidates);
+                              "RestartControlBranch: unknown branch '{}'. Known branches:{}. No-op.", branch,
+                              candidates);
         }
         return BT::NodeStatus::SUCCESS;
     }

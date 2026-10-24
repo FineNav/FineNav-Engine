@@ -10,17 +10,16 @@ namespace finenav::core {
 //  TaskMaster
 // ══════════════════════════════════════════════════════════════════════════════
 
-TaskMaster::TaskMaster(std::shared_ptr<rclcpp::Node> node)
-    : node_(std::move(node)) {}
+TaskMaster::TaskMaster(std::shared_ptr<rclcpp::Node> node) : node_(std::move(node)) {}
 
 void TaskMaster::manageLayer(const std::string& name) {
-    if (channels_.count(name)) return;  // already registered
+    if (channels_.count(name))
+        return;  // already registered
 
     Channel ch;
-    ch.cmd_pub  = node_->create_publisher<CmdMsg>(TaskChannel::cmdTopic(name), 10);
+    ch.cmd_pub = node_->create_publisher<CmdMsg>(TaskChannel::cmdTopic(name), 10);
     ch.feedback_sub = node_->create_subscription<FeedbackMsg>(
-        TaskChannel::feedbackTopic(name), 10,
-        [this, name](std::shared_ptr<const FeedbackMsg> msg) {
+        TaskChannel::feedbackTopic(name), 10, [this, name](std::shared_ptr<const FeedbackMsg> msg) {
             auto it = channels_.find(name);
             if (it != channels_.end())
                 std::atomic_store(&it->second.latest_fb, std::move(msg));
@@ -72,7 +71,8 @@ std::shared_ptr<const FeedbackMsg> TaskMaster::feedback(const std::string& name)
 
 std::vector<std::string> TaskMaster::layers() const {
     std::vector<std::string> names;
-    for (const auto& [name, _] : channels_) names.push_back(name);
+    for (const auto& [name, _] : channels_)
+        names.push_back(name);
     return names;
 }
 
@@ -94,37 +94,31 @@ const TaskMaster::Channel& TaskMaster::getOrThrow(const std::string& name) const
 //  TaskWorker
 // ══════════════════════════════════════════════════════════════════════════════
 
-TaskWorker::TaskWorker(std::shared_ptr<rclcpp::Node> node,
-                       const std::string& channel_name)
-    : node_(std::move(node)) {
-    feedback_pub_ = node_->create_publisher<FeedbackMsg>(
-        TaskChannel::feedbackTopic(channel_name), 10);
+TaskWorker::TaskWorker(std::shared_ptr<rclcpp::Node> node, const std::string& channel_name) : node_(std::move(node)) {
+    feedback_pub_ = node_->create_publisher<FeedbackMsg>(TaskChannel::feedbackTopic(channel_name), 10);
 
     // No IDLE publish here: the master seeds IDLE as a structural default at
     // manageLayer() (see TaskMaster::manageLayer).  A worker-side IDLE would be
     // published before the master's subscription exists and be dropped.
 
-    cmd_sub_ = node_->create_subscription<CmdMsg>(
-        TaskChannel::cmdTopic(channel_name), 10,
-        [this](std::shared_ptr<const CmdMsg> msg) {
-            if (msg->cmd == CmdMsg::START) {
-                start_.store(true, std::memory_order_release);
-            } else if (msg->cmd == CmdMsg::STOP) {
-                should_stop_.store(true, std::memory_order_release);
-            }
-        });
+    cmd_sub_ = node_->create_subscription<CmdMsg>(TaskChannel::cmdTopic(channel_name), 10,
+                                                  [this](std::shared_ptr<const CmdMsg> msg) {
+                                                      if (msg->cmd == CmdMsg::START) {
+                                                          start_.store(true, std::memory_order_release);
+                                                      } else if (msg->cmd == CmdMsg::STOP) {
+                                                          should_stop_.store(true, std::memory_order_release);
+                                                      }
+                                                  });
 }
 
-void TaskWorker::connectFrom(
-    const std::string& parent_name,
-    std::function<void(std::shared_ptr<const FeedbackMsg>)> on_ref) {
-    if (ref_subs_.count(parent_name)) return;  // idempotent: already subscribed
+void TaskWorker::connectFrom(const std::string& parent_name,
+                             std::function<void(std::shared_ptr<const FeedbackMsg>)> on_ref) {
+    if (ref_subs_.count(parent_name))
+        return;  // idempotent: already subscribed
 
     ref_subs_[parent_name] = node_->create_subscription<FeedbackMsg>(
         TaskChannel::feedbackTopic(parent_name), 10,
-        [on_ref = std::move(on_ref)](std::shared_ptr<const FeedbackMsg> msg) {
-            on_ref(std::move(msg));
-        });
+        [on_ref = std::move(on_ref)](std::shared_ptr<const FeedbackMsg> msg) { on_ref(std::move(msg)); });
 }
 
 bool TaskWorker::hasStart() const {
@@ -143,20 +137,20 @@ void TaskWorker::ackStart() {
 }
 
 void TaskWorker::publishRunning(finenav_interfaces::msg::Trajectory&& traj) {
-    auto msg        = std::make_unique<FeedbackMsg>();
-    msg->status     = FeedbackMsg::RUNNING;
+    auto msg = std::make_unique<FeedbackMsg>();
+    msg->status = FeedbackMsg::RUNNING;
     msg->trajectory = std::move(traj);
     feedback_pub_->publish(std::move(msg));
 }
 
 void TaskWorker::publishStopped() {
-    auto msg    = std::make_unique<FeedbackMsg>();
+    auto msg = std::make_unique<FeedbackMsg>();
     msg->status = FeedbackMsg::STOPPED;
     feedback_pub_->publish(std::move(msg));
 }
 
 void TaskWorker::publishFaulted() {
-    auto msg    = std::make_unique<FeedbackMsg>();
+    auto msg = std::make_unique<FeedbackMsg>();
     msg->status = FeedbackMsg::FAULTED;
     feedback_pub_->publish(std::move(msg));
 }

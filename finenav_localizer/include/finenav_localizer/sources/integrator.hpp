@@ -20,18 +20,17 @@ namespace finenav::localizer {
 /// Odometry-frame pose integration is handled by the WorldAnchor +
 /// OdometryCache architecture (see world_anchor.hpp, odometry_cache.hpp).
 class Integrator {
-public:
-    void acceptTwist(const Eigen::Vector3d& v_body,
-                     const Eigen::Vector3d& omega_body,
-                     const rclcpp::Time& stamp,
+  public:
+    void acceptTwist(const Eigen::Vector3d& v_body, const Eigen::Vector3d& omega_body, const rclcpp::Time& stamp,
                      finenav::core::RobotState& state);
 
-private:
+  private:
     struct TwistRef {
         Eigen::Vector3d v_body;
         Eigen::Vector3d omega_body;
-        rclcpp::Time    stamp{0, 0, RCL_ROS_TIME};  // Explicitly use RCL_ROS_TIME to prevent time source mismatch
+        rclcpp::Time stamp{0, 0, RCL_ROS_TIME};  // Explicitly use RCL_ROS_TIME to prevent time source mismatch
     };
+
     std::optional<TwistRef> last_twist_;
 };
 

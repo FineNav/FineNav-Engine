@@ -22,37 +22,37 @@ namespace finenav::core {
 // ==============================================================================
 
 template <Planner PlannerT>
-ControlLayer<PlannerT>::ControlLayer(
-    rclcpp::Node::SharedPtr node,
-    const std::string& algo_name,
-    const std::string& layer_name,
-    ExecutionPolicyVariant policy,
-    RobotStateProvider* state_provider)
-    : PipelineNode<PlannerT>(node, algo_name, layer_name, state_provider),
-      policy_(std::move(policy))
-{
+ControlLayer<PlannerT>::ControlLayer(rclcpp::Node::SharedPtr node, const std::string& algo_name,
+                                     const std::string& layer_name, ExecutionPolicyVariant policy,
+                                     RobotStateProvider* state_provider)
+    : PipelineNode<PlannerT>(node, algo_name, layer_name, state_provider), policy_(std::move(policy)) {
     // 1) Parameters: each policy declares its own.
-    std::visit([&pnode = this->pnode_](auto& p) {
-        if constexpr (requires { p.declare_parameters(*pnode); }) {
-            p.declare_parameters(*pnode);
-        }
-    }, policy_);
+    std::visit(
+        [&pnode = this->pnode_](auto& p) {
+            if constexpr (requires { p.declare_parameters(*pnode); }) {
+                p.declare_parameters(*pnode);
+            }
+        },
+        policy_);
 
     // 2) Plumbing + episode body: one branch per policy (exhaustive).
-    std::visit([this](auto& p) {
-        using P = std::decay_t<decltype(p)>;
-        if constexpr (std::is_same_v<P, PeriodicPolicy>) {
-            startWorker([this] { runPeriodic(); });
-        } else if constexpr (std::is_same_v<P, EventDrivenPolicy>) {
-            startWorker([this] { runEventDriven(); });
-        }
-    }, policy_);
+    std::visit(
+        [this](auto& p) {
+            using P = std::decay_t<decltype(p)>;
+            if constexpr (std::is_same_v<P, PeriodicPolicy>) {
+                startWorker([this] { runPeriodic(); });
+            } else if constexpr (std::is_same_v<P, EventDrivenPolicy>) {
+                startWorker([this] { runEventDriven(); });
+            }
+        },
+        policy_);
 }
 
 template <Planner PlannerT>
 ControlLayer<PlannerT>::~ControlLayer() {
     stop_ = true;
-    if (worker_thread_.joinable()) worker_thread_.join();
+    if (worker_thread_.joinable())
+        worker_thread_.join();
 }
 
 // ==============================================================================
@@ -67,8 +67,10 @@ void ControlLayer<PlannerT>::startWorker(std::function<void()> episode_body) {
                 this->worker_->ackStart();
                 if (!waitForState()) {
                     this->clearFaultedPlanRef();
-                    if (this->worker_->shouldStop()) this->worker_->publishStopped();
-                    else this->worker_->publishFaulted();
+                    if (this->worker_->shouldStop())
+                        this->worker_->publishStopped();
+                    else
+                        this->worker_->publishFaulted();
                     continue;
                 }
                 this->resetPlanner();
@@ -80,7 +82,7 @@ void ControlLayer<PlannerT>::startWorker(std::function<void()> episode_body) {
 }
 
 template <Planner PlannerT>
-bool ControlLayer<PlannerT>::waitForState() {   // TODO: 为什么要 Wait?
+bool ControlLayer<PlannerT>::waitForState() {  // TODO: 为什么要 Wait?
     while (rclcpp::ok() && !this->worker_->shouldStop()) {
         if (this->state_provider_ && this->state_provider_->getRobotState().has_value()) {
             return true;
@@ -109,7 +111,7 @@ void ControlLayer<PlannerT>::runPeriodic() {
         switch (this->planRefState()) {
             case PlanRefState::kUpstreamFaulted:
                 FINENAV_LOG_WARN(this->pnode_->get_logger(),
-                    "Periodic layer '{}': upstream faulted — propagating fault.", this->layer_name_);
+                                 "Periodic layer '{}': upstream faulted — propagating fault.", this->layer_name_);
                 this->clearFaultedPlanRef();
                 this->worker_->publishFaulted();
                 return;
@@ -147,9 +149,7 @@ void ControlLayer<PlannerT>::runPeriodic() {
 // ==============================================================================
 
 template <Planner PlannerT>
-void ControlLayer<PlannerT>::onPlanRef(
-    std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg)
-{
+void ControlLayer<PlannerT>::onPlanRef(std::shared_ptr<const finenav_interfaces::msg::TaskFeedback> msg) {
     // Both policies only stash the reference here and flag a pending event; the
     // EventDriven episode body consumes the flag on the worker thread.  (Periodic
     // ignores the flag and plans on its own clock.)
@@ -162,20 +162,20 @@ bool ControlLayer<PlannerT>::evaluateRefAndPlan() {
     switch (this->planRefState()) {
         case PlanRefState::kUpstreamFaulted:
             FINENAV_LOG_WARN(this->pnode_->get_logger(),
-                "EventDriven layer '{}': upstream faulted — propagating fault.", this->layer_name_);
+                             "EventDriven layer '{}': upstream faulted — propagating fault.", this->layer_name_);
             this->clearFaultedPlanRef();
             this->worker_->publishFaulted();
             return false;
         case PlanRefState::kNoInput:
-            return true;   // nothing usable stashed — keep waiting for the next event
+            return true;  // nothing usable stashed — keep waiting for the next event
         case PlanRefState::kValid:
             break;
     }
 
     auto out = this->planOnce();
     if (!out) {
-        FINENAV_LOG_ERROR(this->pnode_->get_logger(),
-            "EventDriven layer '{}': plan() faulted — aborting.", this->layer_name_);
+        FINENAV_LOG_ERROR(this->pnode_->get_logger(), "EventDriven layer '{}': plan() faulted — aborting.",
+                          this->layer_name_);
         this->clearFaultedPlanRef();
         this->worker_->publishFaulted();
         return false;
@@ -202,17 +202,19 @@ void ControlLayer<PlannerT>::runEventDriven() {
 
     // Entry plan() — same switch as every event below, over the current
     // planRefState() (kNoInput ⇒ wait, kValid ⇒ plan, upstream FAULT ⇒ terminal).
-    if (!evaluateRefAndPlan()) return;
+    if (!evaluateRefAndPlan())
+        return;
 
     while (rclcpp::ok() && !this->worker_->shouldStop()) {
         if (!ref_pending_.exchange(false, std::memory_order_acquire)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
-        if (!evaluateRefAndPlan()) return;
+        if (!evaluateRefAndPlan())
+            return;
     }
     this->clearFaultedPlanRef();
     this->worker_->publishStopped();
 }
 
-} // namespace finenav::core
+}  // namespace finenav::core

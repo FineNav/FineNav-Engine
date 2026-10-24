@@ -33,9 +33,8 @@ namespace finenav::navigator {
  *   <RestartFromControlLayer   control_layer="{faulted_layer}"/>
  */
 class GetFaultedControlLayer : public BT::SyncActionNode {
-public:
-    GetFaultedControlLayer(const std::string& name, const BT::NodeConfig& config)
-        : BT::SyncActionNode(name, config) {}
+  public:
+    GetFaultedControlLayer(const std::string& name, const BT::NodeConfig& config) : BT::SyncActionNode(name, config) {}
 
     static BT::PortsList providedPorts();
 

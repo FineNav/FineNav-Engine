@@ -34,9 +34,9 @@ struct BuiltWorldView {
     /// Type-erased `void(const PlanningContext<PlannerT>*)`.
     using PrepareFn = std::function<void(const void*)>;
 
-    std::shared_ptr<void>                   view;     ///< already upcast to PlannerT::IWorldView
-    std::shared_ptr<common::IParamPollable> params;   ///< param channel (+ visualizer lifetime)
-    PrepareFn                               prepare;  ///< WorldView::prepare() invoker
+    std::shared_ptr<void> view;                      ///< already upcast to PlannerT::IWorldView
+    std::shared_ptr<common::IParamPollable> params;  ///< param channel (+ visualizer lifetime)
+    PrepareFn prepare;                               ///< WorldView::prepare() invoker
 };
 
 /**
@@ -48,7 +48,7 @@ struct BuiltWorldView {
  * topic wiring and WorldView attachment.
  */
 class IPipelineNode {
-public:
+  public:
     virtual ~IPipelineNode() = default;
 
     /// Register a possible predecessor for this stage, given the upstream
@@ -67,9 +67,7 @@ public:
      * the duration of every plan() call, so prepare() and plan() both see one
      * consistent map revision.
      */
-    virtual void attachWorldView(
-        BuiltWorldView built,
-        std::vector<std::shared_ptr<IMapResource>> maps) = 0;
+    virtual void attachWorldView(BuiltWorldView built, std::vector<std::shared_ptr<IMapResource>> maps) = 0;
 
     /// Whether this stage's planner declares an IWorldView (i.e. reads a map).
     /// A map-reading planner must be created through its WorldView name; the engine
@@ -82,8 +80,9 @@ public:
 
     std::string layerName() const { return name_; }
 
-protected:
+  protected:
     explicit IPipelineNode(std::string name) : name_(std::move(name)) {}
+
     std::string name_;
 };
 

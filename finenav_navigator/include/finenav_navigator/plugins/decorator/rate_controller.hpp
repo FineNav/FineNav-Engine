@@ -9,8 +9,7 @@
 
 #include "behaviortree_cpp/decorator_node.h"
 
-namespace finenav::navigator
-{
+namespace finenav::navigator {
 
 /**
  * @brief A BT::DecoratorNode that ticks its child at a specified rate
@@ -23,44 +22,36 @@ namespace finenav::navigator
  * </RateController>
  * @endcode
  */
-class RateController : public BT::DecoratorNode
-{
-public:
-  /**
+class RateController : public BT::DecoratorNode {
+  public:
+    /**
    * @brief A constructor for finenav::RateController
    * @param name Name for the XML tag for this node
    * @param conf BT node configuration
    */
-  RateController(
-    const std::string & name,
-    const BT::NodeConfig & conf);
+    RateController(const std::string& name, const BT::NodeConfig& conf);
 
-  /**
+    /**
    * @brief Function to read parameters and initialize class variables
    */
-  void initialize();
+    void initialize();
 
-  /**
+    /**
    * @brief Creates list of BT ports
    * @return BT::PortsList Containing node-specific ports
    */
-  static BT::PortsList providedPorts()
-  {
-    return {
-      BT::InputPort<double>("hz", 10.0, "Rate")
-    };
-  }
+    static BT::PortsList providedPorts() { return {BT::InputPort<double>("hz", 10.0, "Rate")}; }
 
-private:
-  /**
+  private:
+    /**
    * @brief The main override required by a BT action
    * @return BT::NodeStatus Status of tick execution
    */
-  BT::NodeStatus tick() override;
+    BT::NodeStatus tick() override;
 
-  std::chrono::time_point<std::chrono::high_resolution_clock> start_;
-  double period_;
-  bool first_time_;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_;
+    double period_;
+    bool first_time_;
 };
 
 }  // namespace finenav::navigator

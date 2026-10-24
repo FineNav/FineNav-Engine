@@ -16,13 +16,10 @@ using namespace finenav::core;
 using finenav::core::detail::ObservationSource;
 
 class ObservationSourceTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        rclcpp::init(0, nullptr);
-    }
-    void TearDown() override {
-        rclcpp::shutdown();
-    }
+  protected:
+    void SetUp() override { rclcpp::init(0, nullptr); }
+
+    void TearDown() override { rclcpp::shutdown(); }
 };
 
 TEST_F(ObservationSourceTest, DefaultPolicyValues) {
@@ -40,9 +37,7 @@ TEST_F(ObservationSourceTest, EnqueueAndApplyBuffered) {
 
     int call_count = 0;
     ObservationSource<SmokeCell> src(
-        "test", {}, [&](const SmokeCell&, const rclcpp::Time& stamp,
-                         const RobotState&) { ++call_count; },
-        logger);
+        "test", {}, [&](const SmokeCell&, const rclcpp::Time& stamp, const RobotState&) { ++call_count; }, logger);
 
     rclcpp::Time t(1, 0, RCL_ROS_TIME);
     src.enqueueThreadSafe(SmokeCell{}, t);
@@ -62,19 +57,17 @@ TEST_F(ObservationSourceTest, BufferOverflowDropsOldest) {
 
     double last_val = -1;
     ObservationSource<SmokeCell> src(
-        "test", policy,
-        [&](const SmokeCell& c, const rclcpp::Time&,
-            const RobotState&) { last_val = c.value; },
+        "test", policy, [&](const SmokeCell& c, const rclcpp::Time&, const RobotState&) { last_val = c.value; },
         logger);
 
     SmokeCell a{1.0}, b{2.0}, c{3.0};
     rclcpp::Time t(1, 0, RCL_ROS_TIME);
     src.enqueueThreadSafe(std::move(a), t);
     src.enqueueThreadSafe(std::move(b), t);
-    src.enqueueThreadSafe(std::move(c), t); // a is dropped
+    src.enqueueThreadSafe(std::move(c), t);  // a is dropped
 
     src.applyBuffered(t, &provider);
-    EXPECT_DOUBLE_EQ(last_val, 3.0); // c(3.0) is last
+    EXPECT_DOUBLE_EQ(last_val, 3.0);  // c(3.0) is last
 }
 
 TEST_F(ObservationSourceTest, SourceTimeoutClearsBuffer) {
@@ -87,10 +80,7 @@ TEST_F(ObservationSourceTest, SourceTimeoutClearsBuffer) {
 
     int call_count = 0;
     ObservationSource<SmokeCell> src(
-        "test", policy,
-        [&](const SmokeCell&, const rclcpp::Time&,
-            const RobotState&) { ++call_count; },
-        logger);
+        "test", policy, [&](const SmokeCell&, const rclcpp::Time&, const RobotState&) { ++call_count; }, logger);
 
     rclcpp::Time t0(1, 0, RCL_ROS_TIME);
     src.enqueueThreadSafe(SmokeCell{}, t0);
@@ -111,10 +101,7 @@ TEST_F(ObservationSourceTest, ExpiryPrunesOldMessages) {
 
     int call_count = 0;
     ObservationSource<SmokeCell> src(
-        "test", policy,
-        [&](const SmokeCell&, const rclcpp::Time&,
-            const RobotState&) { ++call_count; },
-        logger);
+        "test", policy, [&](const SmokeCell&, const rclcpp::Time&, const RobotState&) { ++call_count; }, logger);
 
     rclcpp::Time t0(1, 0, RCL_ROS_TIME);
     src.enqueueThreadSafe(SmokeCell{}, t0);
@@ -130,10 +117,7 @@ TEST_F(ObservationSourceTest, NoStateProviderSkipsMessages) {
 
     int call_count = 0;
     ObservationSource<SmokeCell> src(
-        "test", {},
-        [&](const SmokeCell&, const rclcpp::Time&,
-            const RobotState&) { ++call_count; },
-        logger);
+        "test", {}, [&](const SmokeCell&, const rclcpp::Time&, const RobotState&) { ++call_count; }, logger);
 
     src.enqueueThreadSafe(SmokeCell{}, rclcpp::Time(1, 0, RCL_ROS_TIME));
     src.applyBuffered(rclcpp::Time(1, 0, RCL_ROS_TIME), nullptr);
@@ -143,8 +127,7 @@ TEST_F(ObservationSourceTest, NoStateProviderSkipsMessages) {
 TEST_F(ObservationSourceTest, NoFuserWarns) {
     auto logger = rclcpp::get_logger("test");
 
-    ObservationSource<SmokeCell> src(
-        "test", {}, nullptr, logger);
+    ObservationSource<SmokeCell> src("test", {}, nullptr, logger);
     src.enqueueThreadSafe(SmokeCell{}, rclcpp::Time(1, 0, RCL_ROS_TIME));
     // Should not crash — just WARN_ONCE.
     src.applyBuffered(rclcpp::Time(1, 0, RCL_ROS_TIME), nullptr);
@@ -156,13 +139,10 @@ TEST_F(ObservationSourceTest, StarvationWarns) {
     provider.state = RobotState{};
 
     ObservationBufferPolicy policy;
-    policy.expected_update_rate_hz = 100.0; // expect data every 10ms
+    policy.expected_update_rate_hz = 100.0;  // expect data every 10ms
 
     ObservationSource<SmokeCell> src(
-        "test", policy,
-        [](const SmokeCell&, const rclcpp::Time&,
-           const RobotState&) {},
-        logger);
+        "test", policy, [](const SmokeCell&, const rclcpp::Time&, const RobotState&) {}, logger);
 
     // Enqueue once, then wait 5s → starvation
     src.enqueueThreadSafe(SmokeCell{}, rclcpp::Time(1, 0, RCL_ROS_TIME));

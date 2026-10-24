@@ -25,62 +25,55 @@
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 
-struct PointXYZIRT
-{
-  PCL_ADD_POINT4D;
-  PCL_ADD_INTENSITY;
-  uint16_t ring;
-  float time;
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+struct PointXYZIRT {
+    PCL_ADD_POINT4D;
+    PCL_ADD_INTENSITY;
+    uint16_t ring;
+    float time;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(
-  PointXYZIRT, (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)(
-                 uint16_t, ring, ring)(float, time, time))
+POINT_CLOUD_REGISTER_POINT_STRUCT(PointXYZIRT, (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)(
+                                                   uint16_t, ring, ring)(float, time, time))
 
-namespace ign_sim_pointcloud_tool
-{
-class PointCloudConverter : public rclcpp::Node
-{
-public:
-  explicit PointCloudConverter(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+namespace ign_sim_pointcloud_tool {
+class PointCloudConverter : public rclcpp::Node {
+  public:
+    explicit PointCloudConverter(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
-private:
-  void lidarHandle(const sensor_msgs::msg::PointCloud2::SharedPtr pc_msg);
-  bool LookupOutputTransform(
-    const std::string & source_frame, const rclcpp::Time & stamp,
-    geometry_msgs::msg::TransformStamped & transform);
-  void ApplyFrameTransform(
-    pcl::PointCloud<PointXYZIRT>::Ptr & cloud,
-    const geometry_msgs::msg::TransformStamped & transform);
+  private:
+    void lidarHandle(const sensor_msgs::msg::PointCloud2::SharedPtr pc_msg);
+    bool LookupOutputTransform(const std::string& source_frame, const rclcpp::Time& stamp,
+                               geometry_msgs::msg::TransformStamped& transform);
+    void ApplyFrameTransform(pcl::PointCloud<PointXYZIRT>::Ptr& cloud,
+                             const geometry_msgs::msg::TransformStamped& transform);
 
-  template <typename T>
-  void publishPoints(
-    const typename pcl::PointCloud<T>::Ptr & new_pc, const sensor_msgs::msg::PointCloud2 & old_msg);
+    template <typename T>
+    void publishPoints(const typename pcl::PointCloud<T>::Ptr& new_pc, const sensor_msgs::msg::PointCloud2& old_msg);
 
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pcd_sub_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pcd_pub_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pcd_sub_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pcd_pub_;
 
-  int vertical_samples_;
-  int horizontal_samples_;
-  float vertical_min_angle_;
-  float vertical_max_angle_;
-  float horizontal_min_angle_;
-  float horizontal_max_angle_;
-  float scan_period_;
-  bool synthesize_time_;
-  bool self_filter_box_enable_;
-  float self_filter_box_min_x_;
-  float self_filter_box_max_x_;
-  float self_filter_box_min_y_;
-  float self_filter_box_max_y_;
-  float self_filter_box_min_z_;
-  float self_filter_box_max_z_;
-  std::string pcd_topic_;
-  std::string output_topic_;
-  std::string output_frame_id_;
-  bool transform_output_to_frame_;
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    int vertical_samples_;
+    int horizontal_samples_;
+    float vertical_min_angle_;
+    float vertical_max_angle_;
+    float horizontal_min_angle_;
+    float horizontal_max_angle_;
+    float scan_period_;
+    bool synthesize_time_;
+    bool self_filter_box_enable_;
+    float self_filter_box_min_x_;
+    float self_filter_box_max_x_;
+    float self_filter_box_min_y_;
+    float self_filter_box_max_y_;
+    float self_filter_box_min_z_;
+    float self_filter_box_max_z_;
+    std::string pcd_topic_;
+    std::string output_topic_;
+    std::string output_frame_id_;
+    bool transform_output_to_frame_;
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 }  // namespace ign_sim_pointcloud_tool

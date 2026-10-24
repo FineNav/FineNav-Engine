@@ -33,7 +33,7 @@ namespace finenav::navigator {
  * @endcode
  */
 class KeepForDuration : public BT::DecoratorNode {
-public:
+  public:
     KeepForDuration(const std::string& name, const BT::NodeConfig& config);
 
     static BT::PortsList providedPorts() {
@@ -45,9 +45,9 @@ public:
     BT::NodeStatus tick() override;
     void halt() override;
 
-private:
+  private:
     bool timer_running_{false};
     std::chrono::steady_clock::time_point timer_start_;
 };
 
-}  // namespace finenav
+}  // namespace finenav::navigator

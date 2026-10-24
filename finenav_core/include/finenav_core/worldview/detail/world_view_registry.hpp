@@ -30,9 +30,9 @@ namespace finenav::core::detail {
 struct WorldViewEntry {
     using BuildFn = std::function<BuiltWorldView(MapAccess&, rclcpp::Node::SharedPtr)>;
 
-    std::string              planner_type;  ///< typeid(PlannerT).name()
-    std::vector<std::string> map_types;     ///< typeid(MapT).name() per depended map
-    BuildFn                  build;         ///< (MapAccess&, node) → BuiltWorldView
+    std::string planner_type;            ///< typeid(PlannerT).name()
+    std::vector<std::string> map_types;  ///< typeid(MapT).name() per depended map
+    BuildFn build;                       ///< (MapAccess&, node) → BuiltWorldView
 };
 
 /**
@@ -52,9 +52,9 @@ struct WorldViewEntry {
  * semantics apply.
  */
 class WorldViewRegistry : public common::detail::RegistryTable<WorldViewEntry> {
-public:
+  public:
     using BuildFn = WorldViewEntry::BuildFn;
-    using Entry   = WorldViewEntry;
+    using Entry = WorldViewEntry;
 
     /// Non-inline function-local singleton defined in finenav_core.so so every
     /// DSO shares ONE table (same mechanism as PlanRegistry / MapRegistry).
@@ -95,8 +95,8 @@ std::vector<std::string> typeNames() {
  * @return {erased view, erased prepare invoker}
  */
 template <typename ViewT, typename PlannerT, typename... MapTs>
-std::pair<std::shared_ptr<void>, BuiltWorldView::PrepareFn>
-makeWorldView(MapAccess& maps, rclcpp::Node::SharedPtr node) {
+std::pair<std::shared_ptr<void>, BuiltWorldView::PrepareFn> makeWorldView(MapAccess& maps,
+                                                                          rclcpp::Node::SharedPtr node) {
     auto concrete = std::make_shared<ViewT>(node, maps.get<MapTs>()...);
     // The view outlives this invoker (both are owned by the same PipelineNode,
     // and prepare_ is only ever called while view_ is set), so a raw borrow is
@@ -118,8 +118,8 @@ makeWorldView(MapAccess& maps, rclcpp::Node::SharedPtr node) {
  * be cast back down to ViewT before the concrete configure() can be called.
  */
 template <typename ViewT, typename ParamsT, typename ListenerT, typename PlannerT>
-std::shared_ptr<common::IParamPollable> makeWorldViewParams(
-    rclcpp::Node::SharedPtr node, const std::shared_ptr<void>& view, std::string_view name) {
+std::shared_ptr<common::IParamPollable> makeWorldViewParams(rclcpp::Node::SharedPtr node,
+                                                            const std::shared_ptr<void>& view, std::string_view name) {
     auto* base = static_cast<typename PlannerT::IWorldView*>(view.get());
     auto* concrete = static_cast<ViewT*>(base);
     return makeParamPollable<ViewT, ParamsT, ListenerT>(node, *concrete, name);

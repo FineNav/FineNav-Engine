@@ -9,21 +9,24 @@
 #include <unordered_map>
 #include <vector>
 
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_action/rclcpp_action.hpp"
+#include <behaviortree_cpp/utils/shared_library.h>
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include <behaviortree_cpp/utils/shared_library.h>
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 
-#include "finenav_interfaces/action/navigate_to_pose.hpp"
 #include "finenav_common/frames.hpp"
 #include "finenav_core/map/i_map_resource.hpp"
 #include "finenav_core/plan/execution_policy.hpp"
 #include "finenav_core/plan/i_pipeline_node.hpp"
+#include "finenav_interfaces/action/navigate_to_pose.hpp"
 
 namespace finenav {
 
-namespace localizer { class FineNavLocalizer; }
+namespace localizer {
+class FineNavLocalizer;
+}
+
 namespace navigator {
 class BtNavigator;
 class IChassisCommand;
@@ -41,8 +44,7 @@ class IChassisCommand;
  * developer, not the main.cpp user.
  */
 class FineNavEngine {
-public:
-
+  public:
     /**
      * @brief Construct the engine around an existing ROS node.
      * @param node  Host node
@@ -132,9 +134,8 @@ public:
      * @return false if neither a WorldView nor a map-less Planner is registered
      *         under that name.
      */
-    bool createControlLayer(
-        const std::string& algo_name, const std::string& layer_name,
-        finenav::core::ExecutionPolicyVariant policy = finenav::core::EventDrivenPolicy{});
+    bool createControlLayer(const std::string& algo_name, const std::string& layer_name,
+                            finenav::core::ExecutionPolicyVariant policy = finenav::core::EventDrivenPolicy{});
 
     /**
      * @brief Declare a named control branch as an ordered list of already-created layers.
@@ -172,19 +173,17 @@ public:
      *
      * @param config_path  Path to the JSON file.
      * @return false on parse / validation error. */
-    bool loadControlPipeline(const std::string& config_path); // TODO: 配置文件（schema）创造
+    bool loadControlPipeline(const std::string& config_path);  // TODO: 配置文件（schema）创造
 
-private:
+  private:
     std::shared_ptr<finenav::core::IPipelineNode> makeControlLayerByPlanner(
-        const std::string& planner_name, const std::string& layer_name,
-        finenav::core::ExecutionPolicyVariant policy);
+        const std::string& planner_name, const std::string& layer_name, finenav::core::ExecutionPolicyVariant policy);
 
-    std::shared_ptr<finenav::core::IMapResource> makeMapServer(
-        const std::string& map_name, const std::string& server_name);
+    std::shared_ptr<finenav::core::IMapResource> makeMapServer(const std::string& map_name,
+                                                               const std::string& server_name);
 
-    bool createControlLayerFromWorldView(
-        const std::string& world_view_name, const std::string& layer_name,
-        finenav::core::ExecutionPolicyVariant policy);
+    bool createControlLayerFromWorldView(const std::string& world_view_name, const std::string& layer_name,
+                                         finenav::core::ExecutionPolicyVariant policy);
 
     /// Get-or-create the map server under @p map_name (server name == map name).
     std::shared_ptr<finenav::core::IMapResource> ensureMapServer(const std::string& map_name);

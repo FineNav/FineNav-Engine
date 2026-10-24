@@ -33,7 +33,9 @@ void PointCloudViz::addPoint(float x, float y, float z, const Color& color) {
 
 void PointCloudViz::addPointUnlocked(float x, float y, float z, const Color& color) {
     pcl::PointXYZRGB pt;
-    pt.x = x; pt.y = y; pt.z = z;
+    pt.x = x;
+    pt.y = y;
+    pt.z = z;
     pt.r = toByte(color.r);
     pt.g = toByte(color.g);
     pt.b = toByte(color.b);
@@ -47,8 +49,7 @@ void PointCloudViz::reserve(size_t n) {
 
 // ── Value-colored point ─────────────────────────────────────────────
 
-void PointCloudViz::addScalarPoint(float x, float y, float z, double value,
-                                   const ColorScale& scale) {
+void PointCloudViz::addScalarPoint(float x, float y, float z, double value, const ColorScale& scale) {
     // One point, one lock: the scale lookup and the stage are one step, so the
     // point a caller sees is the one that was drawn.  The gradient math that used
     // to live here now lives in ColorScale::at(), reached unlocked below.
@@ -58,8 +59,7 @@ void PointCloudViz::addScalarPoint(float x, float y, float z, double value,
 
 // ── Batch control ──────────────────────────────────────────────────
 
-sensor_msgs::msg::PointCloud2 PointCloudViz::takeMessage(common::Frame frame,
-                                                         const rclcpp::Time& stamp) {
+sensor_msgs::msg::PointCloud2 PointCloudViz::takeMessage(common::Frame frame, const rclcpp::Time& stamp) {
     sensor_msgs::msg::PointCloud2 msg;
     pcl::toROSMsg(cloud_, msg);
     msg.header.frame_id = common::frameName(frame);

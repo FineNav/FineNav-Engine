@@ -30,7 +30,7 @@ namespace finenav::navigator {
  * @endcode
  */
 class IsNearPoint : public BT::ConditionNode {
-public:
+  public:
     IsNearPoint(const std::string& name, const BT::NodeConfig& config);
     static BT::PortsList providedPorts();
     BT::NodeStatus tick() override;

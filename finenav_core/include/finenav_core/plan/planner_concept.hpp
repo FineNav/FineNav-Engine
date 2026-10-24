@@ -7,10 +7,10 @@
 #include <concepts>
 #include <optional>
 
-#include "geometry_msgs/msg/pose.hpp"
 #include "finenav_core/plan/trajectory.hpp"
 #include "finenav_core/robot_state/robot_state.hpp"
 #include "finenav_interfaces/msg/trajectory.hpp"
+#include "geometry_msgs/msg/pose.hpp"
 
 namespace finenav::core {
 
@@ -55,8 +55,8 @@ namespace finenav::core {
  */
 template <typename PlannerT>
 struct PlanningContext {
-    const RobotState&                    robot_state;  ///< Current robot state (read-only view)
-    const InputTrajectoryT<PlannerT>&    ref_traj;     ///< Reference trajectory (read-only view)
+    const RobotState& robot_state;               ///< Current robot state (read-only view)
+    const InputTrajectoryT<PlannerT>& ref_traj;  ///< Reference trajectory (read-only view)
     /**
      * @brief True when a backing map may have changed since the previous prepare().
      *
@@ -64,7 +64,7 @@ struct PlanningContext {
      * recomputation when nothing changed.  Defaulted so existing two-element
      * aggregate initialization keeps compiling.
      */
-    bool                                 maps_changed = false;
+    bool maps_changed = false;
 };
 
 /**

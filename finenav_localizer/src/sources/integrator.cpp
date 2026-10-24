@@ -12,21 +12,20 @@ namespace {
 
 inline Eigen::Quaterniond expOmegaDt(const Eigen::Vector3d& omega, double dt) {
     const double angle = omega.norm() * dt;
-    if (angle < 1e-12) return Eigen::Quaterniond::Identity();
+    if (angle < 1e-12)
+        return Eigen::Quaterniond::Identity();
     return Eigen::Quaterniond(Eigen::AngleAxisd(angle, omega.normalized()));
 }
 
 }  // namespace
 
-void Integrator::acceptTwist(const Eigen::Vector3d& v_body,
-                              const Eigen::Vector3d& omega_body,
-                              const rclcpp::Time& stamp,
-                              finenav::core::RobotState& state) {
+void Integrator::acceptTwist(const Eigen::Vector3d& v_body, const Eigen::Vector3d& omega_body,
+                             const rclcpp::Time& stamp, finenav::core::RobotState& state) {
     const rclcpp::Time stamp_ros(stamp.nanoseconds(), RCL_ROS_TIME);
     if (last_twist_.has_value()) {
         const double dt = (stamp_ros - last_twist_->stamp).seconds();
         if (dt > 0.0) {
-            Eigen::Vector3d    pos;
+            Eigen::Vector3d pos;
             Eigen::Quaterniond ori;
             core::fromMsg(state, pos);
             core::fromMsg(state, ori);
@@ -40,7 +39,8 @@ void Integrator::acceptTwist(const Eigen::Vector3d& v_body,
     }
 
     // Reject out-of-order or duplicate
-    if (last_twist_.has_value() && stamp_ros <= last_twist_->stamp) return;
+    if (last_twist_.has_value() && stamp_ros <= last_twist_->stamp)
+        return;
 
     last_twist_ = TwistRef{v_body, omega_body, stamp_ros};
 }

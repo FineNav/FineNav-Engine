@@ -8,11 +8,11 @@
 #include <string>
 #include <vector>
 
-#include "rclcpp/rclcpp.hpp"
 #include "finenav_core/map/detail/observation_source.hpp"
 #include "finenav_core/map/observation_buffer_policy.hpp"
 #include "finenav_core/robot_state/robot_state.hpp"
 #include "finenav_util/common/log_macros.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 namespace finenav::core {
 
@@ -45,10 +45,9 @@ namespace finenav::core {
  * @endcode
  */
 class MapRuntime {
-public:
+  public:
     template <typename MsgT>
-    using Fuser = std::function<void(
-        const MsgT& msg, const rclcpp::Time& stamp, const RobotState& state)>;
+    using Fuser = std::function<void(const MsgT& msg, const rclcpp::Time& stamp, const RobotState& state)>;
 
     using Hook = std::function<void(const RobotState& state)>;
 
@@ -76,10 +75,9 @@ public:
      * @return Thread-safe push handle: void(MsgT&& msg, const rclcpp::Time& stamp)
      */
     template <typename MsgT>
-    std::function<void(MsgT&&, const rclcpp::Time&)> addObservationSource(
-        const std::string& source_name,
-        ObservationBufferPolicy policy,
-        Fuser<MsgT> fuser);
+    std::function<void(MsgT&&, const rclcpp::Time&)> addObservationSource(const std::string& source_name,
+                                                                          ObservationBufferPolicy policy,
+                                                                          Fuser<MsgT> fuser);
 
     /**
      * @brief Register a sensor data source backed by a ROS topic subscription.
@@ -95,24 +93,16 @@ public:
      *                                      const RobotState& state)
      */
     template <typename MsgT>
-    void addObservationSource(
-        const std::string& source_name,
-        const std::string& topic_name,
-        const rclcpp::QoS& qos,
-        ObservationBufferPolicy policy,
-        Fuser<MsgT> fuser);
+    void addObservationSource(const std::string& source_name, const std::string& topic_name, const rclcpp::QoS& qos,
+                              ObservationBufferPolicy policy, Fuser<MsgT> fuser);
 
     // ── Lifecycle hooks ──────────────────────────────────────────────────────
 
     /** @brief Register a hook called BEFORE sensor fusion, with write lock held. */
-    void registerPreUpdateHook(Hook hook) {
-        pre_hooks_.push_back(std::move(hook));
-    }
+    void registerPreUpdateHook(Hook hook) { pre_hooks_.push_back(std::move(hook)); }
 
     /** @brief Register a hook called AFTER sensor fusion, with write lock held. */
-    void registerPostUpdateHook(Hook hook) {
-        post_hooks_.push_back(std::move(hook));
-    }
+    void registerPostUpdateHook(Hook hook) { post_hooks_.push_back(std::move(hook)); }
 
     // ── Framework interface (called by MapServer) ────────────────────────────
 
@@ -131,8 +121,7 @@ public:
     }
 
     /** @internal Called by MapServer during the update cycle. */
-    void applyObservationSources(const rclcpp::Time& now,
-                                  RobotStateProvider* state_provider) {
+    void applyObservationSources(const rclcpp::Time& now, RobotStateProvider* state_provider) {
         for (auto& src : observation_sources_) {
             src->applyBuffered(now, state_provider);
         }
@@ -140,7 +129,7 @@ public:
 
     rclcpp::Logger getLogger() const { return logger_; }
 
-private:
+  private:
     rclcpp::Node::SharedPtr node_;
     rclcpp::Logger logger_;
     std::vector<Hook> pre_hooks_;

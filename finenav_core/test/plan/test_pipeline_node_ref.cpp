@@ -36,17 +36,18 @@ struct TestPlannerConfig {
 };
 
 class TestPlanner {
-public:
+  public:
     using ConfigType = TestPlannerConfig;
 
     static constexpr finenav::core::IOProfile InputProfile{true, false, false, false};
     static constexpr finenav::core::IOProfile OutputProfile{true, false, false, false};
 
     void configure(const TestPlannerConfig&) {}
+
     void reset() {}
 
-    std::optional<finenav::core::OutputTrajectoryT<TestPlanner>>
-    plan(const finenav::core::PlanningContext<TestPlanner>& ctx) {
+    std::optional<finenav::core::OutputTrajectoryT<TestPlanner>> plan(
+        const finenav::core::PlanningContext<TestPlanner>& ctx) {
         finenav::core::OutputTrajectoryT<TestPlanner> out;
         out.poses = ctx.ref_traj.poses;
         return out;
@@ -55,7 +56,7 @@ public:
 
 // Exposes the protected reference-state surface under test.
 class TestPipelineNode : public finenav::core::PipelineNode<TestPlanner> {
-public:
+  public:
     TestPipelineNode(rclcpp::Node::SharedPtr node, const std::string& layer_name)
         : PipelineNode<TestPlanner>(node, "test_planner", layer_name, nullptr) {}
 
@@ -72,13 +73,11 @@ std::shared_ptr<TaskFeedback> makeFeedback(uint8_t status) {
 
 }  // namespace
 
-TEST(PipelineNodeRef, ClearFaultedPlanRefSemantics)
-{
+TEST(PipelineNodeRef, ClearFaultedPlanRefSemantics) {
     rclcpp::init(0, nullptr);
     {
-        auto node = std::make_shared<rclcpp::Node>(
-            "pipeline_node_ref_test",
-            rclcpp::NodeOptions().use_intra_process_comms(true));
+        auto node = std::make_shared<rclcpp::Node>("pipeline_node_ref_test",
+                                                   rclcpp::NodeOptions().use_intra_process_comms(true));
         TestPipelineNode pnode(node, "ref_test_layer");
 
         // 1) No reference stored: the helper must be a harmless no-op.

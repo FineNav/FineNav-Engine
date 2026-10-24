@@ -19,11 +19,10 @@ BT::NodeStatus KeepForDuration::tick() {
     if (child_status == BT::NodeStatus::SUCCESS) {
         const auto now = std::chrono::steady_clock::now();
         if (!timer_running_) {
-            timer_start_  = now;
+            timer_start_ = now;
             timer_running_ = true;
         }
-        const double elapsed =
-            std::chrono::duration<double>(now - timer_start_).count();
+        const double elapsed = std::chrono::duration<double>(now - timer_start_).count();
         if (elapsed >= duration) {
             timer_running_ = false;
             haltChild();

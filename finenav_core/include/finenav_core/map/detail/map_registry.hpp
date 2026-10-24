@@ -23,18 +23,19 @@
 
 namespace finenav::core {
 
-template <Map MapT> class MapServer;  // full definition in map_server.hpp
+template <Map MapT>
+class MapServer;  // full definition in map_server.hpp
 
 namespace detail {
 
 /// One map's registry row: name → { factory, config loader, type }.
 struct MapEntry {
-    using Factory = std::function<std::shared_ptr<IMapResource>(
-        rclcpp::Node::SharedPtr, const std::string&, RobotStateProvider*)>;
+    using Factory =
+        std::function<std::shared_ptr<IMapResource>(rclcpp::Node::SharedPtr, const std::string&, RobotStateProvider*)>;
 
-    Factory                      factory;  ///< (node, server_name, state) → IMapResource
-    common::detail::ConfigLoader loader;   ///< (node, void* map) → IParamPollable
-    std::string                  type;     ///< typeid(MapT).name()
+    Factory factory;                      ///< (node, server_name, state) → IMapResource
+    common::detail::ConfigLoader loader;  ///< (node, void* map) → IParamPollable
+    std::string type;                     ///< typeid(MapT).name()
 };
 
 /**
@@ -48,9 +49,9 @@ struct MapEntry {
  * finenav_common; only the Entry shape is navigation vocabulary and stays here.
  */
 class MapRegistry : public common::detail::RegistryTable<MapEntry> {
-public:
+  public:
     using Factory = MapEntry::Factory;
-    using Entry   = MapEntry;
+    using Entry = MapEntry;
 
     static MapRegistry& instance();
 
@@ -60,23 +61,20 @@ public:
 
     /// Build a MapServer for the map registered under @p algo_name.
     /// Returns nullptr + ERROR log on unknown name.
-    std::shared_ptr<IMapResource> createMap(
-        rclcpp::Node::SharedPtr node,
-        const std::string& algo_name, const std::string& server_name,
-        RobotStateProvider* state);
+    std::shared_ptr<IMapResource> createMap(rclcpp::Node::SharedPtr node, const std::string& algo_name,
+                                            const std::string& server_name, RobotStateProvider* state);
 
     /// Look up the config loader registered under @p algo_name (nullptr if unknown).
-    std::shared_ptr<common::IParamPollable> loadMapParams(
-        const std::string& algo_name, rclcpp::Node::SharedPtr node, void* instance);
+    std::shared_ptr<common::IParamPollable> loadMapParams(const std::string& algo_name, rclcpp::Node::SharedPtr node,
+                                                          void* instance);
 
     std::vector<std::string> mapNames() const;
 
     /// Resolve the registered NAME for a concrete map type (typeid(MapT).name()).
     std::optional<std::string> findMapNameByType(const std::string& type_name) const;
 
-private:
-    void registerMapImpl(std::string name, Factory factory,
-                         common::detail::ConfigLoader loader, std::string type_name);
+  private:
+    void registerMapImpl(std::string name, Factory factory, common::detail::ConfigLoader loader, std::string type_name);
 };
 
 template <Map MapT>
@@ -87,8 +85,7 @@ void MapRegistry::registerMap(std::string name, common::detail::ConfigLoader loa
                RobotStateProvider* state) -> std::shared_ptr<IMapResource> {
             return std::make_shared<MapServer<MapT>>(node, name, server_name, state);
         },
-        std::move(loader),
-        typeid(MapT).name());
+        std::move(loader), typeid(MapT).name());
 }
 
 /// Self-registrar for a map; instantiated as `inline static` in the macro.

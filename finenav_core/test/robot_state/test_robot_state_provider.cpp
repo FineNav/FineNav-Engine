@@ -7,14 +7,13 @@
 #include <Eigen/Geometry>
 #include <rclcpp/rclcpp.hpp>
 
-#include "test_helpers.hpp"
 #include "finenav_core/robot_state/eigen_conversions.hpp"
+#include "test_helpers.hpp"
 
 using finenav::core::fromMsg;
 
 // ── push one → latest returns it ──────────────────────────────────────────────
-TEST(RobotStateProvider, PushOne_LatestReturnsIt)
-{
+TEST(RobotStateProvider, PushOne_LatestReturnsIt) {
     TestProvider p;
     auto state = makeState(3.0, -1.5, 0.8);
     state.header.stamp = ts(1);
@@ -26,8 +25,7 @@ TEST(RobotStateProvider, PushOne_LatestReturnsIt)
 }
 
 // ── push N → latest is the most recent ─────────────────────────────────────────
-TEST(RobotStateProvider, PushN_LatestIsMostRecent)
-{
+TEST(RobotStateProvider, PushN_LatestIsMostRecent) {
     TestProvider p;
     auto s1 = makeState(0.0, 0.0, 0.0);
     s1.header.stamp = ts(1);
@@ -41,8 +39,7 @@ TEST(RobotStateProvider, PushN_LatestIsMostRecent)
 }
 
 // ── interpolate between two states at mid-point ────────────────────────────────
-TEST(RobotStateProvider, InterpolateAtMidpoint)
-{
+TEST(RobotStateProvider, InterpolateAtMidpoint) {
     TestProvider p;
     auto s1 = makeState(0.0, 0.0, 0.0);
     s1.header.stamp = ts(1);
@@ -62,8 +59,7 @@ TEST(RobotStateProvider, InterpolateAtMidpoint)
 }
 
 // ── query outside window → nullopt ─────────────────────────────────────────────
-TEST(RobotStateProvider, OutOfWindow_ReturnsNullopt)
-{
+TEST(RobotStateProvider, OutOfWindow_ReturnsNullopt) {
     TestProvider p(1.0);
     auto s1 = makeState(0.0, 0.0, 0.0);
     s1.header.stamp = ts(1);
@@ -75,8 +71,7 @@ TEST(RobotStateProvider, OutOfWindow_ReturnsNullopt)
 }
 
 // ── future query → nullopt ─────────────────────────────────────────────────────
-TEST(RobotStateProvider, FutureQuery_ReturnsNullopt)
-{
+TEST(RobotStateProvider, FutureQuery_ReturnsNullopt) {
     TestProvider p;
     auto s1 = makeState(0.0, 0.0, 0.0);
     s1.header.stamp = ts(1);
@@ -85,16 +80,14 @@ TEST(RobotStateProvider, FutureQuery_ReturnsNullopt)
 }
 
 // ── empty provider → nullopt ───────────────────────────────────────────────────
-TEST(RobotStateProvider, Empty_ReturnsNullopt)
-{
+TEST(RobotStateProvider, Empty_ReturnsNullopt) {
     TestProvider p;
     EXPECT_FALSE(p.getRobotState().has_value());
     EXPECT_FALSE(p.getRobotState(ts(0)).has_value());
 }
 
 // ── resetHistory → empty again ─────────────────────────────────────────────────
-TEST(RobotStateProvider, ResetHistory_Empties)
-{
+TEST(RobotStateProvider, ResetHistory_Empties) {
     TestProvider p;
     auto s1 = makeState(1.0, 2.0, 0.0);
     s1.header.stamp = ts(1);
@@ -106,8 +99,7 @@ TEST(RobotStateProvider, ResetHistory_Empties)
 }
 
 // ── setHistoryDuration(0) prunes to latest only ────────────────────────────────
-TEST(RobotStateProvider, SetHistoryDurationZero_KeepsOnlyLatest)
-{
+TEST(RobotStateProvider, SetHistoryDurationZero_KeepsOnlyLatest) {
     TestProvider p(1.0);
     auto s1 = makeState(0.0, 0.0, 0.0);
     s1.header.stamp = ts(1);

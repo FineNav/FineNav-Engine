@@ -44,11 +44,9 @@ struct FineNavVisualizer::Impl {
     rclcpp::Node::SharedPtr node_;
 };
 
-FineNavVisualizer::FineNavVisualizer()
-    : impl_(std::make_shared<Impl>()) {}
+FineNavVisualizer::FineNavVisualizer() : impl_(std::make_shared<Impl>()) {}
 
-FineNavVisualizer::FineNavVisualizer(rclcpp::Node::SharedPtr node)
-    : impl_(std::make_shared<Impl>(std::move(node))) {}
+FineNavVisualizer::FineNavVisualizer(rclcpp::Node::SharedPtr node) : impl_(std::make_shared<Impl>(std::move(node))) {}
 
 FineNavVisualizer::~FineNavVisualizer() = default;
 

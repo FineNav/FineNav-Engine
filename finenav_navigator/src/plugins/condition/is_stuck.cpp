@@ -4,8 +4,8 @@
 
 #include "finenav_navigator/plugins/condition/is_stuck.hpp"
 
-#include <cmath>
 #include <behaviortree_cpp/bt_factory.h>
+#include <cmath>
 
 namespace finenav::navigator {
 
@@ -14,9 +14,9 @@ IsStuck::IsStuck(const std::string& name, const BT::NodeConfig& config)
 
 BT::PortsList IsStuck::providedPorts() {
     return {
-        BT::InputPort<geometry_msgs::msg::Pose>("robot_pose",      "{@robot_pose}", "Current robot pose"),
+        BT::InputPort<geometry_msgs::msg::Pose>("robot_pose", "{@robot_pose}", "Current robot pose"),
         BT::InputPort<double>("dist_threshold", 0.05, "Minimum displacement [m] within window"),
-        BT::InputPort<double>("timeout_s",      5.0,  "Time window [s] for stuck detection"),
+        BT::InputPort<double>("timeout_s", 5.0, "Time window [s] for stuck detection"),
     };
 }
 
@@ -26,9 +26,9 @@ BT::NodeStatus IsStuck::tick() {
         return BT::NodeStatus::FAILURE;
     }
     double dist_threshold = 0.05;
-    double timeout_s      = 5.0;
+    double timeout_s = 5.0;
     getInput("dist_threshold", dist_threshold);
-    getInput("timeout_s",      timeout_s);
+    getInput("timeout_s", timeout_s);
 
     const double cur_x = robot_pose.position.x;
     const double cur_y = robot_pose.position.y;
@@ -37,8 +37,7 @@ BT::NodeStatus IsStuck::tick() {
     // BT::ConditionNode::halt() is final — detect "cold start" by checking
     // whether the node was last ticked more than timeout_s ago.
     if (ref_set_) {
-        const double gap =
-            std::chrono::duration<double>(now - last_tick_time_).count();
+        const double gap = std::chrono::duration<double>(now - last_tick_time_).count();
         if (gap > timeout_s) {
             ref_set_ = false;
         }
@@ -46,26 +45,25 @@ BT::NodeStatus IsStuck::tick() {
     last_tick_time_ = now;
 
     if (!ref_set_) {
-        ref_x_        = cur_x;
-        ref_y_        = cur_y;
+        ref_x_ = cur_x;
+        ref_y_ = cur_y;
         window_start_ = now;
-        ref_set_      = true;
+        ref_set_ = true;
         return BT::NodeStatus::FAILURE;
     }
 
-    const double dx    = cur_x - ref_x_;
-    const double dy    = cur_y - ref_y_;
+    const double dx = cur_x - ref_x_;
+    const double dy = cur_y - ref_y_;
     const double moved = std::sqrt(dx * dx + dy * dy);
 
     if (moved > dist_threshold) {
-        ref_x_        = cur_x;
-        ref_y_        = cur_y;
+        ref_x_ = cur_x;
+        ref_y_ = cur_y;
         window_start_ = now;
         return BT::NodeStatus::FAILURE;
     }
 
-    const double elapsed =
-        std::chrono::duration<double>(now - window_start_).count();
+    const double elapsed = std::chrono::duration<double>(now - window_start_).count();
     return (elapsed > timeout_s) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
 

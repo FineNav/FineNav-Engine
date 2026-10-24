@@ -53,13 +53,11 @@ namespace finenav::core {
  * @endcode
  */
 template <typename T, typename PlannerT>
-concept WorldView =
-    requires(T view, const typename T::ConfigType& config) {
-        typename T::ConfigType;
-        { view.configure(config) } -> std::same_as<void>;
-    } &&
-    requires(T view, const PlanningContext<PlannerT>& ctx) {
-        { view.prepare(ctx) } -> std::same_as<void>;
-    };
+concept WorldView = requires(T view, const typename T::ConfigType& config) {
+    typename T::ConfigType;
+    { view.configure(config) } -> std::same_as<void>;
+} && requires(T view, const PlanningContext<PlannerT>& ctx) {
+    { view.prepare(ctx) } -> std::same_as<void>;
+};
 
 }  // namespace finenav::core

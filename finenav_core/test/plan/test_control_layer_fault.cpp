@@ -31,9 +31,9 @@
 #include <variant>
 
 #include <gtest/gtest.h>
-#include <rclcpp/rclcpp.hpp>
 #include <rclcpp/executors/single_threaded_executor.hpp>
 #include <rclcpp/expand_topic_or_service_name.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include "finenav_core/plan/control_layer.hpp"
 #include "finenav_core/plan/execution_policy.hpp"
@@ -54,10 +54,10 @@ namespace {
 // so the ENGINE NODE NAME doubles as the namespace of every private node.  The
 // master must be built the same way (BtNavigator does exactly this) or the two
 // sides land on different absolute topics.
-constexpr const char* kEngineNodeName  = "fault_test_engine";
-constexpr const char* kMasterNodeName  = "finenav_navigator";
+constexpr const char* kEngineNodeName = "fault_test_engine";
+constexpr const char* kMasterNodeName = "finenav_navigator";
 constexpr const char* kUpstreamChannel = "upstream";
-constexpr const char* kPlannerName     = "test_fault_planner";
+constexpr const char* kPlannerName = "test_fault_planner";
 
 // ── A map-less planner that always fails ─────────────────────────────────────
 // No IWorldView → the map-less branch of the Planner concept, so the layer needs
@@ -68,17 +68,18 @@ struct FaultPlannerConfig {
 };
 
 class FaultPlanner {
-public:
+  public:
     using ConfigType = FaultPlannerConfig;
 
     static constexpr finenav::core::IOProfile InputProfile{true, false, false, false};
     static constexpr finenav::core::IOProfile OutputProfile{true, false, false, false};
 
     void configure(const FaultPlannerConfig&) {}
+
     void reset() {}
 
-    std::optional<finenav::core::OutputTrajectoryT<FaultPlanner>>
-    plan(const finenav::core::PlanningContext<FaultPlanner>&) {
+    std::optional<finenav::core::OutputTrajectoryT<FaultPlanner>> plan(
+        const finenav::core::PlanningContext<FaultPlanner>&) {
         plan_calls.fetch_add(1, std::memory_order_relaxed);
         return std::nullopt;  // the failure under test
     }
@@ -95,17 +96,18 @@ std::atomic<int> FaultPlanner::plan_calls{0};
 // Used by the restart regression: only a plan() that RETURNS can prove the
 // episode ran, because there is no FAULTED to observe.
 class OkPlanner {
-public:
+  public:
     using ConfigType = FaultPlannerConfig;
 
     static constexpr finenav::core::IOProfile InputProfile{true, false, false, false};
     static constexpr finenav::core::IOProfile OutputProfile{true, false, false, false};
 
     void configure(const FaultPlannerConfig&) {}
+
     void reset() {}
 
-    std::optional<finenav::core::OutputTrajectoryT<OkPlanner>>
-    plan(const finenav::core::PlanningContext<OkPlanner>& ctx) {
+    std::optional<finenav::core::OutputTrajectoryT<OkPlanner>> plan(
+        const finenav::core::PlanningContext<OkPlanner>& ctx) {
         plan_calls.fetch_add(1, std::memory_order_relaxed);
         finenav::core::OutputTrajectoryT<OkPlanner> out;
         out.poses = ctx.ref_traj.poses;
@@ -137,7 +139,8 @@ bool spinUntil(Executor& exec, Pred done, std::chrono::milliseconds timeout) {
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < deadline) {
         exec.spin_some();
-        if (done()) return true;
+        if (done())
+            return true;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     exec.spin_some();
@@ -153,26 +156,24 @@ void spinFor(Executor& exec, std::chrono::milliseconds duration) {
 }
 
 struct FaultOutcome {
-    bool    cmd_sub_seen{false};      ///< the master's node saw the worker's command subscription
-    bool    fb_sub_seen{false};       ///< the worker's node saw the master's feedback subscription
-    bool    faulted{false};           ///< FAULTED latched by the master while the layer was STARTed
-    uint8_t status_after_stop{0};     ///< status latched after a subsequent STOP
-    int     plan_calls{0};            ///< plan() invocations observed
+    bool cmd_sub_seen{false};      ///< the master's node saw the worker's command subscription
+    bool fb_sub_seen{false};       ///< the worker's node saw the master's feedback subscription
+    bool faulted{false};           ///< FAULTED latched by the master while the layer was STARTed
+    uint8_t status_after_stop{0};  ///< status latched after a subsequent STOP
+    int plan_calls{0};             ///< plan() invocations observed
 };
 
 /// Drive one full episode: wire master → layer → upstream, START, wait for the
 /// FAULTED to reach the master, then STOP and re-read.
-FaultOutcome runFaultScenario(const std::string& layer_name,
-                              finenav::core::ExecutionPolicyVariant policy)
-{
+FaultOutcome runFaultScenario(const std::string& layer_name, finenav::core::ExecutionPolicyVariant policy) {
     FaultOutcome out;
 
     auto opts = rclcpp::NodeOptions().use_intra_process_comms(true);
 
-    auto engine_node   = rclcpp::Node::make_shared(kEngineNodeName, opts);
+    auto engine_node = rclcpp::Node::make_shared(kEngineNodeName, opts);
     // Same construction as BtNavigator's private node: the parent node's NAME is
     // the namespace, so master and worker share /fault_test_engine.
-    auto master_node   = rclcpp::Node::make_shared(kMasterNodeName, engine_node->get_name(), opts);
+    auto master_node = rclcpp::Node::make_shared(kMasterNodeName, engine_node->get_name(), opts);
     auto upstream_node = rclcpp::Node::make_shared("upstream_worker", engine_node->get_name(), opts);
 
     Executor exec;
@@ -189,8 +190,8 @@ FaultOutcome runFaultScenario(const std::string& layer_name,
     // destroyed while the master and its executor are still alive.
     {
         FaultPlanner::plan_calls.store(0);
-        finenav::core::ControlLayer<FaultPlanner> layer(
-            engine_node, kPlannerName, layer_name, std::move(policy), &provider);
+        finenav::core::ControlLayer<FaultPlanner> layer(engine_node, kPlannerName, layer_name, std::move(policy),
+                                                        &provider);
         layer.connectFrom(kUpstreamChannel);
         master.manageLayer(layer_name);
 
@@ -202,11 +203,9 @@ FaultOutcome runFaultScenario(const std::string& layer_name,
         //    wait for the master's subscription to appear on the worker's
         //    feedback topic instead (symmetric to the cmd_sub_seen gate below).
         const std::string feedback_topic = rclcpp::expand_topic_or_service_name(
-            finenav::core::TaskChannel::feedbackTopic(layer_name),
-            pnode->get_name(), pnode->get_namespace());
+            finenav::core::TaskChannel::feedbackTopic(layer_name), pnode->get_name(), pnode->get_namespace());
         out.fb_sub_seen = spinUntil(
-            exec, [&] { return pnode->count_subscribers(feedback_topic) > 0; },
-            std::chrono::milliseconds(2000));
+            exec, [&] { return pnode->count_subscribers(feedback_topic) > 0; }, std::chrono::milliseconds(2000));
 
         // ── Readiness 2: feed the reference BEFORE START.  The event-driven body
         //    consumes a latched reference; the periodic body needs one to leave
@@ -221,18 +220,19 @@ FaultOutcome runFaultScenario(const std::string& layer_name,
         // START published before the worker's subscription exists is lost, and
         // the layer would then never run (a flaky, misleading failure).
         const std::string cmd_topic = rclcpp::expand_topic_or_service_name(
-            finenav::core::TaskChannel::cmdTopic(layer_name),
-            pnode->get_name(), pnode->get_namespace());
+            finenav::core::TaskChannel::cmdTopic(layer_name), pnode->get_name(), pnode->get_namespace());
         out.cmd_sub_seen = spinUntil(
-            exec, [&] { return master_node->count_subscribers(cmd_topic) > 0; },
-            std::chrono::milliseconds(3000));
+            exec, [&] { return master_node->count_subscribers(cmd_topic) > 0; }, std::chrono::milliseconds(3000));
 
         // ── START: the layer plans on its worker thread and must FAULT.
         master.start(layer_name);
-        out.faulted = spinUntil(exec, [&] {
-            auto fb = master.feedback(layer_name);
-            return fb != nullptr && fb->status == TaskFeedback::FAULTED;
-        }, std::chrono::seconds(5));
+        out.faulted = spinUntil(
+            exec,
+            [&] {
+                auto fb = master.feedback(layer_name);
+                return fb != nullptr && fb->status == TaskFeedback::FAULTED;
+            },
+            std::chrono::seconds(5));
 
         // ── STOP: FAULTED is terminal.  The STOP may not resurrect the layer and
         //    overwrite the fault with STOPPED (the pre-4ca5717 behaviour).
@@ -248,10 +248,10 @@ FaultOutcome runFaultScenario(const std::string& layer_name,
 }
 
 struct RestartOutcome {
-    bool first_running{false};          ///< episode 1 produced a RUNNING
-    bool stopped{false};                ///< the STOP latched STOPPED
-    bool replanned_on_restart{false};   ///< episode 2 produced a NEW RUNNING, with no fresh reference
-    int  plan_calls{0};                 ///< plan() invocations observed over both episodes
+    bool first_running{false};         ///< episode 1 produced a RUNNING
+    bool stopped{false};               ///< the STOP latched STOPPED
+    bool replanned_on_restart{false};  ///< episode 2 produced a NEW RUNNING, with no fresh reference
+    int plan_calls{0};                 ///< plan() invocations observed over both episodes
 };
 
 /// Drive two consecutive episodes of ONE event-driven layer whose upstream
@@ -264,14 +264,13 @@ struct RestartOutcome {
 /// body that only planned on a fresh onPlanRef() left the restarted stage
 /// waiting forever; the entry evaluation must re-plan the stashed reference.
 /// That is the restartFrom() recovery path for an event-driven FIRST stage.
-RestartOutcome runRestartReplanScenario(const std::string& layer_name)
-{
+RestartOutcome runRestartReplanScenario(const std::string& layer_name) {
     RestartOutcome out;
 
     auto opts = rclcpp::NodeOptions().use_intra_process_comms(true);
 
-    auto engine_node   = rclcpp::Node::make_shared(kEngineNodeName, opts);
-    auto master_node   = rclcpp::Node::make_shared(kMasterNodeName, engine_node->get_name(), opts);
+    auto engine_node = rclcpp::Node::make_shared(kEngineNodeName, opts);
+    auto master_node = rclcpp::Node::make_shared(kMasterNodeName, engine_node->get_name(), opts);
     auto upstream_node = rclcpp::Node::make_shared("upstream_worker", engine_node->get_name(), opts);
 
     Executor exec;
@@ -286,17 +285,15 @@ RestartOutcome runRestartReplanScenario(const std::string& layer_name)
 
     {
         OkPlanner::plan_calls.store(0);
-        finenav::core::ControlLayer<OkPlanner> layer(
-            engine_node, kPlannerName, layer_name, finenav::core::EventDrivenPolicy{}, &provider);
+        finenav::core::ControlLayer<OkPlanner> layer(engine_node, kPlannerName, layer_name,
+                                                     finenav::core::EventDrivenPolicy{}, &provider);
         layer.connectFrom(kUpstreamChannel);
         master.manageLayer(layer_name);
 
         const auto pnode = layer.getPrivateNode();
         const std::string cmd_topic = rclcpp::expand_topic_or_service_name(
-            finenav::core::TaskChannel::cmdTopic(layer_name),
-            pnode->get_name(), pnode->get_namespace());
-        spinUntil(exec, [&] { return master_node->count_subscribers(cmd_topic) > 0; },
-                  std::chrono::milliseconds(3000));
+            finenav::core::TaskChannel::cmdTopic(layer_name), pnode->get_name(), pnode->get_namespace());
+        spinUntil(exec, [&] { return master_node->count_subscribers(cmd_topic) > 0; }, std::chrono::milliseconds(3000));
 
         // The goal: published once, before the first START, and never again.
         for (int i = 0; i < 5; ++i) {
@@ -306,33 +303,45 @@ RestartOutcome runRestartReplanScenario(const std::string& layer_name)
 
         // ── Episode 1: START plans from the stashed reference.
         master.start(layer_name);
-        out.first_running = spinUntil(exec, [&] {
-            auto fb = master.feedback(layer_name);
-            return fb != nullptr && fb->status == TaskFeedback::RUNNING;
-        }, std::chrono::seconds(5));
+        out.first_running = spinUntil(
+            exec,
+            [&] {
+                auto fb = master.feedback(layer_name);
+                return fb != nullptr && fb->status == TaskFeedback::RUNNING;
+            },
+            std::chrono::seconds(5));
         auto fb_episode1 = master.feedback(layer_name);
 
         master.stop(layer_name);
-        out.stopped = spinUntil(exec, [&] {
-            auto fb = master.feedback(layer_name);
-            return fb != nullptr && fb->status == TaskFeedback::STOPPED;
-        }, std::chrono::seconds(5));
+        out.stopped = spinUntil(
+            exec,
+            [&] {
+                auto fb = master.feedback(layer_name);
+                return fb != nullptr && fb->status == TaskFeedback::STOPPED;
+            },
+            std::chrono::seconds(5));
 
         // ── Episode 2: START again with NO fresh reference published.
         master.start(layer_name);
-        out.replanned_on_restart = spinUntil(exec, [&] {
-            auto fb = master.feedback(layer_name);
-            return fb != nullptr && fb->status == TaskFeedback::RUNNING && fb != fb_episode1;
-        }, std::chrono::seconds(5));
+        out.replanned_on_restart = spinUntil(
+            exec,
+            [&] {
+                auto fb = master.feedback(layer_name);
+                return fb != nullptr && fb->status == TaskFeedback::RUNNING && fb != fb_episode1;
+            },
+            std::chrono::seconds(5));
 
         // End the episode before leaving the scope: the event-driven body only
         // leaves its inner loop on STOP (or a fault), so a layer destroyed mid
         // episode would block ~ControlLayer's join().
         master.stop(layer_name);
-        spinUntil(exec, [&] {
-            auto fb = master.feedback(layer_name);
-            return fb != nullptr && fb->status == TaskFeedback::STOPPED;
-        }, std::chrono::seconds(5));
+        spinUntil(
+            exec,
+            [&] {
+                auto fb = master.feedback(layer_name);
+                return fb != nullptr && fb->status == TaskFeedback::STOPPED;
+            },
+            std::chrono::seconds(5));
 
         out.plan_calls = OkPlanner::plan_calls.load();
     }
@@ -342,46 +351,34 @@ RestartOutcome runRestartReplanScenario(const std::string& layer_name)
 
 }  // namespace
 
-TEST(ControlLayerFault, EventDrivenPlanFailurePublishesTerminalFault)
-{
+TEST(ControlLayerFault, EventDrivenPlanFailurePublishesTerminalFault) {
     rclcpp::init(0, nullptr);
     const auto out = runFaultScenario("l_event", finenav::core::EventDrivenPolicy{});
 
-    EXPECT_TRUE(out.cmd_sub_seen)
-        << "the master's node never saw the worker's command subscription on "
-           "l_event/__cmd — TaskMaster::start() could not reach the layer";
-    EXPECT_TRUE(out.fb_sub_seen)
-        << "the worker's node never saw the master's subscription on "
-           "l_event/__feedback — a FAULTED could not reach the master";
-    EXPECT_EQ(out.plan_calls, 1)
-        << "plan() did not run exactly once on the worker thread";
-    EXPECT_TRUE(out.faulted)
-        << "no FAULTED ever reached the master: a failing plan() must not fail silently";
+    EXPECT_TRUE(out.cmd_sub_seen) << "the master's node never saw the worker's command subscription on "
+                                     "l_event/__cmd — TaskMaster::start() could not reach the layer";
+    EXPECT_TRUE(out.fb_sub_seen) << "the worker's node never saw the master's subscription on "
+                                    "l_event/__feedback — a FAULTED could not reach the master";
+    EXPECT_EQ(out.plan_calls, 1) << "plan() did not run exactly once on the worker thread";
+    EXPECT_TRUE(out.faulted) << "no FAULTED ever reached the master: a failing plan() must not fail silently";
     EXPECT_EQ(static_cast<int>(out.status_after_stop), static_cast<int>(TaskFeedback::FAULTED))
-        << "STOP overwrote the FAULTED latch (status after STOP = "
-        << static_cast<int>(out.status_after_stop) << ")";
+        << "STOP overwrote the FAULTED latch (status after STOP = " << static_cast<int>(out.status_after_stop) << ")";
 
     rclcpp::shutdown();
 }
 
-TEST(ControlLayerFault, PeriodicPlanFailurePublishesTerminalFault)
-{
+TEST(ControlLayerFault, PeriodicPlanFailurePublishesTerminalFault) {
     rclcpp::init(0, nullptr);
     const auto out = runFaultScenario("l_periodic", finenav::core::PeriodicPolicy{10.0});
 
-    EXPECT_TRUE(out.cmd_sub_seen)
-        << "the master's node never saw the worker's command subscription on "
-           "l_periodic/__cmd — TaskMaster::start() could not reach the layer";
-    EXPECT_TRUE(out.fb_sub_seen)
-        << "the worker's node never saw the master's subscription on "
-           "l_periodic/__feedback — a FAULTED could not reach the master";
-    EXPECT_EQ(out.plan_calls, 1)
-        << "plan() did not run exactly once on the worker thread";
-    EXPECT_TRUE(out.faulted)
-        << "no FAULTED ever reached the master: a failing plan() must not fail silently";
+    EXPECT_TRUE(out.cmd_sub_seen) << "the master's node never saw the worker's command subscription on "
+                                     "l_periodic/__cmd — TaskMaster::start() could not reach the layer";
+    EXPECT_TRUE(out.fb_sub_seen) << "the worker's node never saw the master's subscription on "
+                                    "l_periodic/__feedback — a FAULTED could not reach the master";
+    EXPECT_EQ(out.plan_calls, 1) << "plan() did not run exactly once on the worker thread";
+    EXPECT_TRUE(out.faulted) << "no FAULTED ever reached the master: a failing plan() must not fail silently";
     EXPECT_EQ(static_cast<int>(out.status_after_stop), static_cast<int>(TaskFeedback::FAULTED))
-        << "STOP overwrote the FAULTED latch (status after STOP = "
-        << static_cast<int>(out.status_after_stop) << ")";
+        << "STOP overwrote the FAULTED latch (status after STOP = " << static_cast<int>(out.status_after_stop) << ")";
 
     rclcpp::shutdown();
 }
@@ -389,21 +386,17 @@ TEST(ControlLayerFault, PeriodicPlanFailurePublishesTerminalFault)
 // An event-driven layer must plan at EPISODE ENTRY from the stashed reference,
 // not only on a fresh upstream event — otherwise restartFrom() on a first stage
 // (whose goal was published once on _root) never re-plans.
-TEST(ControlLayerFault, EventDrivenReplansStashedReferenceOnRestart)
-{
+TEST(ControlLayerFault, EventDrivenReplansStashedReferenceOnRestart) {
     rclcpp::init(0, nullptr);
     const auto out = runRestartReplanScenario("l_restart");
 
-    EXPECT_TRUE(out.first_running)
-        << "episode 1 never produced a RUNNING: the layer did not plan from the "
-           "reference published before START";
-    EXPECT_TRUE(out.stopped)
-        << "the STOP did not latch STOPPED at the master";
+    EXPECT_TRUE(out.first_running) << "episode 1 never produced a RUNNING: the layer did not plan from the "
+                                      "reference published before START";
+    EXPECT_TRUE(out.stopped) << "the STOP did not latch STOPPED at the master";
     EXPECT_TRUE(out.replanned_on_restart)
         << "episode 2 (START with no fresh reference) never published a new RUNNING — "
            "the event-driven body did not re-plan the still-stashed RUNNING reference";
-    EXPECT_EQ(out.plan_calls, 2)
-        << "expected exactly one plan() per episode (2), got " << out.plan_calls;
+    EXPECT_EQ(out.plan_calls, 2) << "expected exactly one plan() per episode (2), got " << out.plan_calls;
 
     rclcpp::shutdown();
 }
