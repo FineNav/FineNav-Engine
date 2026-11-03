@@ -169,6 +169,13 @@ if(BUILD_TESTING)
     mppi_critics
     finenav_mppi_controller_params
   )
+
+  ament_add_gtest(motion_models_test
+    test/motion_models_test.cpp
+  )
+  ament_target_dependencies(motion_models_test ${dependencies_pkgs})
+  target_include_directories(motion_models_test PRIVATE include)
+  target_link_libraries(motion_models_test Eigen3::Eigen)
 endif()
 
 ament_export_libraries(${libraries})
