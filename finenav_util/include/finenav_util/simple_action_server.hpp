@@ -65,7 +65,7 @@ class SimpleActionServer
         {
             std::lock_guard<std::recursive_mutex> lock(update_mutex_);
             stop_execution_ = true;
-            if (current_handle_) {
+            if (current_handle_ && current_handle_->is_active()) {
                 current_handle_->abort(std::make_shared<typename ActionT::Result>());
             }
         }
@@ -234,28 +234,34 @@ class SimpleActionServer
      */
     void handle_accepted(const std::shared_ptr<GoalHandle> handle)
     {
-        std::lock_guard<std::recursive_mutex> lock(update_mutex_);
+        {
+            std::lock_guard<std::recursive_mutex> lock(update_mutex_);
 
-        // If current goal is active, put new goal into pending slot
-        if (current_handle_ && current_handle_->is_active()) {
-            RCLCPP_INFO(node_->get_logger(), "[%s] New goal received while busy. Storing in pending slot.", action_name_.c_str());
+            // The worker may still be about to promote a pending goal after
+            // the current one has completed; let it handle the newest goal.
+            if ((current_handle_ && current_handle_->is_active()) || pending_handle_) {
+                RCLCPP_INFO(node_->get_logger(), "[%s] New goal received while busy. Storing in pending slot.", action_name_.c_str());
 
-            // If there's already a pending goal, abort it
-            if (pending_handle_ && pending_handle_->is_active()) {
-                RCLCPP_WARN(node_->get_logger(), "[%s] Overwriting previous pending goal.", action_name_.c_str());
-                auto result = std::make_shared<typename ActionT::Result>();
-                pending_handle_->abort(result);
+                // If there's already a pending goal, abort it
+                if (pending_handle_ && pending_handle_->is_active()) {
+                    RCLCPP_WARN(node_->get_logger(), "[%s] Overwriting previous pending goal.", action_name_.c_str());
+                    auto result = std::make_shared<typename ActionT::Result>();
+                    pending_handle_->abort(result);
+                }
+                pending_handle_ = handle;
+                return;
             }
-            pending_handle_ = handle;
         }
-        // Else, start executing the new goal immediately
-        else {
-            RCLCPP_INFO(node_->get_logger(), "[%s] New goal received. Starting execution.", action_name_.c_str());
-            current_handle_ = handle;
 
-            if (worker_thread_.joinable()) { // Expeted that thread is not running
-                worker_thread_.join();
-            }
+        RCLCPP_INFO(node_->get_logger(), "[%s] New goal received. Starting execution.", action_name_.c_str());
+        // The old worker needs update_mutex_ to finish its final bookkeeping.
+        if (worker_thread_.joinable()) {
+            worker_thread_.join();
+        }
+
+        {
+            std::lock_guard<std::recursive_mutex> lock(update_mutex_);
+            current_handle_ = handle;
             stop_execution_ = false; // TODO: 将 worker_thread_ 改为常驻线程，结合条件变量管理
             worker_thread_ = std::thread(std::bind(&SimpleActionServer::work, this));
         }

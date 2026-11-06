@@ -14,6 +14,10 @@
     <depend>pcl_ros</depend>
     <depend>pcl_conversions</depend>
 
+    <test_depend>ament_cmake_gtest</test_depend>
+    <test_depend>finenav_msgs</test_depend>
+    <test_depend>rclcpp_action</test_depend>
+
     <export>
         <build_type>ament_cmake</build_type>
     </export>

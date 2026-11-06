@@ -30,6 +30,15 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         $<INSTALL_INTERFACE:include>
 )
 
+if (BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    find_package(finenav_msgs REQUIRED)
+    find_package(rclcpp_action REQUIRED)
+
+    ament_add_gtest(simple_action_server_test test/simple_action_server_test.cpp)
+    ament_target_dependencies(simple_action_server_test
+        finenav_msgs rclcpp rclcpp_action)
+endif ()
 
 #if (BUILD_TESTING)
 #    find_package(ament_cmake_gtest REQUIRED)
