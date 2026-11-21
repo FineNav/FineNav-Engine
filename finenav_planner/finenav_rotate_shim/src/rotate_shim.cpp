@@ -48,14 +48,16 @@ std::optional<DataPacket<RotateShim::OutputProfile>> RotateShim::plan(
       ctx.goal_pose.position.y - robot_pose.position.y);
 
   // 决定旋转目标朝向：
-  //  - 近距离（阶段2，位置已到达）或参考轨迹退化时，对齐 goal 的期望朝向；
-  //  - 否则（阶段1，远离 goal），对齐参考路径上前方采样点方向。
+  //  - 近距离（阶段2，位置已到达）：对齐 goal 的期望朝向（最终位姿定向）；
+  //  - 否则（阶段1，远离 goal）：对齐前方目标点方向（沿连线）。
+  //    前方目标点优先取参考路径上 forward_sampling_distance 处的采样点；
+  //    若参考轨迹退化/过短，找不到可连线的前方采样点，则把 goal 位置作为目标点连线。
   double target_yaw;
-  if (dist_to_goal < close_to_goal_threshold_ || ref_traj.poses.empty()) {
+  if (dist_to_goal < close_to_goal_threshold_) {
     target_yaw = yawFromQuat(ctx.goal_pose.orientation);
   } else {
     const auto sampled_pt =
-        getSampledPathPt(ref_traj.poses, forward_sampling_distance_);
+        getSampledPathPt(ref_traj.poses, ctx.goal_pose, forward_sampling_distance_);
     const double dx = sampled_pt.x - robot_pose.position.x;
     const double dy = sampled_pt.y - robot_pose.position.y;
     target_yaw = std::atan2(dy, dx);
@@ -104,11 +106,12 @@ std::optional<DataPacket<RotateShim::OutputProfile>> RotateShim::plan(
 // ==============================================================================
 geometry_msgs::msg::Point RotateShim::getSampledPathPt(
     const std::vector<geometry_msgs::msg::Pose>& ref_poses,
+    const geometry_msgs::msg::Pose& goal_pose,
     double sampling_distance)
 {
   if (ref_poses.size() < 2) {
-    // 路径过短，直接返回唯一点的位置
-    return ref_poses.front().position;
+    // 路径退化（空或单点），找不到可连线的前方采样点 → 用 goal 位置作为目标点连线
+    return goal_pose.position;
   }
 
   const auto& start = ref_poses.front().position;
@@ -122,8 +125,8 @@ geometry_msgs::msg::Point RotateShim::getSampledPathPt(
     }
   }
 
-  // 路径不够长，返回最后一个点
-  return ref_poses.back().position;
+  // 路径不够长（剩余路径短于 sampling_distance），找不到前方采样点 → 用 goal 位置连线
+  return goal_pose.position;
 }
 
 // ==============================================================================

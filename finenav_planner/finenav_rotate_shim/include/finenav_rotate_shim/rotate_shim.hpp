@@ -25,7 +25,8 @@ namespace finenav {
  *
  * 在 MPPI 追踪之前（阶段1）采样参考路径上 forward_sampling_distance 远处的点
  * 作为旋转目标方向；当机器人距离 goal < close_to_goal_threshold（阶段2，位置
- * 已到达）或参考轨迹退化时，直接对齐 goal 的朝向。
+ * 已到达）时，对齐 goal 的期望朝向；参考轨迹退化或过短、找不到前方采样点时，
+ * 则把 goal 位置作为目标点连线，朝向沿「机器人 → goal」方向。
  *
  * 角速度采用 e 域梯形（无加速段）：误差大时满速 angular_speed，进入减速段
  * （|e| < angular_decel_threshold）后线性降到 angular_min_speed，
@@ -61,14 +62,17 @@ private:
    * @brief 在参考路径上采样前方 forward_sampling_distance 处的点。
    *
    * 从路径起始点开始累加欧式距离，返回第一个距离 >= forward_sampling_distance 的点。
-   * 若路径不够长，返回最后一个点。
+   * 若参考轨迹退化（空/单点）或路径不够长，找不到可连线的前方采样点，
+   * 则返回 goal 的位置作为目标点，让机器人朝向沿「机器人 → goal」连线。
    *
    * @param ref_poses 参考轨迹的位姿列表
+   * @param goal_pose 目标位姿（退化回退时的目标点）
    * @param sampling_distance 前方采样距离
    * @return 采样点的位姿坐标（x, y, z）
    */
   static geometry_msgs::msg::Point getSampledPathPt(
       const std::vector<geometry_msgs::msg::Pose>& ref_poses,
+      const geometry_msgs::msg::Pose& goal_pose,
       double sampling_distance);
 
   /** @brief 从四元数提取 yaw 角 */
