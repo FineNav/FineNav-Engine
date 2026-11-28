@@ -159,6 +159,18 @@ if(BUILD_TESTING)
     finenav_mppi_controller_params
   )
 
+  ament_add_gtest(adaptive_horizon_test
+    test/adaptive_horizon_test.cpp
+  )
+  ament_target_dependencies(adaptive_horizon_test ${dependencies_pkgs})
+  target_include_directories(adaptive_horizon_test PRIVATE include)
+  target_link_libraries(
+    adaptive_horizon_test
+    mppi_controller
+    mppi_critics
+    finenav_mppi_controller_params
+  )
+
   ament_add_gtest(path_rotation_critic_test
     test/path_rotation_critic_test.cpp
   )

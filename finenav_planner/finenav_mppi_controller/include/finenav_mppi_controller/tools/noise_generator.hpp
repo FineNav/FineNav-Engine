@@ -65,8 +65,7 @@ public:
   void generateNextNoises();
 
   /**
-   * @brief set noised control_sequence to state controls
-   * @return noises vx, vy, wz
+   * @brief Populate the active columns of state controls from noised control prefixes.
    */
   void setNoisedControls(models::State & state, const models::ControlSequence & control_sequence);
 

@@ -16,6 +16,7 @@
 #define NAV2_MPPI_CONTROLLER__CONTROLLER_HPP_
 
 #include <atomic>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -42,6 +43,16 @@
 
 namespace nav2_mppi_controller
 {
+
+namespace detail
+{
+inline bool isPositiveFinite(double value)
+{
+    constexpr std::uint64_t positive_infinity = 0x7FF0000000000000ULL;
+    const auto bits = std::bit_cast<std::uint64_t>(value);
+    return bits > 0 && bits < positive_infinity;
+}
+}  // namespace detail
 
 using namespace mppi;  // NOLINT
 
@@ -77,6 +88,15 @@ public:
     using ConfigType = finenav_mppi_controller::Params;
     void configure(const ConfigType& params) {              //应该传入参数 因测试先去除
         std::lock_guard<std::mutex> lock(operation_mutex_);
+        if (params.min_time_steps <= 0) {
+            throw std::invalid_argument("min_time_steps must be greater than zero");
+        }
+        if (!detail::isPositiveFinite(params.adaptive_horizon_distance) ||
+            !detail::isPositiveFinite(params.adaptive_horizon_linear_vel) ||
+            !detail::isPositiveFinite(params.adaptive_horizon_angular_vel)) {
+            throw std::invalid_argument(
+                "Adaptive horizon distance and approach speeds must be finite and greater than zero");
+        }
         if (params.CostCritic.num_threads <= 0 || params.CostCritic.chunk_size <= 0) {
             throw std::invalid_argument(
                 "CostCritic.num_threads and CostCritic.chunk_size must be greater than zero");
